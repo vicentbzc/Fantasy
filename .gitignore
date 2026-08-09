@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Proyecto Fantasy: datos generados y credenciales, nunca públicos
+Datos/
+Scripts/Configuración local.py
+
+# Configuración local de Claude Code, no es parte del proyecto
+.claude/
