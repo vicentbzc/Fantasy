@@ -100,6 +100,12 @@ formato de valores).
 | `Ingestar datos 2.py` | `Datos 2.csv`, `Datos 4.csv`, `Datos 5.csv` (caché) | ~600 × 2-3 peticiones (~1,3 GB) | Cada 4-6 horas, no más |
 | `Ingestar datos 3.py` | `Datos 3.csv` | ~20-40 peticiones (barato) | Cada 4-6 horas, no más |
 
+Hay un cuarto script, `Descargar imágenes.py`, añadido después de esta
+optimización — ver su propia sección más abajo ("Descargar imágenes.py
+— fotos de jugadores y escudos de equipo") para su coste y frecuencia,
+que son distintos de estos tres (prácticamente gratis salvo la primera
+vez, porque no vuelve a descargar lo que ya tiene).
+
 Ninguna de estas tres frecuencias se tocó en la optimización de agosto de
 2026 (ver más abajo el porqué). La frecuencia de `Ingestar datos 3.py`
 sí se cambió después, a petición del usuario, para que coincida con la de
@@ -689,14 +695,64 @@ sacado este jugador solo de asistencias en toda la temporada").
   **solo el bloque nuevo** de `puntos_jornada_detalle`, no el archivo
   entero otra vez.
 
+## Descargar imágenes.py — fotos de jugadores y escudos de equipo
+
+Implementado en agosto de 2026. Antes de escribir código se comprobó en
+directo el patrón real de las dos URLs, porque lo que decía este mismo
+documento no era del todo exacto:
+
+- **Escudos de equipo**: `static.futbolfantasy.com/uploads/images/cabecera/hd/{id_equipo}.png`
+  sí es predecible solo por ID, tal cual se pensaba (confirmado con
+  Barcelona=3 y Racing=42 devolviendo 200, y un ID inventado devolviendo
+  404).
+- **Fotos de jugador**: `media.futbolfantasy.com/thumb/{tamaño}/v{versión}/uploads/images/jugadores/ficha/{id}.png`
+  **no** es solo por ID: lleva un segmento de versión (ej.
+  `v202607300329`) que cambia de un jugador a otro y no se puede
+  deducir. Hay que sacarlo de una página que ya se descarga.
+
+Decisiones de diseño (confirmadas con el usuario):
+
+- **Se descargan los archivos de verdad** (no solo se guarda la URL) a
+  `Datos/Imágenes/Jugadores/{id}.png` y `Datos/Imágenes/Equipos/{id}.png`.
+- **La foto se captura sin gastar ninguna petición nueva**: `Ingestar
+  datos 2.py` ya descarga la ficha completa de cada jugador cada 5h
+  (`obtener_foto()`, selector `.jugador-foto img`, la misma página de
+  la que ya salen `Estado`/`Minutos jugados`/desglose de puntos). Se
+  añadió una columna `Foto` a `Datos 2.csv` con esa URL completa
+  (cambio aditivo, igual que se hizo antes con la columna `ID`).
+- **`ID_A_NOMBRE_CORTO` (el mapa de 20 IDs de equipo) se movió de
+  `Ingestar datos 3.py` a `Común.py`**, porque ahora lo necesitan dos
+  scripts distintos (el 3, para el calendario mensual, y este, para los
+  escudos) — mismo razonamiento que llevó a crear `Común.py` en la
+  optimización de agosto: un solo sitio para no tener que corregir dos
+  veces un ascenso/descenso. Es una extracción de código, no cambia
+  ningún comportamiento de `Ingestar datos 3.py`.
+- **`Común.py` gana dos funciones nuevas**: `descargar_binario()` (como
+  `descargar_pagina()` pero devuelve bytes en vez de texto, con la
+  misma detección de 403/429) y `guardar_binario()` (como
+  `guardar_csv()` pero para binario: escritura atómica a un `.tmp` y
+  renombrado).
+- **No vuelve a descargar lo que ya tiene**: antes de pedir una imagen,
+  `Descargar imágenes.py` comprueba si el archivo ya existe en disco;
+  si existe, no hace ninguna petición. La primera vez cuesta ~600-650
+  peticiones (fotos + escudos, del mismo orden que arrancar la caché de
+  slugs de `Ingestar datos 2.py`); a partir de ahí el coste de cada
+  ejecución es prácticamente cero, solo se piden fotos de jugadores
+  nuevos. Esto es lo que hace seguro meterlo en el mismo hueco de cada
+  5h del workflow de GitHub Actions (junto a los scripts 2 y 3) sin
+  machacar el servidor — la caché de `Datos/` entre ejecuciones (ver
+  Paso 6) es imprescindible para que este ahorro funcione en GitHub
+  Actions y no solo en local.
+- **Limitación conocida, igual que la caché de slugs**: si
+  futbolfantasy.com actualiza la foto de un jugador ya descargado, no
+  se vuelve a pedir sola — hay que borrar el archivo local
+  correspondiente en `Datos/Imágenes/Jugadores/` para forzar que se
+  vuelva a descargar.
+- Igual que los tres `Ingestar datos N.py`, este script tampoco imprime
+  nada por pantalla ni lleva comentarios.
+
 ## Lo que queda pendiente (no implementado todavía)
 
-- **Imágenes** (fotos de jugadores, escudos de equipo, logos de
-  competición): decidido explícitamente dejarlo para más adelante. Las
-  URLs son predecibles por ID
-  (`media.futbolfantasy.com/thumb/{tamaño}/.../jugadores/ficha/{id}.png` y
-  `static.futbolfantasy.com/uploads/images/cabecera/hd/{id_equipo}.png`),
-  pero no hay código todavía para descargarlas.
 - **Paso 7**: conectar una web con funcionalidades de comparación de
   jugadores (ahora ya tiene sentido, con los datos en una base de datos
-  consultable).
+  consultable, y ya hay fotos/escudos descargados para mostrar).

@@ -37,6 +37,14 @@ MAPA_EQUIPOS = {
 
 MAPA_EQUIPOS_INVERSO = {oficial: corto for corto, oficial in MAPA_EQUIPOS.items()}
 
+ID_A_NOMBRE_CORTO = {
+    1: "Athletic", 2: "Atlético", 3: "Barcelona", 4: "Betis", 5: "Celta",
+    6: "Deportivo", 7: "Espanyol", 8: "Getafe", 10: "Levante", 11: "Málaga",
+    13: "Osasuna", 14: "Rayo", 15: "Real Madrid", 16: "Real Sociedad",
+    17: "Sevilla", 18: "Valencia", 21: "Elche", 22: "Villarreal",
+    28: "Alavés", 42: "Racing",
+}
+
 POSICIONES_VALIDAS = {"Portero", "Defensa", "Mediocampista", "Delantero"}
 
 HEADERS = {
@@ -88,6 +96,21 @@ def guardar_csv(ruta_archivo, columnas, filas):
         escritor = csv.DictWriter(f, fieldnames=columnas)
         escritor.writeheader()
         escritor.writerows(filas)
+    os.replace(ruta_temporal, ruta_archivo)
+
+
+def descargar_binario(sesion, url, timeout=20, headers_extra=None):
+    respuesta = sesion.get(url, timeout=timeout, headers=headers_extra)
+    if respuesta.status_code in (403, 429):
+        raise ErrorBloqueo(f"la web ha respondido {respuesta.status_code} en {url}")
+    respuesta.raise_for_status()
+    return respuesta.content
+
+
+def guardar_binario(ruta_archivo, contenido):
+    ruta_temporal = f"{ruta_archivo}.tmp"
+    with open(ruta_temporal, "wb") as f:
+        f.write(contenido)
     os.replace(ruta_temporal, ruta_archivo)
 
 

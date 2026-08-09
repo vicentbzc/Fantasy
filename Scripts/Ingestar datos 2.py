@@ -86,6 +86,12 @@ def obtener_estado(html_ficha):
     return PATRON_ABREVIATURA_LIGAMENTO.sub("ligamento", texto)
 
 
+def obtener_foto(html_ficha):
+    soup = BeautifulSoup(html_ficha, "lxml")
+    imagen = soup.select_one(".jugador-foto img")
+    return imagen["src"] if imagen and imagen.get("src") else ""
+
+
 def obtener_minutos_jugados(html_ficha):
     soup = BeautifulSoup(html_ficha, "lxml")
     for bloque in soup.select(".bigstat"):
@@ -179,7 +185,7 @@ def guardar_puntos_por_jornada(filas, ruta_archivo=Común.ruta_datos("Datos 4.cs
 
 
 def guardar_fichas(filas, ruta_archivo=Común.ruta_datos("Datos 2.csv")):
-    columnas = ["Equipo", "ID", "Jugador", "Estado", "Minutos jugados"]
+    columnas = ["Equipo", "ID", "Jugador", "Estado", "Minutos jugados", "Foto"]
     Común.guardar_csv(ruta_archivo, columnas, filas)
 
 
@@ -215,6 +221,7 @@ if __name__ == "__main__":
 
                 estado = obtener_estado(html_ficha)
                 minutos = obtener_minutos_jugados(html_ficha)
+                foto = obtener_foto(html_ficha)
                 desglose_puntos = obtener_desglose_puntos(html_ficha)
                 time.sleep(0.5)
 
@@ -232,6 +239,7 @@ if __name__ == "__main__":
                 "Jugador": jugador["nombre_corto"],
                 "Estado": estado,
                 "Minutos jugados": minutos,
+                "Foto": foto,
             })
 
             for evento in eventos:

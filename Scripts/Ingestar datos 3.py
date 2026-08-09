@@ -29,14 +29,6 @@ SLUGS_EQUIPO = {
     "Málaga": "malaga",
 }
 
-ID_A_NOMBRE_CORTO = {
-    1: "Athletic", 2: "Atlético", 3: "Barcelona", 4: "Betis", 5: "Celta",
-    6: "Deportivo", 7: "Espanyol", 8: "Getafe", 10: "Levante", 11: "Málaga",
-    13: "Osasuna", 14: "Rayo", 15: "Real Madrid", 16: "Real Sociedad",
-    17: "Sevilla", 18: "Valencia", 21: "Elche", 22: "Villarreal",
-    28: "Alavés", 42: "Racing",
-}
-
 MAPA_DIFICULTAD = {
     "vertical_1.jpg": "Muy baja",
     "vertical_2.jpg": "Baja",
@@ -169,7 +161,7 @@ def eventos_desde_calendario_mensual(sesion, slug, desde_fecha, partidos_liga_qu
             if rival_tag:
                 id_match = re.search(r"escudom/(\d+)\.png", rival_tag.get("data-src", ""))
                 if id_match:
-                    rival = ID_A_NOMBRE_CORTO.get(int(id_match.group(1)), "")
+                    rival = Común.ID_A_NOMBRE_CORTO.get(int(id_match.group(1)), "")
 
             jornada_tag = dia_div.select_one(".jornada")
             jornada = normalizar_jornada(jornada_tag.get_text(strip=True) if jornada_tag else "")

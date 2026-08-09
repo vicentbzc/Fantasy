@@ -11,7 +11,8 @@ Proyecto personal, sin ánimo de lucro y sin afiliación ni marca de LaLiga. El 
 | `Ingestar datos 1.py` | `Datos 1.csv`, `Datos 6.csv` | Valores de mercado y su evolución diaria |
 | `Ingestar datos 2.py` | `Datos 2.csv`, `Datos 4.csv` | Estado físico, minutos jugados, puntuación y desglose de estadísticas por jornada |
 | `Ingestar datos 3.py` | `Datos 3.csv` | Calendario y dificultad de los próximos partidos de cada equipo |
-| `Sincronizar base de datos.py` | Base de datos PostgreSQL | Sube los CSV anteriores a Supabase (5 tablas relacionales) |
+| `Descargar imágenes.py` | `Datos/Imágenes/` | Fotos de jugadores y escudos de equipo (solo descarga lo que falte) |
+| `Sincronizar base de datos.py` | Base de datos PostgreSQL | Sube los CSV anteriores a Supabase (6 tablas relacionales) |
 
 ## Decisiones técnicas
 
@@ -34,6 +35,7 @@ Fantasy/
     ├── Ingestar datos 1.py         (mercado)
     ├── Ingestar datos 2.py         (ficha de jugador y puntuación)
     ├── Ingestar datos 3.py         (calendario)
+    ├── Descargar imágenes.py       (fotos de jugadores y escudos)
     ├── Sincronizar base de datos.py
     ├── Esquema base de datos.sql
     └── Configuración local.py      (credenciales — no versionado)
