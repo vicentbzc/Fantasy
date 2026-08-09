@@ -1,0 +1,57 @@
+name: Scraping y sincronización
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+    - cron: '0 */5 * * *'
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'Qué ejecutar'
+        type: choice
+        options:
+          - todo
+          - solo-mercado
+          - solo-pesado
+        default: todo
+
+concurrency:
+  group: fantasy-scraping
+  cancel-in-progress: false
+
+jobs:
+  scraping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - uses: actions/cache@v4
+        with:
+          path: Datos
+          key: datos-fantasy-${{ github.run_id }}
+          restore-keys: datos-fantasy-
+
+      - name: Ingestar datos 1 (mercado)
+        if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-pesado')
+        run: python "Scripts/Ingestar datos 1.py"
+
+      - name: Ingestar datos 2 (ficha de jugador)
+        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-mercado')
+        run: python "Scripts/Ingestar datos 2.py"
+
+      - name: Ingestar datos 3 (calendario)
+        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-mercado')
+        run: python "Scripts/Ingestar datos 3.py"
+
+      - name: Sincronizar con Supabase
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python "Scripts/Sincronizar base de datos.py"

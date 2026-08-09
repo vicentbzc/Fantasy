@@ -9,10 +9,16 @@ from psycopg2.extras import execute_values
 
 import Común
 
-_ruta_configuracion_local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Configuración local.py")
-_spec_configuracion_local = importlib.util.spec_from_file_location("configuracion_local", _ruta_configuracion_local)
-config_local = importlib.util.module_from_spec(_spec_configuracion_local)
-_spec_configuracion_local.loader.exec_module(config_local)
+
+def obtener_database_url():
+    variable_entorno = os.environ.get("DATABASE_URL")
+    if variable_entorno:
+        return variable_entorno
+    ruta_configuracion_local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Configuración local.py")
+    spec_configuracion_local = importlib.util.spec_from_file_location("configuracion_local", ruta_configuracion_local)
+    config_local = importlib.util.module_from_spec(spec_configuracion_local)
+    spec_configuracion_local.loader.exec_module(config_local)
+    return config_local.DATABASE_URL
 
 
 def parsear_entero_miles(texto):
@@ -219,7 +225,7 @@ def sincronizar_calendario(cur):
 
 
 def main():
-    conexion = psycopg2.connect(config_local.DATABASE_URL)
+    conexion = psycopg2.connect(obtener_database_url())
     try:
         with conexion.cursor() as cur:
             for nombre, funcion in [

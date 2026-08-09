@@ -42,10 +42,14 @@ Fantasy/
 ## Instalación
 
 ```bash
-pip install requests beautifulsoup4 lxml psycopg2-binary
+pip install -r requirements.txt
 ```
 
-Cada script se ejecuta de forma independiente (`python "Ingestar datos 1.py"`, etc.), en cualquier orden, desde cualquier carpeta. `Sincronizar base de datos.py` necesita `Scripts/Configuración local.py` con la variable `DATABASE_URL` apuntando a tu propio proyecto de Supabase (crea las tablas antes con `Esquema base de datos.sql` en el *SQL Editor* de Supabase).
+Cada script se ejecuta de forma independiente (`python "Ingestar datos 1.py"`, etc.), en cualquier orden, desde cualquier carpeta. `Sincronizar base de datos.py` necesita la variable `DATABASE_URL` apuntando a tu propio proyecto de Supabase (crea las tablas antes con `Esquema base de datos.sql` en el *SQL Editor* de Supabase) — en local, en `Scripts/Configuración local.py`; en GitHub Actions, como secreto del repositorio.
+
+## Automatización
+
+`.github/workflows/scraping.yml` ejecuta los scripts en GitHub Actions respetando la tabla de frecuencias de arriba: `Ingestar datos 1.py` cada hora, `Ingestar datos 2.py` y `3.py` cada 5 horas, sincronizando con Supabase después de cada ejecución. También se puede lanzar a mano desde la pestaña *Actions* del repositorio.
 
 ## Licencia
 

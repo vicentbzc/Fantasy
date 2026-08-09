@@ -571,6 +571,81 @@ intactos como respaldo.
   que hay que hacer es añadir `Configuración local.py` a `.gitignore`, antes de
   cualquier `git add`.
 
+## Paso 6: automatización con GitHub Actions
+
+Implementado en agosto de 2026. `.github/workflows/scraping.yml` ejecuta
+los cuatro scripts en runners de GitHub, sin tocar su código de fondo
+(solo se les añadió lo mínimo para poder correr sin `Configuración
+local.py`, ver más abajo).
+
+- **Dos horarios distintos en el mismo workflow** (`on.schedule` acepta
+  varias entradas `cron`): `0 * * * *` (cada hora, para
+  `Ingestar datos 1.py`, el barato) y `0 */5 * * *` (cada 5 horas, para
+  `Ingestar datos 2.py` y `3.py`, los caros), respetando exactamente la
+  tabla de frecuencias de más arriba. Cada disparo llega como una
+  ejecución de workflow separada con `github.event.schedule` igual al
+  cron que lo lanzó; cada paso comprueba ese valor para decidir si le
+  toca correr. En las horas en que ambos cron coinciden (0, 5, 10...) se
+  lanzan dos ejecuciones independientes, no una que haga las dos cosas.
+- **`concurrency: group: fantasy-scraping, cancel-in-progress: false`**:
+  si dos ejecuciones coinciden en el tiempo (ver punto anterior), se
+  encolan en vez de correr en paralelo. Evita que dos procesos escriban
+  a la vez sobre la misma caché de `Datos/` (ver siguiente punto).
+- **La caché de slugs (`Datos 5.csv`) tiene que sobrevivir entre
+  ejecuciones**, o cada ejecución de `Ingestar datos 2.py` volvería a
+  descubrir el slug de los ~600 jugadores desde cero (multiplica las
+  peticiones y va exactamente en contra de para qué existe esa caché).
+  Como `Datos/` nunca se sube al repositorio (no es público, ver "Qué es
+  esto"), un runner de GitHub Actions empieza cada vez desde cero salvo
+  que se persista aparte. Se usa `actions/cache` sobre la carpeta
+  `Datos/` con clave `datos-fantasy-${{ github.run_id }}` (única en cada
+  ejecución, así el guardado nunca choca con una caché ya existente) y
+  `restore-keys: datos-fantasy-` (restaura la más reciente que empiece
+  por ese prefijo). Esta caché es privada del repositorio en GitHub
+  (no descargable públicamente aunque el repositorio en sí sea público),
+  así que no contradice la regla de "los CSV no son públicos".
+- **`workflow_dispatch` con un input `modo`** (`todo` / `solo-mercado` /
+  `solo-pesado`): permite lanzar el workflow a mano desde GitHub (para
+  probarlo) sin esperar a que llegue la hora en punto correspondiente.
+- **`Scripts/Sincronizar base de datos.py` ya no depende solo de
+  `Configuración local.py`**: se añadió `obtener_database_url()`, que
+  mira primero la variable de entorno `DATABASE_URL` (así es como se le
+  pasa el secreto del repositorio en GitHub Actions) y, si no existe,
+  cae al `Configuración local.py` de siempre (así sigue funcionando
+  igual en local, sin cambiar nada de cómo lo usa el usuario en su
+  propio PC). El resto del script no cambia.
+- **`requirements.txt` en la raíz del repositorio**: hasta ahora las
+  dependencias solo estaban escritas como texto en el README; hacía
+  falta un archivo real para que el workflow pudiera instalarlas con
+  `pip install -r requirements.txt`.
+- **El repositorio pasó de privado a público** (decisión tomada
+  explícitamente con el usuario en esta conversación, con tres
+  alternativas descartadas: seguir privado aceptando el coste, seguir
+  privado bajando la frecuencia, o usar un runner propio). El motivo es
+  puramente económico: `Ingestar datos 2.py` tarda ~40-60 min por
+  ejecución (ver la sección de optimización de arriba, donde se
+  descartó paralelizar peticiones), y a razón de ~144 ejecuciones/mes
+  (cada 5h) eso son varios miles de minutos de GitHub Actions al mes —
+  muy por encima de los 2.000 minutos/mes gratis que da GitHub en un
+  repositorio **privado** (se habría facturado aparte, unos $35-45/mes
+  estimados). Un repositorio **público** tiene minutos de Actions
+  ilimitados y gratis. Esto no contradice ninguna regla del proyecto:
+  las notas de este documento ya decían desde el principio que "el
+  código sí puede ser público; la base de datos con datos reales no" —
+  `Datos/` sigue en `.gitignore`, `Configuración local.py` sigue en
+  `.gitignore`, y `DATABASE_URL` sigue viviendo solo como secreto de
+  GitHub Actions, nunca como archivo ni en el propio código.
+- **Dos pasos que no se pudieron automatizar desde aquí** (cambiar la
+  visibilidad del repositorio y añadir el secreto `DATABASE_URL` son
+  ambos cambios de configuración/credenciales que le tocan al usuario
+  directamente, y además este entorno no tenía `gh` CLI ni token de
+  GitHub disponible): el propio usuario tuvo que entrar a GitHub y (1)
+  cambiar la visibilidad del repositorio a público desde *Settings →
+  General → Danger Zone → Change visibility*, y (2) añadir
+  `DATABASE_URL` en *Settings → Secrets and variables → Actions → New
+  repository secret* con el mismo connection string que ya tiene en su
+  `Configuración local.py` local.
+
 ## Lo que queda pendiente (no implementado todavía)
 
 - **Imágenes** (fotos de jugadores, escudos de equipo, logos de
@@ -584,10 +659,6 @@ intactos como respaldo.
   estadística (una fila por "20 minutos jugados: 1 punto", etc.) daría
   más juego para analizar, pero se dejó fuera de la primera versión del
   Paso 5 para no complicarlo de más.
-- **Paso 6 del plan**: automatizar la descarga diaria/periódica con
-  GitHub Actions, respetando las frecuencias de la tabla de arriba (y
-  añadiendo `DATABASE_URL` como secreto del repositorio, no como
-  archivo).
 - **Paso 7**: conectar una web con funcionalidades de comparación de
   jugadores (ahora ya tiene sentido, con los datos en una base de datos
   consultable).
