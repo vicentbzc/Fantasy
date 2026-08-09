@@ -30,16 +30,21 @@ Algunas de las cosas en las que se puso más cuidado, no solo "que funcione":
 Fantasy/
 ├── Datos/            (CSV generados — no se publica)
 ├── Documentación/     (notas de diseño y decisiones)
-└── Scripts/
-    ├── Común.py                    (sesión HTTP, mapeos, utilidades compartidas)
-    ├── Ingestar datos 1.py         (mercado)
-    ├── Ingestar datos 2.py         (ficha de jugador y puntuación)
-    ├── Ingestar datos 3.py         (calendario)
-    ├── Descargar imágenes.py       (fotos de jugadores y escudos)
-    ├── Sincronizar base de datos.py
-    ├── Esquema base de datos.sql
-    └── Configuración local.py      (credenciales — no versionado)
+├── Scripts/
+│   ├── Común.py                    (sesión HTTP, mapeos, utilidades compartidas)
+│   ├── Ingestar datos 1.py         (mercado)
+│   ├── Ingestar datos 2.py         (ficha de jugador y puntuación)
+│   ├── Ingestar datos 3.py         (calendario)
+│   ├── Descargar imágenes.py       (fotos de jugadores y escudos)
+│   ├── Sincronizar base de datos.py
+│   ├── Esquema base de datos.sql
+│   └── Configuración local.py      (credenciales — no versionado)
+└── web/                            (Next.js — comparador de jugadores)
 ```
+
+## Web
+
+`web/` es una app Next.js (App Router + TypeScript + Tailwind) de solo lectura: consulta la base de datos directamente desde Server Components (sin pasar por la API REST de Supabase) y muestra una tabla filtrable de jugadores con comparación lado a lado de hasta 3. Las fotos y escudos se sirven desde un bucket público de Supabase Storage. Necesita su propio `DATABASE_URL` en `web/.env.local` para desarrollo local.
 
 ## Instalación
 

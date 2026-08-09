@@ -1,4 +1,5 @@
 create table equipos (
+    id integer unique,
     nombre text primary key
 );
 

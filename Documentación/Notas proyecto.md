@@ -776,8 +776,94 @@ Decisiones de diseño (confirmadas con el usuario):
 - Igual que los tres `Ingestar datos N.py`, este script tampoco imprime
   nada por pantalla ni lleva comentarios.
 
+## Paso 7: web de comparación de jugadores
+
+Implementado (v1) en agosto de 2026, en `Fantasy/web/` (Next.js 16, App
+Router, TypeScript, Tailwind). Decisiones tomadas explícitamente con el
+usuario:
+
+- **Stack**: Next.js + React, pensado también como pieza de portfolio
+  para entrevistas de trabajo (mismo motivo que ya guiaba el README).
+- **Acceso**: pública, mismo criterio que el código del repositorio ("el
+  código sí puede ser público; la base de datos con datos reales no" —
+  aquí es al revés a propósito: la web sí expone los datos ya
+  procesados en modo solo lectura, no las peticiones en bruto ni
+  ninguna credencial).
+- **Alcance v1**: una tabla filtrable/ordenable de los ~595 jugadores
+  (buscar por nombre, filtrar por posición/equipo, ordenar por
+  valor/puntos/nombre) y comparación lado a lado de hasta 3 jugadores
+  seleccionados (valor, puntos totales, titularidad, minutos, estado,
+  próximo rival y dificultad). Sin gráficas todavía (se dejó fuera a
+  propósito de la v1, ver más abajo).
+
+**Cómo lee los datos**: la web NO usa el cliente JS de Supabase ni su
+API REST (`Data API desactivada`, ver Paso 5) — usa `pg` directamente
+desde Server Components de Next.js, con el mismo `DATABASE_URL` que ya
+usa `Sincronizar base de datos.py` (guardado en `web/.env.local` en
+local, y como variable de entorno del proyecto en Vercel al desplegar,
+nunca en el código). Esto evita tener que activar la Data API de
+Supabase o escribir políticas RLS: el control de qué se puede leer/
+escribir vive enteramente en el código del propio Next.js (que solo
+hace `SELECT`), no en la base de datos. Nota de mejora futura, no
+aplicada: para no reutilizar el mismo rol con permisos de escritura
+que usa el script de sincronización, lo más estricto sería crear un rol
+de Postgres aparte solo con `SELECT`, igual que se dejaron anotadas
+otras mejoras de seguridad de bajo riesgo sin aplicar en el Paso 5.
+
+**Cómo sirve las fotos/escudos**: se decidió explícitamente subir las
+imágenes descargadas a un bucket público de **Supabase Storage**
+(`imagenes/jugadores/{id}.png`, `imagenes/equipos/{id}.png`) en vez de
+enlazar directo a futbolfantasy.com, porque ya se había decidido antes
+"descargar los archivos de verdad" (ver sección de `Descargar
+imágenes.py`) y una web en Vercel no tiene acceso al disco local ni a
+la caché de GitHub Actions donde viven esos archivos.
+
+- **`Común.subir_a_storage()`** (nuevo, en `Común.py`) sube el
+  contenido ya descargado al bucket vía la API REST de Storage
+  (`PUT .../storage/v1/object/{bucket}/{ruta}`) con la clave
+  `service_role` (nunca la `anon`, para que solo el propio proceso de
+  scraping pueda escribir en el bucket).
+- **Orden importante en `descargar_si_falta()`**: primero se sube a
+  Storage y solo si eso funciona se guarda el archivo local. Si se
+  hiciera al revés (guardar local primero), un fallo de subida a
+  Storage quedaría escondido para siempre: la próxima ejecución vería
+  el archivo local ya presente y no reintentaría la subida jamás. Con
+  el orden actual, si falla la subida, tampoco se guarda local, así que
+  la próxima ejecución vuelve a intentar las dos cosas juntas.
+- **Coste**: el mismo razonamiento de "no descargar lo que ya se tiene"
+  ya cubre esto — solo se sube a Storage lo que se acaba de descargar
+  por primera vez de futbolfantasy.com, prácticamente gratis en
+  ejecuciones sucesivas.
+- El bucket y la clave `service_role` se crean/consiguen a mano en el
+  panel de Supabase (no automatizable sin dar más permisos de los
+  necesarios); `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` siguen el
+  mismo patrón que `DATABASE_URL`: variable de entorno primero,
+  `Configuración local.py` como respaldo en local
+  (`Común.obtener_configuracion()`, que sustituye a la función que
+  antes solo tenía `Sincronizar base de datos.py` para `DATABASE_URL`
+  — ahora la usan los dos scripts que necesitan credenciales).
+
+**Cambio de esquema para poder enlazar los escudos**: la tabla
+`equipos` solo tenía `nombre` (texto, el oficial largo) como clave. Los
+escudos se guardan con el ID numérico corto que ya usaba
+`ID_A_NOMBRE_CORTO`, así que se añadió una columna `id integer unique`
+a `equipos`, rellenada en la sincronización a partir de un mapa nuevo
+en `Común.py` (`NOMBRE_OFICIAL_A_ID`, compuesto de `MAPA_EQUIPOS` +
+`ID_A_NOMBRE_CORTO`). `sincronizar_equipos()` pasó de
+`on conflict do nothing` a `on conflict do update set id = excluded.id`
+a propósito, para que los 20 equipos ya existentes en la base de datos
+(insertados antes de que existiera esta columna) se actualicen con su
+`id` la primera vez que se vuelve a sincronizar.
+
+**Pendiente dentro de Paso 7** (no bloquea la v1):
+- Desplegar de verdad en Vercel (conectar el repositorio de GitHub,
+  configurar `DATABASE_URL` como variable de entorno del proyecto).
+- Gráficas de evolución de valor / puntos por jornada (se dejaron fuera
+  de la v1 a petición explícita del usuario, para no complicar el
+  primer alcance).
+- Rol de Postgres de solo lectura para la web, en vez de reutilizar el
+  de `Sincronizar base de datos.py` (ver nota de seguridad más arriba).
+
 ## Lo que queda pendiente (no implementado todavía)
 
-- **Paso 7**: conectar una web con funcionalidades de comparación de
-  jugadores (ahora ya tiene sentido, con los datos en una base de datos
-  consultable, y ya hay fotos/escudos descargados para mostrar).
+- Ver "Pendiente dentro de Paso 7" justo arriba.

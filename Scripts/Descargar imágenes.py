@@ -9,6 +9,8 @@ CARPETA_EQUIPOS = Común.ruta_datos(os.path.join("Imágenes", "Equipos"))
 
 URL_ESCUDO = "https://static.futbolfantasy.com/uploads/images/cabecera/hd/{id_equipo}.png"
 
+BUCKET_IMAGENES = "imagenes"
+
 
 def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos 2.csv")):
     if not os.path.isfile(ruta_archivo):
@@ -21,10 +23,11 @@ def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos 2.csv")):
         ]
 
 
-def descargar_si_falta(sesion, url, ruta_destino):
+def descargar_si_falta(sesion, url, ruta_destino, ruta_storage, url_supabase, clave_servicio):
     if os.path.isfile(ruta_destino):
         return
     contenido = Común.descargar_binario(sesion, url)
+    Común.subir_a_storage(url_supabase, BUCKET_IMAGENES, ruta_storage, contenido, clave_servicio)
     Común.guardar_binario(ruta_destino, contenido)
     time.sleep(0.3)
 
@@ -33,12 +36,20 @@ if __name__ == "__main__":
     os.makedirs(CARPETA_JUGADORES, exist_ok=True)
     os.makedirs(CARPETA_EQUIPOS, exist_ok=True)
 
+    url_supabase = Común.obtener_configuracion("SUPABASE_URL")
+    clave_servicio = Común.obtener_configuracion("SUPABASE_SERVICE_ROLE_KEY")
+
     sesion = Común.crear_sesion()
 
     try:
         for id_jugador, url_foto in listar_fotos_jugadores():
             try:
-                descargar_si_falta(sesion, url_foto, os.path.join(CARPETA_JUGADORES, f"{id_jugador}.png"))
+                descargar_si_falta(
+                    sesion, url_foto,
+                    os.path.join(CARPETA_JUGADORES, f"{id_jugador}.png"),
+                    f"jugadores/{id_jugador}.png",
+                    url_supabase, clave_servicio,
+                )
             except Común.ErrorBloqueo:
                 break
             except Exception:
@@ -50,6 +61,8 @@ if __name__ == "__main__":
                     sesion,
                     URL_ESCUDO.format(id_equipo=id_equipo),
                     os.path.join(CARPETA_EQUIPOS, f"{id_equipo}.png"),
+                    f"equipos/{id_equipo}.png",
+                    url_supabase, clave_servicio,
                 )
             except Común.ErrorBloqueo:
                 break

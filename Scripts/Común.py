@@ -1,4 +1,5 @@
 import csv
+import importlib.util
 import os
 import re
 
@@ -44,6 +45,8 @@ ID_A_NOMBRE_CORTO = {
     17: "Sevilla", 18: "Valencia", 21: "Elche", 22: "Villarreal",
     28: "Alavés", 42: "Racing",
 }
+
+NOMBRE_OFICIAL_A_ID = {MAPA_EQUIPOS[corto]: id_equipo for id_equipo, corto in ID_A_NOMBRE_CORTO.items()}
 
 POSICIONES_VALIDAS = {"Portero", "Defensa", "Mediocampista", "Delantero"}
 
@@ -112,6 +115,33 @@ def guardar_binario(ruta_archivo, contenido):
     with open(ruta_temporal, "wb") as f:
         f.write(contenido)
     os.replace(ruta_temporal, ruta_archivo)
+
+
+RUTA_CONFIGURACION_LOCAL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Configuración local.py")
+
+
+def obtener_configuracion(nombre_variable):
+    valor = os.environ.get(nombre_variable)
+    if valor:
+        return valor
+    spec = importlib.util.spec_from_file_location("configuracion_local", RUTA_CONFIGURACION_LOCAL)
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return getattr(modulo, nombre_variable, None)
+
+
+def subir_a_storage(url_supabase, bucket, ruta, contenido, clave_servicio):
+    respuesta = requests.put(
+        f"{url_supabase}/storage/v1/object/{bucket}/{ruta}",
+        data=contenido,
+        headers={
+            "Authorization": f"Bearer {clave_servicio}",
+            "Content-Type": "image/png",
+            "x-upsert": "true",
+        },
+        timeout=20,
+    )
+    respuesta.raise_for_status()
 
 
 def leer_tabla_mercado(html):

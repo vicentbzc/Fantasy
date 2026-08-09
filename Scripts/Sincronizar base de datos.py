@@ -1,6 +1,4 @@
 import csv
-import importlib.util
-import os
 import re
 from datetime import datetime
 
@@ -8,17 +6,6 @@ import psycopg2
 from psycopg2.extras import execute_values
 
 import Común
-
-
-def obtener_database_url():
-    variable_entorno = os.environ.get("DATABASE_URL")
-    if variable_entorno:
-        return variable_entorno
-    ruta_configuracion_local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Configuración local.py")
-    spec_configuracion_local = importlib.util.spec_from_file_location("configuracion_local", ruta_configuracion_local)
-    config_local = importlib.util.module_from_spec(spec_configuracion_local)
-    spec_configuracion_local.loader.exec_module(config_local)
-    return config_local.DATABASE_URL
 
 
 def parsear_entero_miles(texto):
@@ -89,10 +76,13 @@ def leer_csv(nombre_archivo):
 
 
 def sincronizar_equipos(cur):
-    filas = [(nombre,) for nombre in Común.MAPA_EQUIPOS_INVERSO.keys()]
+    filas = [
+        (nombre, Común.NOMBRE_OFICIAL_A_ID.get(nombre))
+        for nombre in Común.MAPA_EQUIPOS_INVERSO.keys()
+    ]
     execute_values(
         cur,
-        "insert into equipos (nombre) values %s on conflict (nombre) do nothing",
+        "insert into equipos (nombre, id) values %s on conflict (nombre) do update set id = excluded.id",
         filas,
     )
     return len(filas)
@@ -282,7 +272,7 @@ def sincronizar_calendario(cur):
 
 
 def main():
-    conexion = psycopg2.connect(obtener_database_url())
+    conexion = psycopg2.connect(Común.obtener_configuracion("DATABASE_URL"))
     try:
         with conexion.cursor() as cur:
             for nombre, funcion in [

@@ -53,6 +53,9 @@ jobs:
 
       - name: Descargar imágenes
         if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-mercado')
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python "Scripts/Descargar imágenes.py"
 
       - name: Sincronizar con Supabase
