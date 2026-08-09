@@ -38,6 +38,17 @@ create table puntos_jornada (
     primary key (id, jornada)
 );
 
+create table puntos_jornada_detalle (
+    id integer not null,
+    jornada integer not null,
+    orden integer not null,
+    estadistica text not null,
+    cantidad numeric,
+    puntos numeric not null,
+    primary key (id, jornada, orden),
+    foreign key (id, jornada) references puntos_jornada(id, jornada)
+);
+
 create table calendario (
     equipo text not null references equipos(nombre),
     orden integer not null,

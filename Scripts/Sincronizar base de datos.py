@@ -57,6 +57,31 @@ def dividir(texto):
     return texto.split(" | ") if texto else []
 
 
+PATRON_PARTE_ESTADISTICA = re.compile(r"^(?:(-?[\d.,]+) )?(.+): (-?\d+(?:\.\d+)?) puntos?$")
+
+
+def parsear_cantidad_estadistica(texto):
+    if texto is None:
+        return None
+    try:
+        return float(texto.replace(",", "."))
+    except ValueError:
+        return None
+
+
+def parsear_detalle_estadisticas(texto):
+    if not texto or texto == "sin estadísticas destacadas":
+        return []
+    detalle = []
+    for orden, parte in enumerate(texto.split(", "), start=1):
+        coincidencia = PATRON_PARTE_ESTADISTICA.match(parte)
+        if not coincidencia:
+            continue
+        cantidad_texto, estadistica, puntos_texto = coincidencia.groups()
+        detalle.append((orden, estadistica, parsear_cantidad_estadistica(cantidad_texto), float(puntos_texto)))
+    return detalle
+
+
 def leer_csv(nombre_archivo):
     ruta = Común.ruta_datos(nombre_archivo)
     with open(ruta, encoding="utf-8") as f:
@@ -188,6 +213,38 @@ def sincronizar_puntos(cur):
     return len(filas)
 
 
+def sincronizar_detalle_estadisticas(cur):
+    pares_id_jornada = []
+    detalle = []
+    for fila in leer_csv("Datos 4.csv"):
+        id_jugador = int(fila["ID"])
+        jornada = parsear_jornada_numero(fila["Jornada"])
+        pares_id_jornada.append((id_jugador, jornada))
+        for orden, estadistica, cantidad, puntos in parsear_detalle_estadisticas(fila["Estadísticas"]):
+            detalle.append((id_jugador, jornada, orden, estadistica, cantidad, puntos))
+
+    if not pares_id_jornada:
+        return 0
+
+    execute_values(
+        cur,
+        "delete from puntos_jornada_detalle where (id, jornada) in (values %s)",
+        pares_id_jornada,
+    )
+
+    if detalle:
+        execute_values(
+            cur,
+            """
+            insert into puntos_jornada_detalle (id, jornada, orden, estadistica, cantidad, puntos)
+            values %s
+            """,
+            detalle,
+        )
+
+    return len(detalle)
+
+
 def sincronizar_calendario(cur):
     total = 0
     for fila in leer_csv("Datos 3.csv"):
@@ -233,6 +290,7 @@ def main():
                 ("jugadores", sincronizar_jugadores),
                 ("historial_valor", sincronizar_historial),
                 ("puntos_jornada", sincronizar_puntos),
+                ("puntos_jornada_detalle", sincronizar_detalle_estadisticas),
                 ("calendario", sincronizar_calendario),
             ]:
                 try:

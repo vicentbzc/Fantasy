@@ -646,6 +646,49 @@ local.py`, ver más abajo).
   repository secret* con el mismo connection string que ya tiene en su
   `Configuración local.py` local.
 
+## Normalización de `puntos_jornada.estadisticas`
+
+Implementado en agosto de 2026. La columna `estadisticas` de
+`puntos_jornada` sigue existiendo tal cual (el texto en bruto que trae
+`Datos 4.csv`, ej. "45 minutos jugados: 1 punto, 2 goles en contra: -1
+punto") — no se ha tocado ni el CSV ni esa columna, para no perder el
+dato original. Lo que se añadió es una tabla nueva,
+**`puntos_jornada_detalle`** (`id, jornada, orden, estadistica,
+cantidad, puntos`, con FK compuesta a `puntos_jornada(id, jornada)`),
+con una fila por cada estadística individual de cada jornada de cada
+jugador, para poder analizarlas por separado (ej. "cuántos puntos ha
+sacado este jugador solo de asistencias en toda la temporada").
+
+- **El parseo pasa solo dentro de `Sincronizar base de datos.py`**
+  (`parsear_detalle_estadisticas()`), igual que las demás conversiones
+  de texto a tipos numéricos de este script — no en los scripts de
+  ingesta, que no cambian su salida. La regex
+  (`PATRON_PARTE_ESTADISTICA`) es literalmente el reverso de cómo
+  `obtener_desglose_puntos()` en `Ingestar datos 2.py` construye ese
+  texto (`{cantidad opcional} {nombre}: {puntos} punto(s)`, partes
+  separadas por ", "), así que si algún día cambia el formato de ese
+  texto en el scraper, hay que actualizar la regex a la vez.
+- **`cantidad` es nullable**: no todas las líneas del desglose llevan un
+  número delante del nombre de la estadística (ej. "Puntos DAZN: 1.5
+  puntos" no lleva cantidad, "45 minutos jugados: 1 punto" sí). Si
+  `cantidad` no se puede convertir a número por lo que sea, se guarda
+  `NULL` en vez de reventar esa fila entera.
+- **Se borra y se vuelve a insertar por `(id, jornada)`**, no `UPSERT`
+  fila a fila: como el desglose es una lista de longitud variable (y
+  `Datos 4.csv` se reconstruye entero cada vez que corre
+  `Ingestar datos 2.py`, pudiendo corregir jornadas pasadas — pasó de
+  verdad con el fallo de "Puntos DAZN" mencionado más arriba), un
+  `UPSERT` por fila dejaría basura de versiones anteriores si el número
+  de líneas del desglose cambia. Mismo razonamiento que ya se usaba
+  para `calendario` (borrar todo el equipo antes de reinsertar), aquí
+  aplicado por jugador+jornada en vez de por equipo.
+- **Nueva tabla en `Esquema base de datos.sql`**: como el archivo no usa
+  `create table if not exists` en ninguna de las tablas existentes (a
+  propósito, para no enmascarar un error si se intenta crear una tabla
+  que ya existe), hay que pegar en el *SQL Editor* de Supabase
+  **solo el bloque nuevo** de `puntos_jornada_detalle`, no el archivo
+  entero otra vez.
+
 ## Lo que queda pendiente (no implementado todavía)
 
 - **Imágenes** (fotos de jugadores, escudos de equipo, logos de
@@ -654,11 +697,6 @@ local.py`, ver más abajo).
   (`media.futbolfantasy.com/thumb/{tamaño}/.../jugadores/ficha/{id}.png` y
   `static.futbolfantasy.com/uploads/images/cabecera/hd/{id_equipo}.png`),
   pero no hay código todavía para descargarlas.
-- **Normalizar `puntos_jornada.estadisticas`**: hoy es un único campo de
-  texto (igual que la columna del CSV). Partirlo en filas separadas por
-  estadística (una fila por "20 minutos jugados: 1 punto", etc.) daría
-  más juego para analizar, pero se dejó fuera de la primera versión del
-  Paso 5 para no complicarlo de más.
 - **Paso 7**: conectar una web con funcionalidades de comparación de
   jugadores (ahora ya tiene sentido, con los datos en una base de datos
   consultable).
