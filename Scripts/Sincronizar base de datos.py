@@ -295,9 +295,9 @@ def main():
             ]:
                 try:
                     filas_sincronizadas = funcion(cur)
-                except Exception as error:
+                except Exception:
                     conexion.rollback()
-                    print(f"Error sincronizando {nombre}: {error}")
+                    print(f"Error sincronizando {nombre}")
                 else:
                     conexion.commit()
                     print(f"{nombre}: {filas_sincronizadas} filas sincronizadas")

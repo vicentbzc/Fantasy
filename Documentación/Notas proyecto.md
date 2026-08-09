@@ -479,6 +479,31 @@ exactas de `requests`/`beautifulsoup4`/`lxml` en un `requirements.txt`
 (protege ante una versión futura comprometida en PyPI); restringir a qué
 dominios se puede seguir una redirección HTTP.
 
+### Segunda revisión de seguridad (agosto de 2026, tras Paso 6 y las imágenes)
+
+Al añadir la automatización con GitHub Actions y `Descargar imágenes.py`
+se repasó otra vez el código en busca de problemas nuevos, con la misma
+lógica que la primera revisión. Dos hallazgos:
+
+- **Corregido**: `obtener_foto()` (`Ingestar datos 2.py`) leía el `src`
+  de `.jugador-foto img` sin comprobar que viniera del dominio esperado
+  antes de guardarlo — el mismo tipo de fallo que ya se había corregido
+  para el slug del jugador (`PATRON_SLUG` + `href^=...`). Ahora se
+  descarta cualquier URL que no empiece por
+  `https://media.futbolfantasy.com/` (`PREFIJO_FOTO_ESPERADO`), igual
+  que el slug se descarta si no empieza por la URL completa esperada.
+- **Corregido**: con el repositorio ya público (ver Paso 6), los logs
+  de las ejecuciones de GitHub Actions también son públicos.
+  `Sincronizar base de datos.py` imprimía el mensaje de la excepción
+  entero si algo fallaba al sincronizar una tabla — un mensaje de error
+  concreto podría llegar a incluir un valor scrapeado (dato que el
+  proyecto define como no público) dentro de su propio texto. Se
+  cambió a `print(f"Error sincronizando {nombre}")` sin el detalle de
+  la excepción, a petición explícita del usuario, priorizando no
+  exponer datos sobre la comodidad de depurar directamente desde el
+  log de Actions (para depurar un fallo real hay que reproducirlo en
+  local).
+
 ## Sin salida por terminal (agosto de 2026)
 
 A petición explícita del usuario, los cuatro archivos (`Común.py` y los

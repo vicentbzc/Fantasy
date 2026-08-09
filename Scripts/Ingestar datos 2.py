@@ -86,10 +86,14 @@ def obtener_estado(html_ficha):
     return PATRON_ABREVIATURA_LIGAMENTO.sub("ligamento", texto)
 
 
+PREFIJO_FOTO_ESPERADO = "https://media.futbolfantasy.com/"
+
+
 def obtener_foto(html_ficha):
     soup = BeautifulSoup(html_ficha, "lxml")
     imagen = soup.select_one(".jugador-foto img")
-    return imagen["src"] if imagen and imagen.get("src") else ""
+    src = imagen["src"] if imagen and imagen.get("src") else ""
+    return src if src.startswith(PREFIJO_FOTO_ESPERADO) else ""
 
 
 def obtener_minutos_jugados(html_ficha):
