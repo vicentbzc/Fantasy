@@ -778,7 +778,7 @@ Decisiones de diseño (confirmadas con el usuario):
 
 ## Paso 7: web de comparación de jugadores
 
-Implementado (v1) en agosto de 2026, en `Fantasy/web/` (Next.js 16, App
+Implementado (v1) en agosto de 2026, en `Fantasy/Web/` (Next.js 16, App
 Router, TypeScript, Tailwind). Decisiones tomadas explícitamente con el
 usuario:
 
@@ -799,7 +799,7 @@ usuario:
 **Cómo lee los datos**: la web NO usa el cliente JS de Supabase ni su
 API REST (`Data API desactivada`, ver Paso 5) — usa `pg` directamente
 desde Server Components de Next.js, con el mismo `DATABASE_URL` que ya
-usa `Sincronizar base de datos.py` (guardado en `web/.env.local` en
+usa `Sincronizar base de datos.py` (guardado en `Web/.env.local` en
 local, y como variable de entorno del proyecto en Vercel al desplegar,
 nunca en el código). Esto evita tener que activar la Data API de
 Supabase o escribir políticas RLS: el control de qué se puede leer/

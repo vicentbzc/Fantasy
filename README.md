@@ -39,12 +39,12 @@ Fantasy/
 │   ├── Sincronizar base de datos.py
 │   ├── Esquema base de datos.sql
 │   └── Configuración local.py      (credenciales — no versionado)
-└── web/                            (Next.js — comparador de jugadores)
+└── Web/                            (Next.js — comparador de jugadores)
 ```
 
 ## Web
 
-`web/` es una app Next.js (App Router + TypeScript + Tailwind) de solo lectura: consulta la base de datos directamente desde Server Components (sin pasar por la API REST de Supabase) y muestra una tabla filtrable de jugadores con comparación lado a lado de hasta 3. Las fotos y escudos se sirven desde un bucket público de Supabase Storage. Necesita su propio `DATABASE_URL` en `web/.env.local` para desarrollo local.
+`Web/` es una app Next.js (App Router + TypeScript + Tailwind) de solo lectura: consulta la base de datos directamente desde Server Components (sin pasar por la API REST de Supabase) y muestra una tabla filtrable de jugadores con comparación lado a lado de hasta 3. Las fotos y escudos se sirven desde un bucket público de Supabase Storage. Necesita su propio `DATABASE_URL` en `Web/.env.local` para desarrollo local.
 
 ## Instalación
 
