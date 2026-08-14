@@ -17,7 +17,7 @@ URLS_COMPETICIONES = {
 BUCKET_IMAGENES = "imagenes"
 
 
-def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos Jugadores.csv")):
+def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos Fotos.csv")):
     if not os.path.isfile(ruta_archivo):
         return []
     with open(ruta_archivo, encoding="utf-8") as f:

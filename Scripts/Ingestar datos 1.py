@@ -4,12 +4,13 @@ import Común
 
 
 def guardar_csv(jugadores, ruta_archivo=Común.ruta_datos("Datos Titularidad.csv")):
-    columnas = ["Equipo", "Jugador", "Porcentaje de titularidad"]
+    columnas = ["Equipo", "Jugador", "Porcentaje de titularidad", "Foto"]
     filas = [
         {
             "Equipo": jugador["equipo"],
             "Jugador": jugador["nombre"],
             "Porcentaje de titularidad": jugador["titularidad"],
+            "Foto": jugador["foto"],
         }
         for jugador in jugadores
     ]

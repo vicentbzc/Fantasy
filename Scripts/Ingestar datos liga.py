@@ -36,7 +36,7 @@ def construir_valores_liga(sesion, token, id_liga):
 
 
 def guardar_jugadores(filas, ruta_archivo=Común.ruta_datos("Datos Jugadores.csv")):
-    columnas = ["ID", "Jugador", "Equipo", "Posición", "Valor", "Foto"]
+    columnas = ["ID", "Jugador", "Equipo", "Posición", "Valor", "Valor en la liga"]
     Común.guardar_csv(ruta_archivo, columnas, filas)
 
 
@@ -62,7 +62,7 @@ def guardar_historial(filas, ruta_archivo=Común.ruta_datos("Datos Historial val
                 "ID": fila["ID"],
                 "Jugador": fila["Jugador"],
                 "Equipo": fila["Equipo"],
-                "Valor": fila["Valor"],
+                "Valor": fila["Valor en la liga"],
             })
 
 
@@ -102,19 +102,17 @@ if __name__ == "__main__":
                 continue
             id_oficial = jugador.get("id")
             try:
-                valor = int(valores_liga.get(id_oficial, jugador.get("marketValue")))
+                valor_oficial = int(jugador.get("marketValue"))
+                valor_liga = int(valores_liga.get(id_oficial, valor_oficial))
             except (TypeError, ValueError):
                 continue
-            foto = jugador.get("image", "")
-            if not foto.startswith(Común.PREFIJO_FOTO_LALIGA_FANTASY):
-                foto = ""
             filas.append({
                 "ID": id_oficial,
                 "Jugador": jugador.get("nickname", ""),
                 "Equipo": equipo,
                 "Posición": posicion,
-                "Valor": Común.formatear_miles(valor),
-                "Foto": foto,
+                "Valor": Común.formatear_miles(valor_oficial),
+                "Valor en la liga": Común.formatear_miles(valor_liga),
             })
 
         if filas:

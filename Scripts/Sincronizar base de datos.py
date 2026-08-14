@@ -128,7 +128,9 @@ def sincronizar_equipos(cur):
 
 def sincronizar_jugadores(cur):
     jugadores = leer_csv("Datos Jugadores.csv")
-    titularidad_por_id = emparejar_por_nombre(jugadores, leer_csv("Datos Titularidad.csv"), "Porcentaje de titularidad")
+    titularidad_datos = leer_csv("Datos Titularidad.csv")
+    titularidad_por_id = emparejar_por_nombre(jugadores, titularidad_datos, "Porcentaje de titularidad")
+    foto_por_id = emparejar_por_nombre(jugadores, titularidad_datos, "Foto")
     estado_por_id = emparejar_por_nombre(jugadores, leer_csv("Datos Estado.csv"), "Estado")
 
     filas = [
@@ -139,6 +141,7 @@ def sincronizar_jugadores(cur):
             jugador["Posición"],
             parsear_porcentaje(titularidad_por_id.get(jugador["ID"])),
             parsear_entero_miles(jugador["Valor"]),
+            parsear_entero_miles(jugador["Valor en la liga"]),
             estado_por_id.get(jugador["ID"], "Disponible"),
         )
         for jugador in jugadores
@@ -151,7 +154,7 @@ def sincronizar_jugadores(cur):
         cur,
         """
         insert into jugadores (
-            id, nombre, equipo, posicion, porcentaje_titularidad, valor, estado
+            id, nombre, equipo, posicion, porcentaje_titularidad, valor, valor_liga, estado
         ) values %s
         on conflict (id) do update set
             nombre = excluded.nombre,
@@ -159,11 +162,22 @@ def sincronizar_jugadores(cur):
             posicion = excluded.posicion,
             porcentaje_titularidad = excluded.porcentaje_titularidad,
             valor = excluded.valor,
+            valor_liga = excluded.valor_liga,
             estado = excluded.estado,
             actualizado_en = now()
         """,
         filas,
     )
+
+    fotos = [
+        (int(jugador["ID"]), foto_por_id[jugador["ID"]])
+        for jugador in jugadores
+        if foto_por_id.get(jugador["ID"])
+    ]
+    Común.guardar_csv(Común.ruta_datos("Datos Fotos.csv"), ["ID", "Foto"], [
+        {"ID": id_jugador, "Foto": foto} for id_jugador, foto in fotos
+    ])
+
     return len(filas)
 
 

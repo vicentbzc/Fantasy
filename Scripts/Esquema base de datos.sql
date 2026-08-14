@@ -10,6 +10,7 @@ create table jugadores (
     posicion text,
     porcentaje_titularidad numeric,
     valor bigint,
+    valor_liga bigint,
     diferencia_valor bigint,
     porcentaje_diferencia numeric,
     aceleracion text,

@@ -1050,6 +1050,63 @@ managers en la liga)**:
   equipos (recorre todos los de `standing`), pero no se ha probado todavía
   con la cláusula de un compañero, solo con la propia.
 
+### Incidente: contaminación de la base de datos por no hacer `git push` (14/08/2026)
+
+Después de recrear el esquema y sincronizar en local, el usuario pidió los
+datos de un jugador de prueba y aparecieron **dos filas del mismo jugador**
+con ids distintos. Causa: **los cambios de este Paso 8 nunca se habían
+subido a GitHub**, así que el workflow de `scraping.yml` (cron horario, ya
+configurado desde el Paso 6) siguió corriendo el **código viejo** —
+`Ingestar datos 2.py` (ya borrado en local, todavía en GitHub),
+`Sincronizar` con el esquema antiguo — contra la **misma base de datos
+real**, usando el `DATABASE_URL` de siempre. Como las tablas nuevas tienen
+las mismas columnas que las viejas, el `Sincronizar` viejo no daba ningún
+error al insertar: simplemente metía filas con el id de futbolfantasy.com
+al lado de las filas nuevas con id oficial de LaLiga Fantasy. Confirmado
+con números: `jugadores` tenía 1.280 filas (692 nuevas + 588 viejas),
+`puntos_jornada` 8.220 (deberían ser 0, pretemporada).
+
+**Arreglado**: `git commit` + `git push` de todo el código del Paso 8 (para
+que el workflow deje de usar la versión vieja en la próxima ejecución) y
+borrado manual de las 588 filas viejas (+ sus 8.037 de `puntos_jornada` y
+29.772 de `puntos_jornada_detalle`) usando como referencia los ids válidos
+de `Datos Jugadores.csv`. **Lección para el futuro**: en este proyecto, con
+automatización ya activa en GitHub Actions contra la base de datos real,
+**hacer cambios de esquema/pipeline en local sin subirlos a GitHub cuanto
+antes es peligroso** — el cron sigue corriendo el código viejo contra la
+base de datos nueva mientras tanto. A partir de ahora, subir a GitHub tan
+pronto como el pipeline nuevo esté probado en local, no dejarlo para el
+final de la sesión.
+
+### Separación `valor` / `valor_liga` y foto desde futbolfantasy.com (14/08/2026)
+
+Ajustes pedidos por el usuario tras ver los primeros datos reales:
+
+- **`jugadores` gana la columna `valor_liga`** (`ALTER TABLE`, no hizo
+  falta recrear nada esta vez). Ahora hay dos valores separados:
+  `valor` = `marketValue` oficial del juego (igual en cualquier liga),
+  `valor_liga` = el mismo criterio de antes (cláusula si el jugador está en
+  alguna plantilla de la liga, si no el `marketValue`). `Datos Jugadores.csv`
+  pasa a tener columnas `Valor` y `Valor en la liga` en vez de una sola
+  `Valor`. **La web sigue mostrando `valor_liga`** como "Valor" (es el
+  objetivo original de todo este paso) — `Web/src/lib/db.ts` selecciona
+  `j.valor_liga as valor` en vez de `j.valor`, para no tocar ningún
+  componente de React.
+- **La foto vuelve a salir de futbolfantasy.com**, pero **sin la ficha
+  pesada**: la propia tabla de mercado (`Común.leer_tabla_mercado()`, la
+  misma petición barata que ya se hacía para `Porcentaje de titularidad`)
+  trae la foto en `.player-foto-container img.player-foto` — no hacía falta
+  ninguna petición nueva. `Ingestar datos 1.py` añade `Foto` a
+  `Datos Titularidad.csv`. Como esa foto está indexada por el id de
+  futbolfantasy (no el oficial), `Sincronizar` la empareja por nombre+equipo
+  igual que ya hacía con titularidad/estado (`emparejar_por_nombre()`,
+  reutilizada) y escribe el resultado en un CSV nuevo, `Datos Fotos.csv`
+  (`ID, Foto`, con el id oficial), que es lo que ahora lee
+  `Descargar imágenes.py` en vez de `Datos Jugadores.csv`.
+  `Común.PREFIJO_FOTO_LALIGA_FANTASY` se quitó (ya no se usa);
+  `Común.PREFIJO_FOTO_FUTBOLFANTASY` es el nuevo, validado en el propio
+  `_leer_fila_mercado()`.
+
 Plan completo de esta conversación:
 `C:\Users\vicen\.claude\plans\shiny-frolicking-neumann.md`.
 
