@@ -142,7 +142,7 @@ def sincronizar_jugadores(cur):
             parsear_porcentaje(titularidad_por_id.get(jugador["ID"])),
             parsear_entero_miles(jugador["Valor"]),
             parsear_entero_miles(jugador["Valor en la liga"]),
-            estado_por_id.get(jugador["ID"], "Disponible"),
+            estado_por_id.get(jugador["ID"], "Disponible para competir"),
         )
         for jugador in jugadores
     ]

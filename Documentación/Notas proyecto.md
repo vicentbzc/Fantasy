@@ -153,12 +153,18 @@ vienen de la API oficial o se calculan en `Sincronizar` — ver Paso 8.
 Descarga `https://www.futbolfantasy.com/laliga/lesionados` y
 `.../laliga/sancionados` (~400 KB + ~225 KB, 2 peticiones en total) y
 guarda `Datos Estado.csv`: `Equipo, Jugador, Estado`, **solo para los
-jugadores que aparecen en alguna de las dos páginas**. Reutiliza la misma
+jugadores que aparecen en alguna de las dos páginas**. Reutiliza la
 lógica de lectura de `.datos .comentario` que antes vivía en la ficha
-individual del jugador (`Ingestar datos 2.py`, ya eliminado) — mismo
-formato de texto exacto, incluida la corrección de "lig." → "ligamento".
-Un jugador que no aparece en ninguna de las dos páginas se considera
-"Disponible" por defecto (se rellena en `Sincronizar`, no aquí).
+individual del jugador (`Ingestar datos 2.py`, ya eliminado), con la
+corrección de "lig." → "ligamento" — pero **`leer_estado()` se quedó solo
+con la primera frase** (ej. "Contractura muscular"), a petición explícita
+del usuario (14/08/2026): se descarta la segunda frase con la fecha/días
+("desde 12/08 (2 días)") que sí se guardaba al principio.
+Un jugador que no aparece en ninguna de las dos páginas usa
+**"Disponible para competir"** por defecto (se rellena en `Sincronizar`,
+no aquí) — es el texto literal que usa futbolfantasy.com para un jugador
+sin problemas (comprobado en directo contra una ficha real el 14/08/2026;
+al principio se usó "Disponible" a secas por error, sin verificarlo).
 
 ### Ingestar datos 3.py — calendario y dificultad por equipo
 

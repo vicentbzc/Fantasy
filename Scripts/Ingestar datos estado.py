@@ -15,10 +15,7 @@ def leer_estado(elemento):
         for span in contenedor.find_all("span", recursive=False)
         if span.get_text(strip=True)
     ]
-    if frases:
-        texto = frases[0] if len(frases) == 1 else f"{frases[0]}, {frases[1][0].lower()}{frases[1][1:]}"
-    else:
-        texto = elemento.get_text(" ", strip=True)
+    texto = frases[0] if frases else elemento.get_text(" ", strip=True)
     return PATRON_ABREVIATURA_LIGAMENTO.sub("ligamento", texto)
 
 
