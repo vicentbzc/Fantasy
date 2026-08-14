@@ -9,6 +9,10 @@ PATRON_ABREVIATURA_LIGAMENTO = re.compile(r"\blig\.")
 
 
 def leer_estado(elemento):
+    gravedad = elemento.select_one('.comentario span[class*="gravedad"]')
+    if gravedad:
+        return PATRON_ABREVIATURA_LIGAMENTO.sub("ligamento", gravedad.get_text(" ", strip=True))
+
     frases = [
         span.get_text(" ", strip=True)
         for contenedor in elemento.select(".datos, .comentario")
