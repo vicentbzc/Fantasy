@@ -42,13 +42,23 @@ carpeta `Datos/` si no existiera.
 
 ## Por qué esta fuente de datos
 
-Los datos salen de **futbolfantasy.com** (pública, sin login) en vez de la API
-oficial de LaLiga Fantasy, para no arriesgar la cuenta de jugador personal del
-usuario (juega una liga con amigos con esa cuenta).
+Hasta agosto de 2026 los datos salían solo de **futbolfantasy.com** (pública,
+sin login), precisamente para no arriesgar la cuenta de jugador personal del
+usuario. Desde el Paso 8 (ver más abajo) esa regla cambió a propósito: el
+usuario decidió explícitamente asumir el riesgo de usar su cuenta real contra
+la API oficial de LaLiga Fantasy, porque es la única forma de conseguir el
+valor real de los jugadores **dentro de su liga privada** (que sube por
+pujas entre amigos) — ese dato no existe en ninguna web pública. La API
+oficial es ahora la fuente principal de casi todo; futbolfantasy.com se
+quedó solo para lo que la API no da (ver Paso 8).
 
 ## Reglas que hay que respetar siempre
 
-- Nunca usar la cuenta de jugador real ni pedir credenciales.
+- **Excepción desde el Paso 8**: sí se usa la cuenta real del usuario, pero
+  solo contra la API oficial de LaLiga Fantasy (nunca contra futbolfantasy.com
+  ni ningún otro sitio), solo en modo lectura, y las credenciales viven solo
+  en `Configuración local.py` (fuera de git) o como secreto de GitHub
+  Actions — nunca en el código ni en el chat.
 - No publicar los CSV en bruto en ningún sitio público.
 - Peticiones espaciadas, nunca en ráfaga. La tabla de frecuencias recomendadas
   de este documento (más abajo) dice con qué frecuencia se puede ejecutar cada
@@ -57,23 +67,26 @@ usuario (juega una liga con amigos con esa cuenta).
 - **Ningún archivo de código de este proyecto lleva comentarios ni
   docstrings — nunca, en ninguno, presente ni futuro** (decisión
   explícita del usuario, agosto de 2026, confirmada de nuevo más
-  adelante). Esto aplica a todos los `.py` (`Común.py`, los tres
-  `Ingestar datos N.py`, `Sincronizar base de datos.py`,
+  adelante). Esto aplica a todos los `.py` (`Común.py`, los scripts
+  `Ingestar datos ...py`, `Sincronizar base de datos.py`,
   `Configuración local.py`) y también a `Esquema base de datos.sql`.
   Todo el porqué de cada cosa vive únicamente en este documento. **No
   añadir comentarios a ningún archivo de código en el futuro**, ni
   siquiera al tocar o ampliar código, ni siquiera en archivos nuevos que
   se creen más adelante — si hace falta dejar constancia de un porqué,
   se apunta aquí.
-- **`Común.py` y los tres `Ingestar datos N.py` no imprimen nada por
+- **`Común.py` y los scripts `Ingestar datos ...py` no imprimen nada por
   terminal** (decisión explícita del usuario, agosto de 2026; ver "Sin
   salida por terminal" más abajo). **No añadir `print()` de vuelta al
-  tocar o ampliar esos cuatro archivos**, ni siquiera para mostrar
+  tocar o ampliar esos archivos**, ni siquiera para mostrar
   progreso — si hace falta depurar algo puntualmente, se añade un
   `print()` temporal y se quita otra vez antes de terminar.
   `Sincronizar base de datos.py` es la única excepción a esto (sí
   informa por pantalla, también decisión explícita del usuario) — pero
   tampoco lleva comentarios, esa parte de la regla no tiene excepción.
+  `Scripts/Descubrir liga.py` es una segunda excepción: es una utilidad
+  manual de un solo uso (no forma parte del pipeline automático), así que
+  también informa por pantalla a propósito.
 
 ## El módulo común (`Común.py`)
 
@@ -92,104 +105,60 @@ código a `Común.py` (comprobado ejecutando el script 1 en directo antes y
 después del cambio: mismas cabeceras, mismo número de filas, mismo
 formato de valores).
 
-## Los tres scripts y sus salidas
+## Los scripts y sus salidas (reescrito en el Paso 8, agosto de 2026)
 
-| Script | Genera | Coste por ejecución | Frecuencia recomendada |
-|---|---|---|---|
-| `Ingestar datos 1.py` | `Datos 1.csv`, `Datos 6.csv` | 1 petición (barato) | Cada hora está bien |
-| `Ingestar datos 2.py` | `Datos 2.csv`, `Datos 4.csv`, `Datos 5.csv` (caché) | ~600 × 2-3 peticiones (~1,3 GB) | Cada 4-6 horas, no más |
-| `Ingestar datos 3.py` | `Datos 3.csv` | ~20-40 peticiones (barato) | Cada 4-6 horas, no más |
+**Este apartado describe el pipeline actual.** Hasta el Paso 8 había tres
+scripts de ingesta que sacaban casi todo de futbolfantasy.com — esa versión
+ya no existe; se sustituyó por la de abajo. Ver Paso 8 para el porqué
+completo del cambio.
 
-Hay un cuarto script, `Descargar imágenes.py`, añadido después de esta
-optimización — ver su propia sección más abajo ("Descargar imágenes.py
-— fotos de jugadores y escudos de equipo") para su coste y frecuencia,
-que son distintos de estos tres (prácticamente gratis salvo la primera
-vez, porque no vuelve a descargar lo que ya tiene).
+| Script | Fuente | Genera | Coste | Frecuencia |
+|---|---|---|---|---|
+| `Ingestar datos liga.py` | API LaLiga Fantasy (cuenta real) | `Datos Jugadores.csv`, `Datos Historial valor.csv`, `Datos Puntos jornada.csv` | ~1 + 1 + N equipos de tu liga peticiones autenticadas | Cada hora |
+| `Ingestar datos 1.py` | futbolfantasy.com | `Datos Titularidad.csv` | 1 petición (barato) | Cada hora |
+| `Ingestar datos estado.py` | futbolfantasy.com | `Datos Estado.csv` | 2 peticiones (barato) | Cada hora |
+| `Ingestar datos 3.py` | futbolfantasy.com | `Datos 3.csv` (calendario) | ~20-40 peticiones (barato) | Cada 4-6 horas |
+| `Descargar imágenes.py` | API LaLiga Fantasy (fotos) + futbolfantasy.com (escudos) | Sube a Supabase Storage | Prácticamente gratis salvo la primera vez | Cada 4-6 horas |
+| `Sincronizar base de datos.py` | Postgres (Supabase) | — | — | Cada vez que corre cualquiera de los anteriores |
 
-Ninguna de estas tres frecuencias se tocó en la optimización de agosto de
-2026 (ver más abajo el porqué). La frecuencia de `Ingestar datos 3.py`
-sí se cambió después, a petición del usuario, para que coincida con la de
-`Ingestar datos 2.py`: técnicamente el calendario de un equipo no suele
-cambiar más de una vez por semana, pero no hay ningún problema en
-consultarlo más a menudo (son solo ~20-40 peticiones baratas) y así es
-más fácil de recordar y de automatizar más adelante (un único cron para
-los dos).
+### Ingestar datos liga.py — API oficial de LaLiga Fantasy (fuente principal)
 
-### Ingestar datos 1.py — tabla de mercado
+Ver la sección completa del Paso 8 más abajo para el detalle de
+autenticación, endpoints y decisiones de diseño — aquí solo el resumen de
+salida:
+
+- `Datos Jugadores.csv`: `ID, Jugador, Equipo, Posición, Valor, Foto` — el
+  catálogo oficial completo (~690 jugadores de los 20 clubes de esta
+  temporada), con `Valor` ya resuelto (cláusula de la liga si el jugador
+  está en alguna plantilla, si no el valor oficial del juego).
+- `Datos Historial valor.csv`: mismo patrón idempotente por día que tenía
+  el antiguo `Datos 6.csv` (una fila por jugador y día, no se duplica si ya
+  hay una de hoy).
+- `Datos Puntos jornada.csv`: mismas columnas que el antiguo `Datos 4.csv`
+  (`ID, Jugador, Equipo, Jornada, Puntos, Estadísticas, Tarjetas amarillas
+  acumuladas`), pero **vacío por ahora** — sale de `playerStats`, que la API
+  no rellena hasta que se juegan partidos de la temporada 2026/27. Pendiente
+  de verificar el formato real en cuanto haya jornadas jugadas.
+
+### Ingestar datos 1.py — titularidad (reducido en el Paso 8)
 
 Descarga `https://www.futbolfantasy.com/analytics/laliga-fantasy/mercado`
-(1 sola petición, trae los ~595 jugadores de golpe).
+(1 sola petición) pero **ya solo guarda** `Datos Titularidad.csv`:
+`Equipo, Jugador, Porcentaje de titularidad`. El resto de columnas que
+antes salían de aquí (Valor, Diferencia, Aceleración, Tendencia) ahora
+vienen de la API oficial o se calculan en `Sincronizar` — ver Paso 8.
 
-- `Datos 1.csv`: `Equipo, Jugador, Posición, Porcentaje de titularidad, Valor,
-  Diferencia de valor, Porcentaje de diferencia, Aceleración, Tendencia`.
-  - `Porcentaje de titularidad` es la probabilidad del **próximo partido**
-    (no la media de temporada), sacada gratis de la misma tabla.
-  - `MAPA_EQUIPOS` traduce los nombres cortos de la web a los oficiales
-    completos (ej. "Sevilla" -> "Sevilla Fútbol Club").
-  - Solo se guardan las 4 posiciones de jugador reales (se descartan las
-    filas de "Entrenador" que también trae la tabla).
-- `Datos 6.csv`: una fila por jugador y por día (`Fecha` en formato
-  `dd/mm/aaaa`), se **añade** cada vez que se ejecuta (no se sobrescribe),
-  pensado para gráficas de evolución de valor. Si ya hay una fila de hoy,
-  no se duplica.
+### Ingestar datos estado.py — lesionados y sancionados (nuevo en el Paso 8)
 
-### Ingestar datos 2.py — ficha de cada jugador (la parte pesada)
-
-Usa **tres peticiones distintas** de la web por jugador:
-
-1. `analytics/laliga-fantasy/mercado/detalle/{id}` (~170 KB) — solo para
-   descubrir el "slug" (URL) de la ficha de un jugador la primera vez que
-   se ve. Se guarda en caché (`Datos 5.csv`: `ID, Slug`) y **nunca más** se
-   vuelve a pedir para ese jugador.
-2. `jugadores/{slug}` (ficha completa, ~2 MB) — de aquí salen `Estado`,
-   `Minutos jugados` y el desglose de puntos (ver abajo). Se pide siempre,
-   cada ejecución, porque esto sí cambia.
-3. `analytics/stats/detalle/{id}` (~165 KB) — trae de una vez las
-   estadísticas de todas las jornadas jugadas; de aquí salen el número de
-   jornada, los puntos totales y la racha de tarjetas amarillas.
-
-**`Datos 2.csv`**: `Equipo, Jugador, Estado, Minutos jugados`.
-
-*(Hasta agosto de 2026 esta tabla también tenía "Puntos de la última
-jornada" y "Tarjetas amarillas acumuladas". Se quitaron porque son
-exactamente la última fila de `Datos 4.csv` para ese jugador — el mismo
-dato guardado dos veces en dos archivos distintos. Pensando en que esto
-va a alimentar una base de datos y no un Excel, ese "estado actual" se
-consulta en `Datos 4.csv` (la fila con la `Jornada` más alta de cada
-jugador) en vez de duplicarlo aquí. Decisión tomada explícitamente con el
-usuario, no es un descarte silencioso.)*
-
-**`Datos 4.csv`**: `Equipo, Jugador, Jornada, Puntos, Estadísticas, Tarjetas
-amarillas acumuladas` — una fila por jugador y por jornada jugada.
-
-Decisiones importantes de este script:
-
-- **`Jugador` es el nombre corto del mercado**, no el nombre legal completo
-  (el usuario decidió que no hace falta guardar el nombre completo; antes
-  se guardaba y daba problemas con jugadores cuyo nombre en la ficha venía
-  en árabe/cirílico/georgiano/japonés).
-- **`Estado` se lee por estructura del HTML, no por palabras clave.** La
-  ficha separa la lesión/sanción y el "Baja hasta X" en `<span>` distintos
-  dentro del HTML; se leen tal cual en vez de adivinar dónde cortar el
-  texto. Esto significa que una lesión o sanción **nueva que aparezca en
-  el futuro se formatea bien sola**, sin tocar el código. Ver
-  `obtener_estado()`.
-- **`Estadísticas` NO se calcula a mano.** No se sabe (ni hace falta saber)
-  la fórmula exacta de puntuación de LaLiga Fantasy. En su lugar se lee una
-  tabla que la propia ficha del jugador ya trae (`table.tablestats`, filas
-  `tr.desglose` con un bloque `.desg.laliga-fantasy`) donde la web **ya ha
-  calculado** qué estadística dio cuántos puntos esa jornada (ej. "45
-  minutos jugados: 1 punto, 2 goles en contra: -1 punto"). Ver
-  `obtener_desglose_puntos()`.
-- **Hace falta `lxml` instalado** (`pip install lxml`). La ficha del
-  jugador tiene una etiqueta HTML mal cerrada por la propia web (un `<td>`
-  que cierra con `</th>`) que confunde al parser por defecto de
-  BeautifulSoup y desordena la tabla de puntos. `lxml` es más permisivo y
-  la lee bien.
-- **Tarjetas amarillas**: se van acumulando partido a partido; en cuanto
-  el contador llega a 5 se reinicia a 0 (roja por acumulación). Una roja
-  directa (sin llegar a 5 amarillas) **no** reinicia el contador. Ver
-  `AMARILLAS_PARA_ROJA` y el bucle de `procesar_estadisticas()`.
+Descarga `https://www.futbolfantasy.com/laliga/lesionados` y
+`.../laliga/sancionados` (~400 KB + ~225 KB, 2 peticiones en total) y
+guarda `Datos Estado.csv`: `Equipo, Jugador, Estado`, **solo para los
+jugadores que aparecen en alguna de las dos páginas**. Reutiliza la misma
+lógica de lectura de `.datos .comentario` que antes vivía en la ficha
+individual del jugador (`Ingestar datos 2.py`, ya eliminado) — mismo
+formato de texto exacto, incluida la corrección de "lig." → "ligamento".
+Un jugador que no aparece en ninguna de las dos páginas se considera
+"Disponible" por defecto (se rellena en `Sincronizar`, no aquí).
 
 ### Ingestar datos 3.py — calendario y dificultad por equipo
 
@@ -768,6 +737,16 @@ Decisiones de diseño (confirmadas con el usuario):
   machacar el servidor — la caché de `Datos/` entre ejecuciones (ver
   Paso 6) es imprescindible para que este ahorro funcione en GitHub
   Actions y no solo en local.
+
+**Actualizado en el Paso 8 (agosto de 2026)**: `Ingestar datos 2.py` (de
+donde salía la `Foto`) se eliminó. `listar_fotos_jugadores()` ahora lee la
+columna `Foto` de `Datos Jugadores.csv` (generado por
+`Ingestar datos liga.py`), con la URL que da directamente la API oficial
+(`assets-fantasy.llt-services.com`, validada contra
+`Común.PREFIJO_FOTO_LALIGA_FANTASY` antes de guardarse en el CSV, mismo
+criterio de siempre de no confiar en una URL externa sin comprobar el
+dominio). Los escudos de equipo **no cambian**, siguen saliendo de
+futbolfantasy.com igual que aquí arriba.
 - **Limitación conocida, igual que la caché de slugs**: si
   futbolfantasy.com actualiza la foto de un jugador ya descargado, no
   se vuelve a pedir sola — hay que borrar el archivo local
@@ -864,6 +843,225 @@ a propósito, para que los 20 equipos ya existentes en la base de datos
 - Rol de Postgres de solo lectura para la web, en vez de reutilizar el
   de `Sincronizar base de datos.py` (ver nota de seguridad más arriba).
 
+## Paso 8: la API oficial de LaLiga Fantasy pasa a ser la fuente principal
+
+Empezado y terminado en agosto de 2026 (14/08/2026), en dos rondas dentro de
+la misma conversación. **Ronda 1**: solo se quería que `jugadores.valor`
+reflejara el valor real de la liga privada del usuario (sube por pujas entre
+amigos, dato que no existe en ninguna web, solo en la app oficial con la
+cuenta real) en vez de la estimación de futbolfantasy.com. **Ronda 2**: una
+vez visto en directo que la API oficial da mucho más que el valor (nombre,
+equipo, posición, minutos, puntos...), el usuario decidió invertir la fuente
+principal: la API pasa a alimentar casi todo, y futbolfantasy.com se queda
+solo para lo que la API no da. Esto implicó **eliminar y recrear las tablas
+`jugadores`, `historial_valor`, `puntos_jornada` y `puntos_jornada_detalle`**
+(backup previo en `Datos/Backup antes de pivote LaLiga Fantasy.json`, hecho
+con Python/psycopg2 porque `pg_dump` no estaba instalado en el entorno) —
+el `id` de `jugadores` pasa a ser el id oficial de LaLiga Fantasy en vez del
+de futbolfantasy.com, así que el histórico viejo queda huérfano de todas
+formas. `Esquema base de datos.sql` **no cambió de contenido** (mismas
+columnas exactas) — solo se ejecutó `DROP TABLE` + las mismas `CREATE TABLE`
+de siempre contra Supabase.
+
+**Decisión explícita del usuario, la más importante de este paso**: se
+acepta el riesgo de automatizar con la cuenta real (contradice la regla
+original de "nunca usar la cuenta real", que existía justo para evitar
+esto) porque el valor de la liga privada no existe en ningún otro sitio;
+cadencia elegida: **cada hora**, la más arriesgada de las opciones
+planteadas, elegida explícitamente por el usuario sabiendo el riesgo mayor
+de peticiones automáticas frecuentes contra una cuenta personal.
+
+**Regla de formato, no negociable**: el origen del dato cambia, pero el
+formato final de cada columna no — mismas etiquetas en español
+("Delantero", no un código de la API), mismo tipo de dato, mismo
+significado que antes.
+
+### Mapa de fuente por columna (decidido con el usuario)
+
+| Columna / tabla | Fuente | Detalle |
+|---|---|---|
+| `nombre`, `equipo`, `posicion`, `valor`, foto | API LaLiga Fantasy | ver abajo |
+| `diferencia_valor`, `porcentaje_diferencia`, `tendencia_dias`, `aceleracion` | Calculado en `Sincronizar` | comparando contra `historial_valor` ya guardado, la API no da esto |
+| `minutos_jugados`, `puntos_jornada`, `puntos_jornada_detalle` | API LaLiga Fantasy (`playerStats`) | **vacío hasta que empiece la temporada 2026/27 de verdad** |
+| `porcentaje_titularidad`, `estado`, `calendario` | futbolfantasy.com | lo único que se sigue raspando |
+
+**API usada (no oficial, no documentada por LaLiga, descubierta investigando
+proyectos de la comunidad — [Externoak/LaLigaApp](https://github.com/Externoak/LaLigaApp)
+y [alxgarci/marca-fantasy-api-scraper-updated](https://github.com/alxgarci/marca-fantasy-api-scraper-updated),
+este último roto porque el acceso web del juego se retiró y ahora es solo
+por app):**
+- Host: `https://fantasy-api.llt-services.com/api/v1/competition/1`.
+- Login (usuario/contraseña reales) y refresco de token: OAuth2 ROPC contra
+  el tenant Azure B2C de LaLiga (`login.laliga.es`), token Bearer válido
+  ~24h. Ver `Común._iniciar_sesion_laliga_fantasy()` /
+  `Común._refrescar_token_laliga_fantasy()` para las URLs y parámetros
+  exactos.
+- Mercado de la liga: `GET /league/{leagueId}/market`. Tu plantilla:
+  `GET /leagues/{leagueId}/teams/{teamId}`. Tus ligas (para descubrir los
+  dos ids anteriores): `GET /leagues`.
+
+**Nuevo en `Común.py`**: `obtener_token_laliga_fantasy()` (cachea el token en
+`Datos/Token LaLiga Fantasy.json`, refresca en cada ejecución en vez de
+loguear con contraseña cada vez — solo hace login completo si no hay caché o
+el refresco falla), `descargar_json_autenticado()` (como
+`descargar_pagina()`/`descargar_binario()` pero para la API con Bearer token,
+trata 401/403/429 como `ErrorBloqueo`), `guardar_json()`/`leer_json()` (mismo
+patrón atómico `.tmp` + `os.replace` que `guardar_csv`/`guardar_binario`).
+Credenciales nuevas en `Configuración local.py` (ya cubierto por
+`.gitignore`, rellenar a mano, nunca por chat): `LALIGA_FANTASY_EMAIL`,
+`LALIGA_FANTASY_PASSWORD`, `LALIGA_FANTASY_LEAGUE_ID`,
+`LALIGA_FANTASY_TEAM_ID`.
+
+**`Scripts/Descubrir liga.py`** (nuevo, utilidad manual de un solo uso, NO
+forma parte de la automatización): loguea y imprime `GET /leagues` en bruto
+para poder leer a mano el `leagueId`/`teamId` reales y rellenarlos en
+`Configuración local.py`. A diferencia de los `Ingestar datos N.py`, este sí
+imprime por pantalla a propósito (igual que `Sincronizar base de datos.py`
+es la única excepción a la regla de "sin salida por terminal") porque es una
+herramienta de un solo uso para el propio usuario, no parte del pipeline
+silencioso.
+
+**Verificado en directo (14/08/2026) con la cuenta real del usuario** — su
+liga privada se llama "Prueba" (`leagueId` interno `018053483`,
+`managersNumber: 1` por ahora, confirmado con el usuario que es la liga
+real, de momento sin compañeros unidos):
+
+- **El endpoint de refresco documentado por terceros no funciona**
+  (`AADB2C90090`, política incorrecta). El refresco real usa el **mismo**
+  endpoint que el login (`URL_LOGIN_LALIGA_FANTASY`), con
+  `grant_type=refresh_token` y el mismo `scope` que el login. Corregido en
+  `Común._refrescar_token_laliga_fantasy()` — ya no existe
+  `URL_REFRESCO_LALIGA_FANTASY`.
+- **El "valor" de un jugador NO es un solo campo.** Hay dos:
+  - `playerMaster.marketValue`: valor oficial de LaLiga Fantasy, igual en
+    cualquier liga (no es el de futbolfantasy.com, pero tampoco es
+    "el de tu liga" — es el valor base del juego).
+  - `buyoutClause`: la **cláusula de rescisión**, solo existe para
+    jugadores que ya están en la plantilla de algún equipo. Es el valor que
+    el propio manager puede subir a mano (confirmado con un caso real: Robin
+    Le Normand, `marketValue` 9.843.374 pero `buyoutClause` 16.405.623 ya
+    subida). **Decisión explícita del usuario**: el "Valor" de la web debe
+    ser `marketValue` para jugadores libres, pero `buyoutClause` para
+    cualquier jugador que esté en la plantilla de **cualquier** equipo de
+    la liga (el suyo o el de un compañero) — no solo los propios.
+- **Endpoints confirmados que sí existen** (base
+  `Común.URL_BASE_LALIGA_FANTASY`):
+  - `GET /players?x-lang=es`: catálogo oficial completo (715 elementos,
+    más que los ~595 de futbolfantasy.com — incluye más jugadores, motivo
+    sin investigar todavía). Cada elemento: `id`, `positionId` (1=Portero,
+    2=Defensa, 3=Centrocampista, 4=Delantero, 5=Entrenador — **ojo, los
+    nombres de posición de esta fuente NO coinciden con
+    `Común.POSICIONES_VALIDAS`**, que usa "Mediocampista" en vez de
+    "Centrocampista"), `nickname`, `marketValue`, `teamId` (numérico).
+    **No trae nombre de equipo**, solo el id numérico.
+  - `GET /leagues/{leagueId}/standing?x-lang=es`: lista de equipos de la
+    liga con `team.id`, `team.managerId`, `team.manager.managerName`.
+  - `GET /leagues/{leagueId}/teams/{teamId}?x-lang=es`: plantilla de un
+    equipo concreto (no solo el propio — funciona para cualquier `teamId`
+    visto en `standing`), con `players[].buyoutClause` y
+    `players[].playerMaster` (aquí sí trae `team.name` anidado, ej.
+    "Valencia CF", "Atlético de Madrid").
+  - `GET /player/{id}/league/{leagueId}?x-lang=es`: ficha de un jugador
+    suelto — tampoco trae nombre de equipo, solo `teamId`.
+- **`GET /teams?x-lang=es` NO existe** (404). El nombre de los 20 equipos de
+  esta temporada sale de **`GET /v3/teams-master?x-lang=es`** (nota: `v3`,
+  no `v1/competition/1` como el resto de endpoints) — 42 clubes de Primera y
+  Segunda con `id`, `name`, `shortName`. Los 20 de 2026/27 se identificaron
+  a mano por nombre contra `Común.ID_A_NOMBRE_CORTO` (incluye los tres
+  ascendidos: Racing=49, Deportivo=26, Málaga=12) y quedaron fijos en
+  `Común.MAPA_EQUIPO_ID_OFICIAL_A_CORTO` + `Común.equipo_oficial_a_nombre_largo()`.
+  El `teamId` oficial **no coincide** con el de futbolfantasy.com (se
+  comprobó que Valencia y Atlético sí coinciden por casualidad, Elche y
+  Villarreal no), por eso hace falta este mapa fijo en vez de asumir que
+  son el mismo esquema de ids.
+
+### Emparejador de jugadores entre las dos fuentes
+
+futbolfantasy.com y la API oficial no comparten ninguna clave — el
+emparejamiento es por **nombre + equipo** (`Sincronizar base de
+datos.py`: `normalizar_nombre()` en `Común.py` quita acentos/mayúsculas,
+`tokenizar_nombre()` + `nombres_coinciden()` en `Sincronizar` comparan por
+tokens en vez de por string exacto). Hacía falta tolerancia porque las dos
+fuentes no usan la misma convención de nombre corto: la API a veces da solo
+el apellido ("Laporte", "Vencedor"), a veces con inicial abreviada
+("O. Sancet"), futbolfantasy a veces el nombre completo ("Aymeric
+Laporte", "Oihan Sancet"). El emparejador hace **coincidencia de
+subconjunto de tokens, tratando un token de una sola letra como comodín de
+inicial** — probado en directo con los datos reales: subió el acierto de
+titularidad del 24% (comparación exacta) al **86%** (512/598), y el de
+estado del 20% al **80%** (48/60). Los nombres sin emparejar se quedan con
+`NULL` (titularidad) o `"Disponible"` por defecto (estado) — nunca se
+inventa un dato.
+
+### Cálculo de tendencias (`diferencia_valor`, `porcentaje_diferencia`, `tendencia_dias`, `aceleracion`)
+
+La API no da estos cuatro campos (solo el valor actual). `Sincronizar base
+de datos.py` los calcula él mismo, en `calcular_tendencias()`, después de
+sincronizar `historial_valor`: lee las últimas 15 filas de cada jugador
+(vía `row_number() over (partition by id order by fecha desc)`), calcula la
+diferencia contra el valor de ayer, cuenta cuántos días seguidos lleva la
+misma dirección (`tendencia_dias`), y aproxima `aceleracion` a las mismas 7
+categorías que ya usaba la web (`clasificar_aceleracion()`: compara la
+variación de hoy contra la de ayer, "Inflexión" si cambia de signo, si no
+por umbrales de `UMBRAL_ACELERACION_MUCHO`/`NORMAL`). **Aprobado
+explícitamente por el usuario que esto es una aproximación, no la fórmula
+real de futbolfantasy.com** (que nunca se conoció). Los primeros días tras
+la migración estos campos quedan vacíos por falta de histórico — necesitan
+al menos 2 días de `historial_valor` para calcular nada, y 3 para
+`aceleracion`.
+
+### Estado final verificado en directo (14/08/2026)
+
+- Esquema recreado en Supabase (backup previo confirmado: 608 jugadores,
+  2.961 historial, 8.341 puntos, 30.974 detalle, en
+  `Datos/Backup antes de pivote LaLiga Fantasy.json`).
+- Pipeline completo corrido en local: `equipos` (20), `jugadores` (692,
+  filtrando los que no son de los 20 clubes de esta temporada ni tienen
+  posición de jugador real), `historial_valor` (692, primer día),
+  `tendencias` (0, sin histórico suficiente todavía), `puntos_jornada` /
+  `puntos_jornada_detalle` (0, pretemporada), `calendario` (109) — sin
+  errores, confirmado además que correr `Sincronizar` dos veces seguidas no
+  duplica filas.
+- Comprobado en la web en local (`/jugadores`): posiciones en español
+  completo, equipos con nombre oficial largo, estado emparejado
+  correctamente para jugadores lesionados/sancionados reales (ej.
+  "Yeremay — Pubalgia, desde 08/07"), Le Normand con `valor` = 16.405.623
+  (su cláusula real, no el `marketValue` de 9.843.374).
+- `requirements.txt`: se quitó `lxml` (ya no lo usa ningún script, era solo
+  para la ficha pesada de `Ingestar datos 2.py`, eliminado).
+- `.github/workflows/scraping.yml` actualizado: `Ingestar datos liga.py` +
+  `Ingestar datos 1.py` + `Ingestar datos estado.py` en el cron horario
+  (`0 * * * *`), `Ingestar datos 3.py` + `Descargar imágenes.py` en el de
+  4-6h, `Sincronizar base de datos.py` al final de cualquiera de los dos.
+  `workflow_dispatch.modo` renombrado de `solo-mercado`/`solo-pesado` a
+  `solo-barato`/`solo-pesado`. Nuevos secretos del repo (pendiente de que
+  el usuario los añada en GitHub, igual que en su día con `DATABASE_URL`):
+  `LALIGA_FANTASY_EMAIL`, `LALIGA_FANTASY_PASSWORD`,
+  `LALIGA_FANTASY_LEAGUE_ID`.
+
+**Pendiente de verdad (no se puede avanzar más sin datos reales o sin más
+managers en la liga)**:
+- `minutos_jugados`/`puntos_jornada`/`puntos_jornada_detalle`: en cuanto se
+  jueguen partidos de LaLiga 2026/27, hay que volver a mirar `playerStats`
+  con datos reales y escribir el parser — hoy está vacío en todas las
+  respuestas de la API, formato desconocido.
+- La liga privada "Prueba" solo tiene al usuario (`managersNumber: 1`). El
+  emparejador de `valor` por `buyoutClause` ya está preparado para varios
+  equipos (recorre todos los de `standing`), pero no se ha probado todavía
+  con la cláusula de un compañero, solo con la propia.
+
+Plan completo de esta conversación:
+`C:\Users\vicen\.claude\plans\shiny-frolicking-neumann.md`.
+
 ## Lo que queda pendiente (no implementado todavía)
 
-- Ver "Pendiente dentro de Paso 7" justo arriba.
+- Ver "Pendiente dentro de Paso 7" arriba (Vercel, gráficas ya hechas en
+  realidad — ver `Web/src/components/GraficaValor.tsx` y
+  `HistorialPuntos.tsx`, este documento no se había actualizado con eso;
+  rol de Postgres de solo lectura para la web).
+- Ver "Pendiente de verdad" al final del Paso 8 (puntos/minutos por
+  jornada, cláusula de un compañero de liga).
+- Añadir los secretos nuevos de GitHub Actions (`LALIGA_FANTASY_EMAIL`,
+  `LALIGA_FANTASY_PASSWORD`, `LALIGA_FANTASY_LEAGUE_ID`) — el usuario tiene
+  que hacerlo a mano en *Settings → Secrets and variables → Actions*, igual
+  que hizo con `DATABASE_URL` en el Paso 6.

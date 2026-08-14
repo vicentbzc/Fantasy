@@ -1,7 +1,9 @@
 import csv
 import importlib.util
+import json
 import os
 import re
+import unicodedata
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -57,6 +59,36 @@ HEADERS = {
 URL_MERCADO = "https://www.futbolfantasy.com/analytics/laliga-fantasy/mercado"
 
 PATRON_ID_JUGADOR = re.compile(r"^\d+$")
+
+URL_BASE_LALIGA_FANTASY = "https://fantasy-api.llt-services.com/api/v1/competition/1"
+URL_LOGIN_LALIGA_FANTASY = "https://login.laliga.es/laligadspprob2c.onmicrosoft.com/oauth2/v2.0/token?p=B2C_1A_ResourceOwnerv2"
+CLIENT_ID_LALIGA_FANTASY = "af88bcff-1157-40a0-b579-030728aacf0b"
+REDIRECT_URI_LALIGA_FANTASY = "authredirect://com.lfp.laligafantasy"
+
+MAPA_EQUIPO_ID_OFICIAL_A_CORTO = {
+    2: "Atlético", 3: "Athletic", 4: "Barcelona", 5: "Betis", 6: "Celta",
+    7: "Elche", 8: "Espanyol", 9: "Getafe", 11: "Levante", 12: "Málaga",
+    13: "Osasuna", 14: "Rayo", 15: "Real Madrid", 16: "Real Sociedad",
+    17: "Sevilla", 18: "Valencia", 20: "Villarreal", 21: "Alavés",
+    26: "Deportivo", 49: "Racing",
+}
+
+MAPA_POSICION_OFICIAL = {
+    "1": "Portero", "2": "Defensa", "3": "Mediocampista", "4": "Delantero",
+}
+
+
+def equipo_oficial_a_nombre_largo(id_equipo_oficial):
+    nombre_corto = MAPA_EQUIPO_ID_OFICIAL_A_CORTO.get(int(id_equipo_oficial))
+    return MAPA_EQUIPOS.get(nombre_corto) if nombre_corto else None
+
+
+PREFIJO_FOTO_LALIGA_FANTASY = "https://assets-fantasy.llt-services.com/"
+
+
+def normalizar_nombre(texto):
+    sin_acentos = unicodedata.normalize("NFKD", texto or "").encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"\s+", " ", sin_acentos).strip().lower()
 
 CARPETA_DATOS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "Datos"))
 os.makedirs(CARPETA_DATOS, exist_ok=True)
@@ -128,6 +160,85 @@ def obtener_configuracion(nombre_variable):
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
     return getattr(modulo, nombre_variable, None)
+
+
+def guardar_json(ruta_archivo, datos):
+    ruta_temporal = f"{ruta_archivo}.tmp"
+    with open(ruta_temporal, "w", encoding="utf-8") as f:
+        json.dump(datos, f)
+    os.replace(ruta_temporal, ruta_archivo)
+
+
+def leer_json(ruta_archivo):
+    if not os.path.isfile(ruta_archivo):
+        return None
+    with open(ruta_archivo, encoding="utf-8") as f:
+        return json.load(f)
+
+
+RUTA_TOKEN_LALIGA_FANTASY = os.path.join(CARPETA_DATOS, "Token LaLiga Fantasy.json")
+
+
+def _iniciar_sesion_laliga_fantasy(sesion, email, password):
+    respuesta = sesion.post(
+        URL_LOGIN_LALIGA_FANTASY,
+        data={
+            "grant_type": "password",
+            "client_id": CLIENT_ID_LALIGA_FANTASY,
+            "scope": f"openid {CLIENT_ID_LALIGA_FANTASY} offline_access",
+            "redirect_uri": REDIRECT_URI_LALIGA_FANTASY,
+            "username": email,
+            "password": password,
+            "response_type": "id_token",
+        },
+        timeout=20,
+    )
+    if respuesta.status_code in (401, 403, 429):
+        raise ErrorBloqueo(f"login de LaLiga Fantasy ha respondido {respuesta.status_code}")
+    respuesta.raise_for_status()
+    return respuesta.json()
+
+
+def _refrescar_token_laliga_fantasy(sesion, refresh_token):
+    respuesta = sesion.post(
+        URL_LOGIN_LALIGA_FANTASY,
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": CLIENT_ID_LALIGA_FANTASY,
+            "scope": f"openid {CLIENT_ID_LALIGA_FANTASY} offline_access",
+        },
+        timeout=20,
+    )
+    if respuesta.status_code in (401, 403, 429):
+        raise ErrorBloqueo(f"refresco de token de LaLiga Fantasy ha respondido {respuesta.status_code}")
+    respuesta.raise_for_status()
+    return respuesta.json()
+
+
+def obtener_token_laliga_fantasy(sesion):
+    cache = leer_json(RUTA_TOKEN_LALIGA_FANTASY)
+    if cache is not None and cache.get("refresh_token"):
+        try:
+            token = _refrescar_token_laliga_fantasy(sesion, cache["refresh_token"])
+            guardar_json(RUTA_TOKEN_LALIGA_FANTASY, token)
+            return token["access_token"]
+        except ErrorBloqueo:
+            pass
+
+    email = obtener_configuracion("LALIGA_FANTASY_EMAIL")
+    password = obtener_configuracion("LALIGA_FANTASY_PASSWORD")
+    token = _iniciar_sesion_laliga_fantasy(sesion, email, password)
+    guardar_json(RUTA_TOKEN_LALIGA_FANTASY, token)
+    return token["access_token"]
+
+
+def descargar_json_autenticado(sesion, url, token, timeout=20):
+    respuesta = sesion.get(url, timeout=timeout, headers={"Authorization": f"Bearer {token}"})
+    if respuesta.status_code in (401, 403, 429):
+        raise ErrorBloqueo(f"la API de LaLiga Fantasy ha respondido {respuesta.status_code} en {url}")
+    respuesta.raise_for_status()
+    return respuesta.json()
 
 
 def subir_a_storage(url_supabase, bucket, ruta, contenido, clave_servicio):

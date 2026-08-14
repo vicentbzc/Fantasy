@@ -11,7 +11,7 @@ on:
         type: choice
         options:
           - todo
-          - solo-mercado
+          - solo-barato
           - solo-pesado
         default: todo
 
@@ -39,20 +39,28 @@ jobs:
           key: datos-fantasy-${{ github.run_id }}
           restore-keys: datos-fantasy-
 
-      - name: Ingestar datos 1 (mercado)
+      - name: Ingestar datos liga (API LaLiga Fantasy)
+        if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-pesado')
+        env:
+          LALIGA_FANTASY_EMAIL: ${{ secrets.LALIGA_FANTASY_EMAIL }}
+          LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
+          LALIGA_FANTASY_LEAGUE_ID: ${{ secrets.LALIGA_FANTASY_LEAGUE_ID }}
+        run: python "Scripts/Ingestar datos liga.py"
+
+      - name: Ingestar datos 1 (titularidad)
         if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-pesado')
         run: python "Scripts/Ingestar datos 1.py"
 
-      - name: Ingestar datos 2 (ficha de jugador)
-        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-mercado')
-        run: python "Scripts/Ingestar datos 2.py"
+      - name: Ingestar datos estado (lesionados/sancionados)
+        if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-pesado')
+        run: python "Scripts/Ingestar datos estado.py"
 
       - name: Ingestar datos 3 (calendario)
-        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-mercado')
+        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-barato')
         run: python "Scripts/Ingestar datos 3.py"
 
       - name: Descargar imágenes
-        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-mercado')
+        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-barato')
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

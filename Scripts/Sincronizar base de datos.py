@@ -20,11 +20,6 @@ def parsear_porcentaje(texto):
     return float(texto.rstrip("%"))
 
 
-def parsear_tendencia_dias(texto):
-    coincidencia = re.match(r"(\d+)", texto or "")
-    return int(coincidencia.group(1)) if coincidencia else None
-
-
 def parsear_jornada_numero(texto):
     coincidencia = re.search(r"\d+", texto or "")
     return int(coincidencia.group()) if coincidencia else None
@@ -42,6 +37,49 @@ def parsear_fecha(texto):
 
 def dividir(texto):
     return texto.split(" | ") if texto else []
+
+
+def tokenizar_nombre(nombre):
+    return [t for t in re.split(r"[^a-z0-9]+", Común.normalizar_nombre(nombre)) if t]
+
+
+def tokens_coinciden(a, b):
+    if a == b:
+        return True
+    if len(a) == 1 or len(b) == 1:
+        return a[0] == b[0]
+    return False
+
+
+def nombres_coinciden(nombre_a, nombre_b):
+    tokens_a = tokenizar_nombre(nombre_a)
+    tokens_b = tokenizar_nombre(nombre_b)
+    if not tokens_a or not tokens_b:
+        return False
+    cortos, largos = (tokens_a, tokens_b) if len(tokens_a) <= len(tokens_b) else (tokens_b, tokens_a)
+    restantes = list(largos)
+    for token in cortos:
+        for i, candidato in enumerate(restantes):
+            if tokens_coinciden(token, candidato):
+                del restantes[i]
+                break
+        else:
+            return False
+    return True
+
+
+def emparejar_por_nombre(filas_objetivo, filas_fuente, columna_valor):
+    por_equipo = {}
+    for fila in filas_fuente:
+        por_equipo.setdefault(fila["Equipo"], []).append(fila)
+
+    resultado = {}
+    for fila in filas_objetivo:
+        for candidato in por_equipo.get(fila["Equipo"], []):
+            if nombres_coinciden(fila["Jugador"], candidato["Jugador"]):
+                resultado[fila["ID"]] = candidato[columna_valor]
+                break
+    return resultado
 
 
 PATRON_PARTE_ESTADISTICA = re.compile(r"^(?:(-?[\d.,]+) )?(.+): (-?\d+(?:\.\d+)?) puntos?$")
@@ -89,26 +127,22 @@ def sincronizar_equipos(cur):
 
 
 def sincronizar_jugadores(cur):
-    mercado = {fila["ID"]: fila for fila in leer_csv("Datos 1.csv")}
-    fichas = {fila["ID"]: fila for fila in leer_csv("Datos 2.csv")}
+    jugadores = leer_csv("Datos Jugadores.csv")
+    titularidad_por_id = emparejar_por_nombre(jugadores, leer_csv("Datos Titularidad.csv"), "Porcentaje de titularidad")
+    estado_por_id = emparejar_por_nombre(jugadores, leer_csv("Datos Estado.csv"), "Estado")
 
-    filas = []
-    for id_texto, mercado_fila in mercado.items():
-        ficha_fila = fichas.get(id_texto, {})
-        filas.append((
-            int(id_texto),
-            mercado_fila["Jugador"],
-            mercado_fila["Equipo"],
-            mercado_fila["Posición"],
-            parsear_porcentaje(mercado_fila["Porcentaje de titularidad"]),
-            parsear_entero_miles(mercado_fila["Valor"]),
-            parsear_entero_miles(mercado_fila["Diferencia de valor"]),
-            parsear_porcentaje(mercado_fila["Porcentaje de diferencia"]),
-            mercado_fila["Aceleración"],
-            parsear_tendencia_dias(mercado_fila["Tendencia"]),
-            ficha_fila.get("Estado"),
-            parsear_entero(ficha_fila.get("Minutos jugados")),
-        ))
+    filas = [
+        (
+            int(jugador["ID"]),
+            jugador["Jugador"],
+            jugador["Equipo"],
+            jugador["Posición"],
+            parsear_porcentaje(titularidad_por_id.get(jugador["ID"])),
+            parsear_entero_miles(jugador["Valor"]),
+            estado_por_id.get(jugador["ID"], "Disponible"),
+        )
+        for jugador in jugadores
+    ]
 
     if not filas:
         return 0
@@ -117,9 +151,7 @@ def sincronizar_jugadores(cur):
         cur,
         """
         insert into jugadores (
-            id, nombre, equipo, posicion, porcentaje_titularidad, valor,
-            diferencia_valor, porcentaje_diferencia, aceleracion, tendencia_dias,
-            estado, minutos_jugados
+            id, nombre, equipo, posicion, porcentaje_titularidad, valor, estado
         ) values %s
         on conflict (id) do update set
             nombre = excluded.nombre,
@@ -127,12 +159,7 @@ def sincronizar_jugadores(cur):
             posicion = excluded.posicion,
             porcentaje_titularidad = excluded.porcentaje_titularidad,
             valor = excluded.valor,
-            diferencia_valor = excluded.diferencia_valor,
-            porcentaje_diferencia = excluded.porcentaje_diferencia,
-            aceleracion = excluded.aceleracion,
-            tendencia_dias = excluded.tendencia_dias,
             estado = excluded.estado,
-            minutos_jugados = excluded.minutos_jugados,
             actualizado_en = now()
         """,
         filas,
@@ -149,7 +176,7 @@ def sincronizar_historial(cur):
             fila["Equipo"],
             parsear_entero_miles(fila["Valor"]),
         )
-        for fila in leer_csv("Datos 6.csv")
+        for fila in leer_csv("Datos Historial valor.csv")
     ]
 
     if not filas:
@@ -167,6 +194,87 @@ def sincronizar_historial(cur):
     return len(filas)
 
 
+UMBRAL_ACELERACION_MUCHO = 1.0
+UMBRAL_ACELERACION_NORMAL = 0.2
+
+
+def clasificar_aceleracion(velocidad_hoy, velocidad_ayer):
+    if velocidad_hoy > 0 and velocidad_ayer < 0:
+        return "Inflexión positiva"
+    if velocidad_hoy < 0 and velocidad_ayer > 0:
+        return "Inflexión negativa"
+    cambio = velocidad_hoy - velocidad_ayer
+    if cambio > UMBRAL_ACELERACION_MUCHO:
+        return "Acelera mucho"
+    if cambio > UMBRAL_ACELERACION_NORMAL:
+        return "Acelera"
+    if cambio < -UMBRAL_ACELERACION_MUCHO:
+        return "Desacelera mucho"
+    if cambio < -UMBRAL_ACELERACION_NORMAL:
+        return "Desacelera"
+    return "Estable"
+
+
+def calcular_tendencias(cur):
+    cur.execute("""
+        select id, fecha, valor from (
+            select id, fecha, valor,
+                   row_number() over (partition by id order by fecha desc) as posicion
+            from historial_valor
+        ) reciente
+        where posicion <= 15
+        order by id, fecha desc
+    """)
+
+    historico_por_jugador = {}
+    for id_jugador, fecha, valor in cur.fetchall():
+        historico_por_jugador.setdefault(id_jugador, []).append(valor)
+
+    actualizaciones = []
+    for id_jugador, valores in historico_por_jugador.items():
+        if len(valores) < 2 or valores[0] is None or valores[1] is None or not valores[1]:
+            continue
+
+        diferencia = valores[0] - valores[1]
+        porcentaje = round(diferencia / valores[1] * 100, 2)
+
+        direccion = 1 if diferencia > 0 else (-1 if diferencia < 0 else 0)
+        tendencia_dias = 0
+        for i in range(len(valores) - 1):
+            if valores[i] is None or valores[i + 1] is None or not valores[i + 1]:
+                break
+            delta = valores[i] - valores[i + 1]
+            dir_delta = 1 if delta > 0 else (-1 if delta < 0 else 0)
+            if dir_delta != direccion or dir_delta == 0:
+                break
+            tendencia_dias += 1
+
+        aceleracion = "Estable"
+        if len(valores) >= 3 and valores[2] not in (None, 0):
+            porcentaje_anterior = round((valores[1] - valores[2]) / valores[2] * 100, 2)
+            aceleracion = clasificar_aceleracion(porcentaje, porcentaje_anterior)
+
+        actualizaciones.append((id_jugador, diferencia, porcentaje, tendencia_dias, aceleracion))
+
+    if not actualizaciones:
+        return 0
+
+    execute_values(
+        cur,
+        """
+        update jugadores as j set
+            diferencia_valor = datos.diferencia_valor,
+            porcentaje_diferencia = datos.porcentaje_diferencia,
+            tendencia_dias = datos.tendencia_dias,
+            aceleracion = datos.aceleracion
+        from (values %s) as datos (id, diferencia_valor, porcentaje_diferencia, tendencia_dias, aceleracion)
+        where j.id = datos.id
+        """,
+        actualizaciones,
+    )
+    return len(actualizaciones)
+
+
 def sincronizar_puntos(cur):
     filas = [
         (
@@ -178,7 +286,7 @@ def sincronizar_puntos(cur):
             fila["Estadísticas"],
             parsear_entero(fila["Tarjetas amarillas acumuladas"]),
         )
-        for fila in leer_csv("Datos 4.csv")
+        for fila in leer_csv("Datos Puntos jornada.csv")
     ]
 
     if not filas:
@@ -206,7 +314,7 @@ def sincronizar_puntos(cur):
 def sincronizar_detalle_estadisticas(cur):
     pares_id_jornada = []
     detalle = []
-    for fila in leer_csv("Datos 4.csv"):
+    for fila in leer_csv("Datos Puntos jornada.csv"):
         id_jugador = int(fila["ID"])
         jornada = parsear_jornada_numero(fila["Jornada"])
         pares_id_jornada.append((id_jugador, jornada))
@@ -279,6 +387,7 @@ def main():
                 ("equipos", sincronizar_equipos),
                 ("jugadores", sincronizar_jugadores),
                 ("historial_valor", sincronizar_historial),
+                ("tendencias", calcular_tendencias),
                 ("puntos_jornada", sincronizar_puntos),
                 ("puntos_jornada_detalle", sincronizar_detalle_estadisticas),
                 ("calendario", sincronizar_calendario),

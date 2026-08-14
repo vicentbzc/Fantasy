@@ -6,13 +6,18 @@ import Común
 
 CARPETA_JUGADORES = Común.ruta_datos(os.path.join("Imágenes", "Jugadores"))
 CARPETA_EQUIPOS = Común.ruta_datos(os.path.join("Imágenes", "Equipos"))
+CARPETA_COMPETICIONES = Común.ruta_datos(os.path.join("Imágenes", "Competiciones"))
 
 URL_ESCUDO = "https://static.futbolfantasy.com/uploads/images/cabecera/hd/{id_equipo}.png"
+
+URLS_COMPETICIONES = {
+    "laliga": "https://static.futbolfantasy.com/uploads/images/logos_competiciones/laliga2023.png",
+}
 
 BUCKET_IMAGENES = "imagenes"
 
 
-def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos 2.csv")):
+def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos Jugadores.csv")):
     if not os.path.isfile(ruta_archivo):
         return []
     with open(ruta_archivo, encoding="utf-8") as f:
@@ -35,6 +40,7 @@ def descargar_si_falta(sesion, url, ruta_destino, ruta_storage, url_supabase, cl
 if __name__ == "__main__":
     os.makedirs(CARPETA_JUGADORES, exist_ok=True)
     os.makedirs(CARPETA_EQUIPOS, exist_ok=True)
+    os.makedirs(CARPETA_COMPETICIONES, exist_ok=True)
 
     url_supabase = Común.obtener_configuracion("SUPABASE_URL")
     clave_servicio = Común.obtener_configuracion("SUPABASE_SERVICE_ROLE_KEY")
@@ -62,6 +68,20 @@ if __name__ == "__main__":
                     URL_ESCUDO.format(id_equipo=id_equipo),
                     os.path.join(CARPETA_EQUIPOS, f"{id_equipo}.png"),
                     f"equipos/{id_equipo}.png",
+                    url_supabase, clave_servicio,
+                )
+            except Común.ErrorBloqueo:
+                break
+            except Exception:
+                continue
+
+        for slug, url_competicion in URLS_COMPETICIONES.items():
+            try:
+                descargar_si_falta(
+                    sesion,
+                    url_competicion,
+                    os.path.join(CARPETA_COMPETICIONES, f"{slug}.png"),
+                    f"competiciones/{slug}.png",
                     url_supabase, clave_servicio,
                 )
             except Común.ErrorBloqueo:

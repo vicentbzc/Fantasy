@@ -1,0 +1,125 @@
+import csv
+import os
+import time
+from datetime import date
+
+import Común
+
+
+def construir_valores_liga(sesion, token, id_liga):
+    valores = {}
+    try:
+        standing = Común.descargar_json_autenticado(
+            sesion,
+            f"{Común.URL_BASE_LALIGA_FANTASY}/leagues/{id_liga}/standing?x-lang=es",
+            token,
+        )
+    except Común.ErrorBloqueo:
+        return valores
+
+    for puesto in standing:
+        id_equipo = puesto["team"]["id"]
+        try:
+            plantilla = Común.descargar_json_autenticado(
+                sesion,
+                f"{Común.URL_BASE_LALIGA_FANTASY}/leagues/{id_liga}/teams/{id_equipo}?x-lang=es",
+                token,
+            )
+        except Común.ErrorBloqueo:
+            time.sleep(1)
+            continue
+        for jugador in plantilla.get("players", []):
+            valores[jugador["playerMaster"]["id"]] = jugador["buyoutClause"]
+        time.sleep(1)
+
+    return valores
+
+
+def guardar_jugadores(filas, ruta_archivo=Común.ruta_datos("Datos Jugadores.csv")):
+    columnas = ["ID", "Jugador", "Equipo", "Posición", "Valor", "Foto"]
+    Común.guardar_csv(ruta_archivo, columnas, filas)
+
+
+def guardar_historial(filas, ruta_archivo=Común.ruta_datos("Datos Historial valor.csv")):
+    hoy = date.today().strftime("%d/%m/%Y")
+    columnas = ["Fecha", "ID", "Jugador", "Equipo", "Valor"]
+
+    archivo_existe = os.path.isfile(ruta_archivo)
+
+    if archivo_existe:
+        with open(ruta_archivo, encoding="utf-8") as f:
+            ya_guardado_hoy = any(fila.startswith(hoy + ",") for fila in f)
+        if ya_guardado_hoy:
+            return
+
+    with open(ruta_archivo, "a", newline="", encoding="utf-8") as f:
+        escritor = csv.DictWriter(f, fieldnames=columnas)
+        if not archivo_existe:
+            escritor.writeheader()
+        for fila in filas:
+            escritor.writerow({
+                "Fecha": hoy,
+                "ID": fila["ID"],
+                "Jugador": fila["Jugador"],
+                "Equipo": fila["Equipo"],
+                "Valor": fila["Valor"],
+            })
+
+
+def guardar_puntos_jornada(ruta_archivo=Común.ruta_datos("Datos Puntos jornada.csv")):
+    columnas = ["ID", "Jugador", "Equipo", "Jornada", "Puntos", "Estadísticas", "Tarjetas amarillas acumuladas"]
+    Común.guardar_csv(ruta_archivo, columnas, [])
+
+
+if __name__ == "__main__":
+    sesion = Común.crear_sesion()
+    id_liga = Común.obtener_configuracion("LALIGA_FANTASY_LEAGUE_ID")
+
+    try:
+        token = Común.obtener_token_laliga_fantasy(sesion)
+    except Común.ErrorBloqueo:
+        token = None
+
+    if token is not None:
+        try:
+            catalogo = Común.descargar_json_autenticado(
+                sesion,
+                f"{Común.URL_BASE_LALIGA_FANTASY}/players?x-lang=es",
+                token,
+            )
+        except Común.ErrorBloqueo:
+            catalogo = []
+
+        valores_liga = construir_valores_liga(sesion, token, id_liga)
+
+        filas = []
+        for jugador in catalogo:
+            posicion = Común.MAPA_POSICION_OFICIAL.get(str(jugador.get("positionId")))
+            if posicion is None:
+                continue
+            equipo = Común.equipo_oficial_a_nombre_largo(jugador.get("teamId"))
+            if equipo is None:
+                continue
+            id_oficial = jugador.get("id")
+            try:
+                valor = int(valores_liga.get(id_oficial, jugador.get("marketValue")))
+            except (TypeError, ValueError):
+                continue
+            foto = jugador.get("image", "")
+            if not foto.startswith(Común.PREFIJO_FOTO_LALIGA_FANTASY):
+                foto = ""
+            filas.append({
+                "ID": id_oficial,
+                "Jugador": jugador.get("nickname", ""),
+                "Equipo": equipo,
+                "Posición": posicion,
+                "Valor": Común.formatear_miles(valor),
+                "Foto": foto,
+            })
+
+        if filas:
+            guardar_jugadores(filas)
+            guardar_historial(filas)
+            guardar_puntos_jornada()
+
+    time.sleep(1)
