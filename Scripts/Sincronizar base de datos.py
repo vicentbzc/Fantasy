@@ -68,7 +68,7 @@ def nombres_coinciden(nombre_a, nombre_b):
     return True
 
 
-def emparejar_por_nombre(filas_objetivo, filas_fuente, columna_valor):
+def emparejar_por_nombre(filas_objetivo, filas_fuente):
     por_equipo = {}
     for fila in filas_fuente:
         por_equipo.setdefault(fila["Equipo"], []).append(fila)
@@ -77,34 +77,9 @@ def emparejar_por_nombre(filas_objetivo, filas_fuente, columna_valor):
     for fila in filas_objetivo:
         for candidato in por_equipo.get(fila["Equipo"], []):
             if nombres_coinciden(fila["Jugador"], candidato["Jugador"]):
-                resultado[fila["ID"]] = candidato[columna_valor]
+                resultado[fila["ID"]] = candidato
                 break
     return resultado
-
-
-PATRON_PARTE_ESTADISTICA = re.compile(r"^(?:(-?[\d.,]+) )?(.+): (-?\d+(?:\.\d+)?) puntos?$")
-
-
-def parsear_cantidad_estadistica(texto):
-    if texto is None:
-        return None
-    try:
-        return float(texto.replace(",", "."))
-    except ValueError:
-        return None
-
-
-def parsear_detalle_estadisticas(texto):
-    if not texto or texto == "sin estadísticas destacadas":
-        return []
-    detalle = []
-    for orden, parte in enumerate(texto.split(", "), start=1):
-        coincidencia = PATRON_PARTE_ESTADISTICA.match(parte)
-        if not coincidencia:
-            continue
-        cantidad_texto, estadistica, puntos_texto = coincidencia.groups()
-        detalle.append((orden, estadistica, parsear_cantidad_estadistica(cantidad_texto), float(puntos_texto)))
-    return detalle
 
 
 def leer_csv(nombre_archivo):
@@ -128,10 +103,8 @@ def sincronizar_equipos(cur):
 
 def sincronizar_jugadores(cur):
     jugadores = leer_csv("Datos Jugadores.csv")
-    titularidad_datos = leer_csv("Datos Titularidad.csv")
-    titularidad_por_id = emparejar_por_nombre(jugadores, titularidad_datos, "Porcentaje de titularidad")
-    foto_por_id = emparejar_por_nombre(jugadores, titularidad_datos, "Foto")
-    estado_por_id = emparejar_por_nombre(jugadores, leer_csv("Datos Estado.csv"), "Estado")
+    coincidencias_mercado = emparejar_por_nombre(jugadores, leer_csv("Datos Titularidad.csv"))
+    coincidencias_estado = emparejar_por_nombre(jugadores, leer_csv("Datos Estado.csv"))
 
     filas = [
         (
@@ -139,10 +112,10 @@ def sincronizar_jugadores(cur):
             jugador["Jugador"],
             jugador["Equipo"],
             jugador["Posición"],
-            parsear_porcentaje(titularidad_por_id.get(jugador["ID"])),
+            parsear_porcentaje(coincidencias_mercado.get(jugador["ID"], {}).get("Porcentaje de titularidad")),
             parsear_entero_miles(jugador["Valor"]),
             parsear_entero_miles(jugador["Valor en la liga"]),
-            estado_por_id.get(jugador["ID"], "Disponible para competir"),
+            coincidencias_estado.get(jugador["ID"], {}).get("Estado", "Disponible para competir"),
         )
         for jugador in jugadores
     ]
@@ -170,13 +143,11 @@ def sincronizar_jugadores(cur):
     )
 
     fotos = [
-        (int(jugador["ID"]), foto_por_id[jugador["ID"]])
+        {"ID": jugador["ID"], "Foto": coincidencias_mercado[jugador["ID"]]["Foto"]}
         for jugador in jugadores
-        if foto_por_id.get(jugador["ID"])
+        if coincidencias_mercado.get(jugador["ID"], {}).get("Foto")
     ]
-    Común.guardar_csv(Común.ruta_datos("Datos Fotos.csv"), ["ID", "Foto"], [
-        {"ID": id_jugador, "Foto": foto} for id_jugador, foto in fotos
-    ])
+    Común.guardar_csv(Común.ruta_datos("Datos Fotos.csv"), ["ID", "Foto"], fotos)
 
     return len(filas)
 
@@ -325,38 +296,6 @@ def sincronizar_puntos(cur):
     return len(filas)
 
 
-def sincronizar_detalle_estadisticas(cur):
-    pares_id_jornada = []
-    detalle = []
-    for fila in leer_csv("Datos Puntos jornada.csv"):
-        id_jugador = int(fila["ID"])
-        jornada = parsear_jornada_numero(fila["Jornada"])
-        pares_id_jornada.append((id_jugador, jornada))
-        for orden, estadistica, cantidad, puntos in parsear_detalle_estadisticas(fila["Estadísticas"]):
-            detalle.append((id_jugador, jornada, orden, estadistica, cantidad, puntos))
-
-    if not pares_id_jornada:
-        return 0
-
-    execute_values(
-        cur,
-        "delete from puntos_jornada_detalle where (id, jornada) in (values %s)",
-        pares_id_jornada,
-    )
-
-    if detalle:
-        execute_values(
-            cur,
-            """
-            insert into puntos_jornada_detalle (id, jornada, orden, estadistica, cantidad, puntos)
-            values %s
-            """,
-            detalle,
-        )
-
-    return len(detalle)
-
-
 def sincronizar_calendario(cur):
     total = 0
     for fila in leer_csv("Datos 3.csv"):
@@ -403,7 +342,6 @@ def main():
                 ("historial_valor", sincronizar_historial),
                 ("tendencias", calcular_tendencias),
                 ("puntos_jornada", sincronizar_puntos),
-                ("puntos_jornada_detalle", sincronizar_detalle_estadisticas),
                 ("calendario", sincronizar_calendario),
             ]:
                 try:

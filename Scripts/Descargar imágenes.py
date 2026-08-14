@@ -24,7 +24,7 @@ def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos Fotos.csv")):
         return [
             (fila["ID"], fila["Foto"])
             for fila in csv.DictReader(f)
-            if fila.get("ID") and fila.get("Foto") and Común.PATRON_ID_JUGADOR.match(fila["ID"])
+            if fila.get("ID") and fila.get("Foto") and fila["ID"].isdigit()
         ]
 
 

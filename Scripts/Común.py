@@ -58,8 +58,6 @@ HEADERS = {
 
 URL_MERCADO = "https://www.futbolfantasy.com/analytics/laliga-fantasy/mercado"
 
-PATRON_ID_JUGADOR = re.compile(r"^\d+$")
-
 URL_BASE_LALIGA_FANTASY = "https://fantasy-api.llt-services.com/api/v1/competition/1"
 URL_LOGIN_LALIGA_FANTASY = "https://login.laliga.es/laligadspprob2c.onmicrosoft.com/oauth2/v2.0/token?p=B2C_1A_ResourceOwnerv2"
 CLIENT_ID_LALIGA_FANTASY = "af88bcff-1157-40a0-b579-030728aacf0b"
@@ -275,10 +273,6 @@ def _leer_fila_mercado(fila):
     if posicion not in POSICIONES_VALIDAS:
         return None
 
-    id_jugador = fila.get("data-id", "")
-    if not PATRON_ID_JUGADOR.match(id_jugador):
-        return None
-
     equipo_corto = fila.select_one(".player-equipo span")
     equipo_corto = equipo_corto.get_text(strip=True) if equipo_corto else ""
     equipo = MAPA_EQUIPOS.get(equipo_corto)
@@ -290,22 +284,7 @@ def _leer_fila_mercado(fila):
     if not nombre:
         return None
 
-    valor = fila.get("data-valor", "")
-
-    diferencia = fila.get("data-diferencia1", "")
-    diferencia_pct_raw = fila.get("data-diferencia-pct1", "")
-    diferencia_pct = round(float(diferencia_pct_raw), 2) if diferencia_pct_raw else ""
-
     celdas = fila.find_all("td")
-
-    icono_aceleracion = celdas[3].find("i") if len(celdas) > 3 else None
-    aceleracion = icono_aceleracion.get("data-tooltip", "").strip() if icono_aceleracion else ""
-    if aceleracion.lower() == "inflexión negativa":
-        aceleracion = "Inflexión negativa"
-
-    tendencia_raw = fila.get("data-tendencia", "0")
-    dias_tendencia = abs(int(tendencia_raw))
-    tendencia = f"{dias_tendencia} día" if dias_tendencia == 1 else f"{dias_tendencia} días"
 
     titularidad = ""
     if len(celdas) > 5:
@@ -318,15 +297,8 @@ def _leer_fila_mercado(fila):
         foto = ""
 
     return {
-        "id": id_jugador,
         "nombre": nombre,
         "equipo": equipo,
-        "posicion": posicion,
         "titularidad": titularidad,
-        "valor": valor,
-        "diferencia": diferencia,
-        "diferencia_pct": diferencia_pct,
-        "aceleracion": aceleracion,
-        "tendencia": tendencia,
         "foto": foto,
     }
