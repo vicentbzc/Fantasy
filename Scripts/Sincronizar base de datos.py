@@ -1,4 +1,5 @@
 import csv
+import os
 import re
 from datetime import datetime
 
@@ -18,6 +19,12 @@ def parsear_porcentaje(texto):
     if not texto:
         return None
     return float(texto.rstrip("%"))
+
+
+def parsear_numero(texto):
+    if not texto:
+        return None
+    return float(texto)
 
 
 def parsear_jornada_numero(texto):
@@ -88,14 +95,28 @@ def leer_csv(nombre_archivo):
         return list(csv.DictReader(f))
 
 
+def leer_csv_opcional(nombre_archivo):
+    ruta = Común.ruta_datos(nombre_archivo)
+    if not os.path.isfile(ruta):
+        return []
+    with open(ruta, encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
 def sincronizar_equipos(cur):
+    nombres_oficiales = {fila["Equipo"]: fila["Nombre oficial"] for fila in leer_csv_opcional("Datos Equipos.csv")}
     filas = [
-        (nombre, Común.NOMBRE_OFICIAL_A_ID.get(nombre))
+        (nombre, Común.NOMBRE_OFICIAL_A_ID.get(nombre), nombres_oficiales.get(nombre))
         for nombre in Común.MAPA_EQUIPOS_INVERSO.keys()
     ]
     execute_values(
         cur,
-        "insert into equipos (nombre, id) values %s on conflict (nombre) do update set id = excluded.id",
+        """
+        insert into equipos (nombre, id, nombre_oficial) values %s
+        on conflict (nombre) do update set
+            id = excluded.id,
+            nombre_oficial = coalesce(excluded.nombre_oficial, equipos.nombre_oficial)
+        """,
         filas,
     )
     return len(filas)
@@ -105,6 +126,7 @@ def sincronizar_jugadores(cur):
     jugadores = leer_csv("Datos Jugadores.csv")
     coincidencias_mercado = emparejar_por_nombre(jugadores, leer_csv("Datos Titularidad.csv"))
     coincidencias_estado = emparejar_por_nombre(jugadores, leer_csv("Datos Estado.csv"))
+    coincidencias_posicion = emparejar_por_nombre(jugadores, leer_csv_opcional("Datos Posicion.csv"))
 
     filas = [
         (
@@ -116,6 +138,8 @@ def sincronizar_jugadores(cur):
             parsear_entero_miles(jugador["Valor"]),
             parsear_entero_miles(jugador["Valor en la liga"]),
             coincidencias_estado.get(jugador["ID"], {}).get("Estado", "Disponible para competir"),
+            parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Posicion X")),
+            parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Posicion Y")),
         )
         for jugador in jugadores
     ]
@@ -127,7 +151,8 @@ def sincronizar_jugadores(cur):
         cur,
         """
         insert into jugadores (
-            id, nombre, equipo, posicion, porcentaje_titularidad, valor, valor_liga, estado
+            id, nombre, equipo, posicion, porcentaje_titularidad, valor, valor_liga, estado,
+            posicion_x, posicion_y
         ) values %s
         on conflict (id) do update set
             nombre = excluded.nombre,
@@ -137,15 +162,17 @@ def sincronizar_jugadores(cur):
             valor = excluded.valor,
             valor_liga = excluded.valor_liga,
             estado = excluded.estado,
+            posicion_x = excluded.posicion_x,
+            posicion_y = excluded.posicion_y,
             actualizado_en = now()
         """,
         filas,
     )
 
     fotos = [
-        {"ID": jugador["ID"], "Foto": coincidencias_mercado[jugador["ID"]]["Foto"]}
+        {"ID": jugador["ID"], "Foto": jugador["Foto"]}
         for jugador in jugadores
-        if coincidencias_mercado.get(jugador["ID"], {}).get("Foto")
+        if jugador.get("Foto")
     ]
     Común.guardar_csv(Común.ruta_datos("Datos Fotos.csv"), ["ID", "Foto"], fotos)
 

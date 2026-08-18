@@ -74,6 +74,43 @@ def parsear_fecha_corta(dia, mes, hoy):
     return fecha
 
 
+def extraer_formacion(html):
+    soup = BeautifulSoup(html, "html.parser")
+    por_slot = {}
+    for marcador in soup.select(".camiseta-wrapper"):
+        if marcador.get("data-onceff") != "titular":
+            continue
+        estilo = marcador.get("style", "")
+        coincidencia_x = re.search(r"left:\s*([\d.]+)%", estilo)
+        coincidencia_y = re.search(r"top:\s*([\d.]+)%", estilo)
+        if not (coincidencia_x and coincidencia_y):
+            continue
+        nombre_tag = marcador.select_one(".truncate-name")
+        nombre = nombre_tag.get_text(strip=True) if nombre_tag else ""
+        if not nombre:
+            continue
+
+        camiseta_tag = marcador.select_one("a.camiseta")
+        probabilidad_texto = camiseta_tag.get("data-probabilidad", "0%") if camiseta_tag else "0%"
+        try:
+            probabilidad = int(probabilidad_texto.rstrip("%"))
+        except ValueError:
+            probabilidad = 0
+
+        slot = (coincidencia_x.group(1), coincidencia_y.group(1))
+        actual = por_slot.get(slot)
+        if actual is None or probabilidad > actual["probabilidad"]:
+            por_slot[slot] = {"nombre": nombre, "x": slot[0], "y": slot[1], "probabilidad": probabilidad}
+
+    por_nombre = {}
+    for jugador in por_slot.values():
+        actual = por_nombre.get(jugador["nombre"])
+        if actual is None or jugador["probabilidad"] > actual["probabilidad"]:
+            por_nombre[jugador["nombre"]] = jugador
+
+    return list(por_nombre.values())
+
+
 def eventos_desde_ficha_equipo(html, nombre_corto):
     soup = BeautifulSoup(html, "html.parser")
     seccion = soup.select_one("section.proximos")
@@ -201,8 +238,7 @@ def eventos_desde_calendario_mensual(sesion, slug, desde_fecha, partidos_liga_qu
     return eventos
 
 
-def extraer_calendario(sesion, nombre_corto, slug):
-    html_ficha = Común.descargar_pagina(sesion, f"https://www.futbolfantasy.com/laliga/equipos/{slug}")
+def extraer_calendario(sesion, html_ficha, nombre_corto, slug):
     eventos = eventos_desde_ficha_equipo(html_ficha, nombre_corto)
 
     partidos_liga = sum(1 for e in eventos if e["competicion"] == "LaLiga")
@@ -232,15 +268,22 @@ def guardar_csv(filas, ruta_archivo=Común.ruta_datos("Datos 3.csv")):
     Común.guardar_csv(ruta_archivo, columnas, filas)
 
 
+def guardar_posiciones(filas, ruta_archivo=Común.ruta_datos("Datos Posicion.csv")):
+    columnas = ["Equipo", "Jugador", "Posicion X", "Posicion Y"]
+    Común.guardar_csv(ruta_archivo, columnas, filas)
+
+
 if __name__ == "__main__":
     sesion = Común.crear_sesion()
 
     filas = []
+    filas_posicion = []
     try:
         for nombre_oficial, nombre_corto in Común.MAPA_EQUIPOS_INVERSO.items():
             slug = SLUGS_EQUIPO[nombre_corto]
             try:
-                datos = extraer_calendario(sesion, nombre_corto, slug)
+                html_ficha = Común.descargar_pagina(sesion, f"https://www.futbolfantasy.com/laliga/equipos/{slug}")
+                datos = extraer_calendario(sesion, html_ficha, nombre_corto, slug)
             except Común.ErrorBloqueo:
                 break
             except Exception:
@@ -248,8 +291,18 @@ if __name__ == "__main__":
                 continue
             datos["Equipo"] = nombre_oficial
             filas.append(datos)
+
+            for jugador in extraer_formacion(html_ficha):
+                filas_posicion.append({
+                    "Equipo": nombre_oficial,
+                    "Jugador": jugador["nombre"],
+                    "Posicion X": jugador["x"],
+                    "Posicion Y": jugador["y"],
+                })
+
             time.sleep(1)
     except KeyboardInterrupt:
         pass
 
     guardar_csv(filas)
+    guardar_posiciones(filas_posicion)

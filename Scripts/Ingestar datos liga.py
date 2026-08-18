@@ -36,7 +36,7 @@ def construir_valores_liga(sesion, token, id_liga):
 
 
 def guardar_jugadores(filas, ruta_archivo=Común.ruta_datos("Datos Jugadores.csv")):
-    columnas = ["ID", "Jugador", "Equipo", "Posición", "Valor", "Valor en la liga"]
+    columnas = ["ID", "Jugador", "Equipo", "Posición", "Valor", "Valor en la liga", "Foto"]
     Común.guardar_csv(ruta_archivo, columnas, filas)
 
 
@@ -106,6 +106,9 @@ if __name__ == "__main__":
                 valor_liga = int(valores_liga.get(id_oficial, valor_oficial))
             except (TypeError, ValueError):
                 continue
+            foto = jugador.get("image", "")
+            if not foto.startswith(Común.PREFIJO_ASSETS_LALIGA_FANTASY):
+                foto = ""
             filas.append({
                 "ID": id_oficial,
                 "Jugador": jugador.get("nickname", ""),
@@ -113,6 +116,7 @@ if __name__ == "__main__":
                 "Posición": posicion,
                 "Valor": Común.formatear_miles(valor_oficial),
                 "Valor en la liga": Común.formatear_miles(valor_liga),
+                "Foto": foto,
             })
 
         if filas:

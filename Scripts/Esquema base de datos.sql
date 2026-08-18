@@ -1,6 +1,7 @@
 create table equipos (
     id integer unique,
-    nombre text primary key
+    nombre text primary key,
+    nombre_oficial text
 );
 
 create table jugadores (
@@ -17,6 +18,8 @@ create table jugadores (
     tendencia_dias integer,
     estado text,
     minutos_jugados integer,
+    posicion_x numeric,
+    posicion_y numeric,
     actualizado_en timestamptz not null default now()
 );
 

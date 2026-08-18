@@ -81,7 +81,7 @@ def equipo_oficial_a_nombre_largo(id_equipo_oficial):
     return MAPA_EQUIPOS.get(nombre_corto) if nombre_corto else None
 
 
-PREFIJO_FOTO_FUTBOLFANTASY = "https://media.futbolfantasy.com/"
+PREFIJO_ASSETS_LALIGA_FANTASY = "https://assets-fantasy.llt-services.com/"
 
 
 def normalizar_nombre(texto):
@@ -291,14 +291,8 @@ def _leer_fila_mercado(fila):
         probabilidad_tag = celdas[5].select_one(".probabilidad-widget span")
         titularidad = probabilidad_tag.get_text(strip=True) if probabilidad_tag else ""
 
-    foto_tag = fila.select_one(".player-foto-container img.player-foto")
-    foto = foto_tag.get("src", "") if foto_tag else ""
-    if not foto.startswith(PREFIJO_FOTO_FUTBOLFANTASY):
-        foto = ""
-
     return {
         "nombre": nombre,
         "equipo": equipo,
         "titularidad": titularidad,
-        "foto": foto,
     }

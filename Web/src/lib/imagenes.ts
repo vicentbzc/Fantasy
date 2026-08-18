@@ -8,3 +8,10 @@ export function urlEscudoEquipo(id: number | null): string | null {
   if (id === null) return null;
   return `${URL_BASE_STORAGE}/equipos/${id}.png`;
 }
+
+export function urlLogoCompeticion(competicion: string | null): string | null {
+  if (competicion === "LaLiga") return "/laliga.png";
+  return null;
+}
+
+export const SIN_FOTO = "/sin-foto.png";

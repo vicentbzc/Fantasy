@@ -34,6 +34,7 @@ export type Jugador = {
   id: number;
   nombre: string;
   equipo: string;
+  equipoNombreOficial: string | null;
   equipoId: number | null;
   posicion: string;
   porcentajeTitularidad: number | null;
@@ -56,6 +57,7 @@ export type Jugador = {
 export type Equipo = {
   id: number | null;
   nombre: string;
+  nombreOficial: string | null;
 };
 
 const ORDEN_EQUIPOS = [
@@ -83,17 +85,18 @@ const ORDEN_EQUIPOS = [
 
 export async function obtenerEquipos(): Promise<Equipo[]> {
   const resultado = await pool.query(`
-    select id, nombre from equipos
+    select id, nombre, nombre_oficial from equipos
   `);
 
   return resultado.rows
-    .map((fila) => ({ id: fila.id, nombre: fila.nombre }))
+    .map((fila) => ({ id: fila.id, nombre: fila.nombre, nombreOficial: fila.nombre_oficial }))
     .sort((a, b) => ORDEN_EQUIPOS.indexOf(a.nombre) - ORDEN_EQUIPOS.indexOf(b.nombre));
 }
 
 export type Partido = {
   orden: number;
   rival: string | null;
+  rivalNombreOficial: string | null;
   rivalId: number | null;
   competicion: string | null;
   jornada: string | null;
@@ -106,8 +109,10 @@ export type Partido = {
 export type EquipoDetalle = {
   id: number;
   nombre: string;
+  nombreOficial: string | null;
   jornadaLiga: string | null;
   rivalJornadaLiga: string | null;
+  rivalJornadaLigaNombreOficial: string | null;
   rivalJornadaLigaId: number | null;
   diaJornadaLiga: string | null;
   horaJornadaLiga: string | null;
@@ -117,14 +122,14 @@ export type EquipoDetalle = {
 };
 
 export async function obtenerEquipoDetalle(id: number): Promise<EquipoDetalle | null> {
-  const equipoResultado = await pool.query(`select id, nombre from equipos where id = $1`, [id]);
+  const equipoResultado = await pool.query(`select id, nombre, nombre_oficial from equipos where id = $1`, [id]);
   const equipoFila = equipoResultado.rows[0];
   if (!equipoFila) return null;
 
   const partidosResultado = await pool.query(
     `
     select
-      c.orden, c.rival, er.id as rival_id,
+      c.orden, c.rival, er.id as rival_id, er.nombre_oficial as rival_nombre_oficial,
       c.competicion, c.jornada, c.dia, c.hora, c.dificultad, c.estadio
     from calendario c
     left join equipos er on er.nombre = c.rival
@@ -137,6 +142,7 @@ export async function obtenerEquipoDetalle(id: number): Promise<EquipoDetalle | 
   const partidos: Partido[] = partidosResultado.rows.map((fila) => ({
     orden: fila.orden,
     rival: fila.rival,
+    rivalNombreOficial: fila.rival_nombre_oficial,
     rivalId: fila.rival_id,
     competicion: fila.competicion,
     jornada: fila.jornada,
@@ -151,8 +157,10 @@ export async function obtenerEquipoDetalle(id: number): Promise<EquipoDetalle | 
   return {
     id: equipoFila.id,
     nombre: equipoFila.nombre,
+    nombreOficial: equipoFila.nombre_oficial,
     jornadaLiga: proximaLiga?.jornada?.replace(/^Jornada\s+/i, "") ?? null,
     rivalJornadaLiga: proximaLiga?.rival ?? null,
+    rivalJornadaLigaNombreOficial: proximaLiga?.rivalNombreOficial ?? null,
     rivalJornadaLigaId: proximaLiga?.rivalId ?? null,
     diaJornadaLiga: proximaLiga?.dia ?? null,
     horaJornadaLiga: proximaLiga?.hora ?? null,
@@ -167,11 +175,13 @@ export type JugadorProbable = {
   nombre: string;
   posicion: string;
   probabilidad: number;
+  posX: number | null;
+  posY: number | null;
 };
 
 export async function obtenerJugadoresEquipo(nombreEquipo: string): Promise<JugadorProbable[]> {
   const resultado = await pool.query(
-    `select id, nombre, posicion, porcentaje_titularidad from jugadores where equipo = $1`,
+    `select id, nombre, posicion, porcentaje_titularidad, posicion_x, posicion_y from jugadores where equipo = $1`,
     [nombreEquipo]
   );
 
@@ -180,6 +190,8 @@ export async function obtenerJugadoresEquipo(nombreEquipo: string): Promise<Juga
     nombre: fila.nombre,
     posicion: fila.posicion,
     probabilidad: fila.porcentaje_titularidad === null ? 0 : Number(fila.porcentaje_titularidad),
+    posX: fila.posicion_x === null ? null : Number(fila.posicion_x),
+    posY: fila.posicion_y === null ? null : Number(fila.posicion_y),
   }));
 }
 
@@ -225,7 +237,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       group by dc.equipo
     )
     select
-      j.id, j.nombre, j.equipo, e.id as equipo_id, j.posicion,
+      j.id, j.nombre, j.equipo, e.id as equipo_id, e.nombre_oficial as equipo_nombre_oficial, j.posicion,
       j.porcentaje_titularidad, j.valor_liga as valor, j.diferencia_valor, j.porcentaje_diferencia,
       j.aceleracion, j.tendencia_dias, j.estado, j.minutos_jugados,
       coalesce(t.puntos_totales, 0) as puntos_totales,
@@ -249,6 +261,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       id: fila.id,
       nombre: fila.nombre,
       equipo: fila.equipo,
+      equipoNombreOficial: fila.equipo_nombre_oficial,
       equipoId: fila.equipo_id,
       posicion: fila.posicion,
       porcentajeTitularidad: fila.porcentaje_titularidad === null ? null : Number(fila.porcentaje_titularidad),

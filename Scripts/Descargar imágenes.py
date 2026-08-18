@@ -8,13 +8,15 @@ CARPETA_JUGADORES = Común.ruta_datos(os.path.join("Imágenes", "Jugadores"))
 CARPETA_EQUIPOS = Común.ruta_datos(os.path.join("Imágenes", "Equipos"))
 CARPETA_COMPETICIONES = Común.ruta_datos(os.path.join("Imágenes", "Competiciones"))
 
-URL_ESCUDO = "https://static.futbolfantasy.com/uploads/images/cabecera/hd/{id_equipo}.png"
+URL_TEAMS_MASTER = "https://fantasy-api.llt-services.com/api/v3/teams-master?x-lang=es"
 
 URLS_COMPETICIONES = {
     "laliga": "https://static.futbolfantasy.com/uploads/images/logos_competiciones/laliga2023.png",
 }
 
 BUCKET_IMAGENES = "imagenes"
+
+NOMBRE_CORTO_A_ID_OFICIAL = {corto: id_oficial for id_oficial, corto in Común.MAPA_EQUIPO_ID_OFICIAL_A_CORTO.items()}
 
 
 def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos Fotos.csv")):
@@ -28,9 +30,22 @@ def listar_fotos_jugadores(ruta_archivo=Común.ruta_datos("Datos Fotos.csv")):
         ]
 
 
+def obtener_equipos_oficiales(sesion, token):
+    equipos = Común.descargar_json_autenticado(sesion, URL_TEAMS_MASTER, token)
+    return {int(equipo["id"]): equipo for equipo in equipos}
+
+
+def guardar_nombres_oficiales(filas, ruta_archivo=Común.ruta_datos("Datos Equipos.csv")):
+    Común.guardar_csv(ruta_archivo, ["Equipo", "Nombre oficial"], filas)
+
+
 def descargar_si_falta(sesion, url, ruta_destino, ruta_storage, url_supabase, clave_servicio):
     if os.path.isfile(ruta_destino):
         return
+    descargar_siempre(sesion, url, ruta_destino, ruta_storage, url_supabase, clave_servicio)
+
+
+def descargar_siempre(sesion, url, ruta_destino, ruta_storage, url_supabase, clave_servicio):
     contenido = Común.descargar_binario(sesion, url)
     Común.subir_a_storage(url_supabase, BUCKET_IMAGENES, ruta_storage, contenido, clave_servicio)
     Común.guardar_binario(ruta_destino, contenido)
@@ -61,11 +76,31 @@ if __name__ == "__main__":
             except Exception:
                 continue
 
-        for id_equipo in Común.ID_A_NOMBRE_CORTO:
+        try:
+            token = Común.obtener_token_laliga_fantasy(sesion)
+            equipos_oficiales = obtener_equipos_oficiales(sesion, token)
+        except Común.ErrorBloqueo:
+            equipos_oficiales = {}
+
+        nombres_oficiales = []
+        for id_equipo, nombre_corto in Común.ID_A_NOMBRE_CORTO.items():
+            id_oficial = NOMBRE_CORTO_A_ID_OFICIAL.get(nombre_corto)
+            equipo_oficial = equipos_oficiales.get(id_oficial) if id_oficial else None
+            if equipo_oficial is None:
+                continue
+
+            nombres_oficiales.append({
+                "Equipo": Común.MAPA_EQUIPOS[nombre_corto],
+                "Nombre oficial": equipo_oficial["name"],
+            })
+
+            url_escudo = equipo_oficial.get("badgeColor", "")
+            if not url_escudo.startswith(Común.PREFIJO_ASSETS_LALIGA_FANTASY):
+                continue
             try:
-                descargar_si_falta(
+                descargar_siempre(
                     sesion,
-                    URL_ESCUDO.format(id_equipo=id_equipo),
+                    url_escudo,
                     os.path.join(CARPETA_EQUIPOS, f"{id_equipo}.png"),
                     f"equipos/{id_equipo}.png",
                     url_supabase, clave_servicio,
@@ -74,6 +109,9 @@ if __name__ == "__main__":
                 break
             except Exception:
                 continue
+
+        if nombres_oficiales:
+            guardar_nombres_oficiales(nombres_oficiales)
 
         for slug, url_competicion in URLS_COMPETICIONES.items():
             try:

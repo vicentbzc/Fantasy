@@ -1,29 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import { NavBar } from "@/components/NavBar";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Fantasy LaLiga — Comparador de jugadores",
+  title: "LaLiga Fantasy Analytics",
   description: "Datos y comparación de jugadores de LaLiga Fantasy Oficial",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-neutral-950 text-neutral-100">{children}</body>
+    <html lang="es" className={`${inter.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col bg-[#F5F5F7] text-[#1D1D1F] font-sans">
+        <NavBar />
+        <div className="flex-1 flex flex-col">{children}</div>
+      </body>
     </html>
   );
 }
