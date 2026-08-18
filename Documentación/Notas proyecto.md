@@ -450,10 +450,16 @@ pip install requests beautifulsoup4 psycopg2-binary
    de golpe con este endpoint en vez de esperar día a día — pero ojo, ese
    histórico es de `valor` (marketValue), no de `valor_liga` (la cláusula
    no tiene histórico en ningún endpoint conocido).
-5. La liga privada "Prueba" (`leagueId` `018053483`) solo tiene al usuario
-   (`managersNumber: 1`) — el emparejador de `valor_liga` por
-   `buyoutClause` ya recorre todos los equipos de `standing`, pero no se
-   ha probado todavía con la cláusula de un compañero real.
+5. ~~La liga privada "Prueba"...~~ **Resuelto el 19/08/2026**: la liga real
+   del usuario es **"LaLiga"** (`leagueId` `018070031`, 10 mánagers,
+   `access: private`), no "Prueba" (`018053483`, esa solo tenía al
+   usuario). `LALIGA_FANTASY_LEAGUE_ID` corregido en
+   `Configuración local.py` y probado en directo: 138 jugadores salen con
+   `valor_liga` (cláusula real de algún mánager) distinto del `valor`
+   oficial — confirma que el emparejador de `buyoutClause` funciona bien
+   con una liga de varios mánagers de verdad. **Falta corregir el mismo
+   secreto en GitHub** (`LALIGA_FANTASY_LEAGUE_ID` → `018070031`) para que
+   el cron use la liga correcta.
 6. Desplegar de verdad en Vercel (conectar repo, `DATABASE_URL` como
    variable de entorno del proyecto).
 7. Rol de Postgres de solo lectura para la web, en vez de reutilizar el
