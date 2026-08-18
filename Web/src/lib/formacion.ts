@@ -1,6 +1,6 @@
 import type { JugadorProbable } from "./db";
 
-export type JugadorPosicionado = JugadorProbable & { x: number; y: number };
+export type JugadorPosicionado = JugadorProbable & { posX: number; posY: number };
 
 export type Formacion = {
   portero: JugadorProbable | null;

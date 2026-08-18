@@ -658,6 +658,52 @@ los 3 scripts de ingesta y `Descargar imágenes.py` se ejecutaron de
 verdad contra la API oficial y futbolfantasy.com antes de dar el cambio
 por bueno, comprobando el CSV/las imágenes resultantes.
 
+### 3 bugs reales encontrados tras el primer despliegue (19/08/2026, más tarde)
+
+El usuario probó el Paso 9 contra la base de datos real y encontró 3
+fallos que no habían salido en las pruebas locales de más arriba:
+
+1. **`emparejar_por_nombre()` no era exclusivo**: nada impedía que la
+   misma fila de `Datos Posicion.csv` (o de Titularidad/Estado) se
+   emparejara con **más de un** jugador oficial distinto. Con
+   titularidad/estado esto ya pasaba antes silenciosamente (parte del
+   ~80-86% de acierto conocido) pero no se notaba mucho; con la posición
+   táctica se veía clarísimo — dos jugadores distintos ("Unai G." y
+   "Guruzeta" del Athletic, por ejemplo) acababan con las mismas
+   coordenadas exactas, apilados uno encima del otro en el campo.
+   **Arreglado**: `emparejar_por_nombre()` ahora borra el candidato de la
+   lista en cuanto lo empareja con alguien, así no se puede reutilizar.
+   Beneficia también al emparejado de titularidad y estado, aunque ahí no
+   era tan visible.
+2. **Bug de tipos en `lib/formacion.ts`**: `JugadorPosicionado` se definió
+   como `JugadorProbable & { x: number; y: number }`, pero el objeto real
+   nunca tuvo esos campos — solo `posX`/`posY` (los que vienen de
+   `obtenerJugadoresEquipo()`). El *type predicate* de TypeScript dejaba
+   compilar sin avisar, pero en tiempo de ejecución `jugador.x` era
+   `undefined` y todos los jugadores del campo real acababan en la misma
+   esquina (`left: undefined%` se renderiza como `0,0`). Arreglado usando
+   `posX`/`posY` directamente en `CampoTactico.tsx`, sin el alias `x`/`y`.
+3. **Las fotos de jugador nunca se actualizaban a la fuente nueva**:
+   `descargar_si_falta()` se salta la descarga si el archivo ya existe en
+   `Datos/Imágenes/Jugadores/`, y `actions/cache` en GitHub Actions
+   restaura esa carpeta entre ejecuciones con la clave fija
+   `datos-fantasy-` — así que las ~600 fotos descargadas hace semanas
+   desde futbolfantasy.com nunca se volvían a pedir, aunque el código ya
+   apuntara a la URL oficial nueva. Los escudos de equipo no tenían este
+   problema porque ya usaban `descargar_siempre()` (sin comprobar si
+   existen, son solo 20 archivos). **Arreglado**: la clave de
+   `actions/cache` pasó a `datos-fantasy-v2-` (con su propio
+   `restore-keys`), así el próximo run parte de una carpeta `Datos/`
+   vacía y todas las fotos se piden de nuevo a la fuente correcta. Un
+   futuro cambio de fuente de imágenes debería repetir este truco
+   (subir la versión de la clave) en vez de tocar la lógica de
+   `descargar_si_falta()`.
+
+Además, a petición del usuario, los escudos de `equipos/[id]` (cabecera y
+"Próximos partidos") se agrandaron una vez vistos en producción (104px/
+padding 18 en la cabecera, 64px/padding 10 en próximos partidos — antes
+76/23 y 46/14).
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

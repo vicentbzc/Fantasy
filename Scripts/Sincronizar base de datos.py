@@ -82,9 +82,11 @@ def emparejar_por_nombre(filas_objetivo, filas_fuente):
 
     resultado = {}
     for fila in filas_objetivo:
-        for candidato in por_equipo.get(fila["Equipo"], []):
+        candidatos = por_equipo.get(fila["Equipo"], [])
+        for i, candidato in enumerate(candidatos):
             if nombres_coinciden(fila["Jugador"], candidato["Jugador"]):
                 resultado[fila["ID"]] = candidato
+                del candidatos[i]
                 break
     return resultado
 

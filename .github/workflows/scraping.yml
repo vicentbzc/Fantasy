@@ -36,8 +36,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: Datos
-          key: datos-fantasy-${{ github.run_id }}
-          restore-keys: datos-fantasy-
+          key: datos-fantasy-v2-${{ github.run_id }}
+          restore-keys: datos-fantasy-v2-
 
       - name: Ingestar datos liga (API LaLiga Fantasy)
         if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-pesado')

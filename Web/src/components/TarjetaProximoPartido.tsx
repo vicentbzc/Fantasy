@@ -28,15 +28,15 @@ export function TarjetaProximoPartido({
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 w-full">
         <span className="text-xs font-semibold text-[#1D1D1F] text-right">{local.nombre}</span>
         <div className="flex items-center gap-2">
-          <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={46} radius={12} bg="transparent" padding={14} />
+          <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={64} radius={12} bg="transparent" padding={10} />
           <span className="text-xs font-bold text-[#6E6E73]">VS</span>
           <ImagenCuadrada
             src={urlEscudoEquipo(visitante.id)}
             alt={visitante.nombre}
-            size={46}
+            size={64}
             radius={12}
             bg="transparent"
-            padding={14}
+            padding={10}
           />
         </div>
         <span className="text-xs font-semibold text-[#1D1D1F] text-left">{visitante.nombre}</span>

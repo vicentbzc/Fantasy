@@ -48,19 +48,19 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
             <ImagenCuadrada
               src={urlEscudoEquipo(equipo.id)}
               alt={nombreDisplay}
-              size={76}
+              size={104}
               radius={18}
               bg="transparent"
-              padding={23}
+              padding={18}
             />
             <span className="text-base font-bold text-[#6E6E73]">VS</span>
             <ImagenCuadrada
               src={urlEscudoEquipo(equipo.rivalJornadaLigaId)}
               alt={rivalDisplay ?? ""}
-              size={76}
+              size={104}
               radius={18}
               bg="transparent"
-              padding={23}
+              padding={18}
             />
             <span className="text-[16px] font-semibold">{rivalDisplay}</span>
           </div>
