@@ -64,6 +64,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LALIGA_FANTASY_EMAIL: ${{ secrets.LALIGA_FANTASY_EMAIL }}
+          LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
+          LALIGA_FANTASY_LEAGUE_ID: ${{ secrets.LALIGA_FANTASY_LEAGUE_ID }}
         run: python "Scripts/Descargar imágenes.py"
 
       - name: Sincronizar con Supabase
