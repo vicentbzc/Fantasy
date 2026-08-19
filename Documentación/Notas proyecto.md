@@ -170,6 +170,17 @@ Dificultad traducida a mano de la imagen que usa la web: 1=Muy baja,
 2=Baja, 3=Media, 4=Alta, 5=Muy alta (amistosos sin dificultad, a
 propósito).
 
+**Limitación conocida (confirmada en directo el 19/08/2026)**: cuando
+hace falta el calendario mensual para completar los 5 partidos de LIGA
+(p. ej. si uno de los 5 huecos de la ficha lo ocupa un amistoso de
+pretemporada), esos partidos sacados del calendario mensual **nunca
+llevan dificultad** — se comprobó el HTML de esa vista y no publica
+ningún dato de dificultad en ningún sitio, a diferencia de la ficha
+principal del equipo. No es un bug, es una limitación real de esa vista
+de futbolfantasy.com; sacar la dificultad ahí obligaría a visitar la
+ficha de cada partido individualmente, disparando el número de
+peticiones.
+
 Desde el 19/08/2026 (Paso 9) la misma ficha de equipo que ya se descargaba
 para el calendario **también** se usa para `extraer_formacion()`: la web
 de futbolfantasy.com pinta la alineación probable como marcadores
@@ -703,6 +714,112 @@ Además, a petición del usuario, los escudos de `equipos/[id]` (cabecera y
 "Próximos partidos") se agrandaron una vez vistos en producción (104px/
 padding 18 en la cabecera, 64px/padding 10 en próximos partidos — antes
 76/23 y 46/14).
+
+### Caché de imágenes en el navegador y jugadores "fantasma" (19/08/2026, tercera ronda)
+
+Después de la caché de `actions/cache`, el usuario seguía viendo escudos y
+fotos antiguos. Causa distinta: la URL de cada imagen nunca cambia
+(`equipos/{id}.png`, `jugadores/{id}.png`), así que el navegador (y el
+propio optimizador de imágenes de Next.js) la sirve desde su caché aunque
+el archivo real en Supabase Storage ya sea otro. **Arreglado**:
+`urlFotoJugador()`/`urlEscudoEquipo()` en `lib/imagenes.ts` añaden
+`?v=AAAA-MM-DD` (fecha de hoy) a la URL, así que cambia una vez al día y
+fuerza a pedir la imagen de nuevo. Si algún día se necesita invalidar más
+fino que una vez al día, este es el sitio a tocar.
+
+**Jugadores "fantasma"** (jugadores que futbolfantasy.com sí muestra en la
+alineación probable pero que todavía no existen en el catálogo oficial de
+LaLiga Fantasy — típico de fichajes muy recientes): antes simplemente
+desaparecían del campo sin más. A petición del usuario, ahora se muestran
+igual que cualquier otro jugador pero con el nombre tal cual lo raspó
+futbolfantasy.com y la foto genérica de "sin foto" (`SIN_FOTO`). Requirió:
+
+- Tabla nueva `posicion_sin_oficial` (`equipo, nombre, posicion_x,
+  posicion_y`) — `Sincronizar` la rellena con las filas de `Datos
+  Posicion.csv` que ningún jugador oficial reclamó (se borra y reinserta
+  entera en cada sincronización, igual que `calendario`).
+- `obtenerJugadoresEquipo()` en `lib/db.ts` combina los jugadores reales
+  con estos fantasmas, usando un `id` negativo sintético (solo vale como
+  `key` de React dentro de esa página, nunca se guarda en `jugadores`) y
+  `esFantasma: true`.
+- `CampoTactico.tsx` pasa `src={null}` cuando `esFantasma`, así
+  `FotoJugadorSlot` cae solo en su fallback de "sin foto" existente, sin
+  necesidad de lógica nueva ahí.
+
+**Bug del emparejador afinado otra vez**: el fix de la ronda anterior
+(exigir al menos una coincidencia exacta) era *demasiado* estricto — dejó
+fuera a "Vinicius" (nombre real raspado) contra "Vini Jr." (apodo oficial),
+porque ninguno de los dos es una inicial de una letra y tampoco son
+idénticos. Se cambió la condición de "coincidencia exacta" por
+"coincidencia fuerte" (`coincidencia_fuerte()`): igual que antes, más un
+prefijo de **al menos 4 letras** de un token dentro del otro
+("vini"→"vinicius"). Sigue exigiendo esa coincidencia fuerte en algún
+token para aceptar el emparejamiento completo, así que el caso original de
+"Raphinha" (que no comparte ningún prefijo real con "R. Araujo", solo la
+inicial) sigue quedando fuera.
+
+**Cuarta ronda (19/08/2026, mismo día)**: se encontró un fallo más sutil
+en `nombres_coinciden()` — exigía que **todos** los tokens del nombre
+corto encontraran pareja, procesándolos en el orden en que aparecen en el
+nombre, y se rendía en el primero que fallaba sin llegar a probar los
+siguientes. Caso real: "Álex Balde" (oficial) vs "Alejandro Balde"
+(raspado de futbolfantasy.com) — el apellido "balde" coincide exacto, pero
+como el algoritmo procesaba "alex" primero y no encontraba pareja para él,
+nunca llegaba a comprobar "balde" y rechazaba el emparejamiento entero (su
+`porcentaje_titularidad` se quedaba en `null`, lo que en la nueva vista de
+formación real se veía como "0%"). Se probó primero un arreglo que
+permitía que **1 token se quedara sin pareja** siempre que hubiera una
+coincidencia fuerte en otro (típicamente el apellido) — **revertido casi
+al momento**: en la práctica hizo que "Joan García" (el portero titular
+real del Barça) se emparejase con la fila de "Eric Garcia" (un defensa
+distinto) solo por compartir apellido, dejando a Eric sin posición y a
+Joan en el sitio equivocado del campo. Mostrar a un jugador en la posición
+equivocada es mucho peor que un `0%` de titularidad, así que se volvió a
+exigir que **todos** los tokens coincidan (con coincidencia fuerte en al
+menos uno) — el efecto secundario aceptado es que "Álex Balde" vuelve a
+quedarse sin `porcentaje_titularidad` real. Consultar primero el orden de
+prioridad: nunca sacrificar precisión posicional por precisión de un dato
+secundario.
+
+**Formación real refrescada con datos del día**: al investigar el caso
+"aparece Araujo en vez de Raphinha", se confirmó que no era un bug de
+código — el `Datos Posicion.csv` usado en las rondas anteriores tenía
+horas de antigüedad, y la alineación probable de futbolfantasy.com había
+cambiado entre medias (cosas así ocurren constantemente, según se acerca
+la jornada). Al re-ejecutar `Ingestar datos 3.py` en el momento, salió
+"Raphinha" en su sitio correcto, y de paso apareció "Adeyemi" (el jugador
+del caso original, sin ficha oficial todavía) en el hueco correspondiente.
+
+**Dificultad de partidos lejanos, arreglada de raíz**: a sugerencia del
+usuario, `Ingestar datos 3.py` dejó de usar la ficha del equipo (máx. 5
+partidos) + el calendario mensual como respaldo (que nunca traía
+dificultad, ver más arriba) y pasó a usar
+`https://www.futbolfantasy.com/laliga/equipos/{slug}/partidos` — una
+página con **toda la temporada** (~39 partidos restantes) dentro de
+`section.partidos.proximos`, con dificultad en cada partido de LaLiga sin
+excepción. Esto sustituye por completo `eventos_desde_calendario_mensual()`
+(eliminada) y de paso reduce las peticiones por equipo (antes hasta 5:
+ficha + hasta 4 meses; ahora exactamente 2: ficha para la formación +
+partidos para calendario/dificultad). Probado en directo: el Barça-Levante
+que antes salía sin dificultad ahora sale "Muy baja".
+
+**Imagen de "sin foto"**: sustituida por la que proporcionó el usuario
+(guardada también en `Datos/Imágenes/Web/Sin foto.png` como referencia),
+copiada a `Web/public/sin-foto.png`.
+
+**Banquillo, ancho igual al campo**: en la ronda anterior se había hecho
+`w-fit` con columnas de ancho fijo (69px) para que el margen borde↔columna
+quedara igual al hueco entre columnas — eso hizo la caja mucho más
+estrecha que el campo de arriba, porque `CampoTactico` y `Banquillo` son
+hermanos dentro del mismo contenedor con `px-6`, y el ancho real
+disponible ahí (652px a 1280px de viewport, no 700 — el `max-w-[700px]`
+de la página incluye ese padding) nunca coincidía con los 69px×5 fijos.
+Arreglado usando columnas `minmax(0, 1fr)` en vez de un ancho fijo en
+píxeles, con `gap` y `padding` al mismo valor (28px): así la caja siempre
+ocupa el 100% del ancho disponible (`w-full`, igual que `CampoTactico`) y
+coincide automáticamente con el campo a cualquier tamaño de viewport, sin
+tener que calcular a mano un ancho de columna para cada caso. Verificado:
+652px en ambos a 1280px de viewport, márgenes de 28px en los dos bordes.
 
 ## Historia breve
 

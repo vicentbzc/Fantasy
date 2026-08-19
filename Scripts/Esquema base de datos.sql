@@ -66,3 +66,11 @@ create table calendario (
     dificultad text,
     primary key (equipo, orden)
 );
+
+create table posicion_sin_oficial (
+    equipo text not null references equipos(nombre),
+    nombre text not null,
+    posicion_x numeric not null,
+    posicion_y numeric not null,
+    primary key (equipo, nombre)
+);

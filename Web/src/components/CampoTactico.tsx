@@ -38,7 +38,7 @@ export function CampoTactico({ formacion }: { formacion: Formacion }) {
             style={{ left: `${jugador.posX}%`, top: `${jugador.posY}%` }}
           >
             <FotoJugadorSlot
-              src={urlFotoJugador(jugador.id)}
+              src={jugador.esFantasma ? null : urlFotoJugador(jugador.id)}
               alt={jugador.nombre}
               size={62}
               radius={14}

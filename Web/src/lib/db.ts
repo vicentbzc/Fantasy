@@ -177,6 +177,7 @@ export type JugadorProbable = {
   probabilidad: number;
   posX: number | null;
   posY: number | null;
+  esFantasma?: boolean;
 };
 
 export async function obtenerJugadoresEquipo(nombreEquipo: string): Promise<JugadorProbable[]> {
@@ -185,7 +186,7 @@ export async function obtenerJugadoresEquipo(nombreEquipo: string): Promise<Juga
     [nombreEquipo]
   );
 
-  return resultado.rows.map((fila) => ({
+  const jugadores: JugadorProbable[] = resultado.rows.map((fila) => ({
     id: fila.id,
     nombre: fila.nombre,
     posicion: fila.posicion,
@@ -193,6 +194,23 @@ export async function obtenerJugadoresEquipo(nombreEquipo: string): Promise<Juga
     posX: fila.posicion_x === null ? null : Number(fila.posicion_x),
     posY: fila.posicion_y === null ? null : Number(fila.posicion_y),
   }));
+
+  const sinOficial = await pool.query(
+    `select nombre, posicion_x, posicion_y from posicion_sin_oficial where equipo = $1`,
+    [nombreEquipo]
+  );
+
+  const fantasmas: JugadorProbable[] = sinOficial.rows.map((fila, i) => ({
+    id: -(i + 1),
+    nombre: fila.nombre,
+    posicion: "",
+    probabilidad: 0,
+    posX: Number(fila.posicion_x),
+    posY: Number(fila.posicion_y),
+    esFantasma: true,
+  }));
+
+  return [...jugadores, ...fantasmas];
 }
 
 function literalSql(texto: string): string {

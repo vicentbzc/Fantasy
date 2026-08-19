@@ -14,13 +14,13 @@ export function Banquillo({
 }) {
   return (
     <div
-      className="bg-white rounded-[24px] p-[22px] grid gap-[14px] justify-center w-full max-w-[700px] mx-auto"
-      style={{ gridTemplateColumns: "repeat(5, 73px)" }}
+      className="bg-white rounded-[24px] p-[28px] grid gap-[28px] w-full max-w-[700px] mx-auto"
+      style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}
     >
       {jugadores.map((jugador) => (
         <div key={jugador.id} className="flex justify-center">
           <FotoJugadorSlot
-            src={urlFotoJugador(jugador.id)}
+            src={jugador.esFantasma ? null : urlFotoJugador(jugador.id)}
             alt={jugador.nombre}
             size={62}
             radius={12}

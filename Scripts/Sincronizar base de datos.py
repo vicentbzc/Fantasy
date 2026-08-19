@@ -50,8 +50,18 @@ def tokenizar_nombre(nombre):
     return [t for t in re.split(r"[^a-z0-9]+", Común.normalizar_nombre(nombre)) if t]
 
 
-def tokens_coinciden(a, b):
+MINIMO_LETRAS_PREFIJO_FUERTE = 4
+
+
+def coincidencia_fuerte(a, b):
     if a == b:
+        return True
+    corto, largo = (a, b) if len(a) <= len(b) else (b, a)
+    return len(corto) >= MINIMO_LETRAS_PREFIJO_FUERTE and largo.startswith(corto)
+
+
+def tokens_coinciden(a, b):
+    if coincidencia_fuerte(a, b):
         return True
     if len(a) == 1 or len(b) == 1:
         return a[0] == b[0]
@@ -65,14 +75,26 @@ def nombres_coinciden(nombre_a, nombre_b):
         return False
     cortos, largos = (tokens_a, tokens_b) if len(tokens_a) <= len(tokens_b) else (tokens_b, tokens_a)
     restantes = list(largos)
+
+    hay_coincidencia_fuerte = False
+    pendientes = []
     for token in cortos:
-        for i, candidato in enumerate(restantes):
-            if tokens_coinciden(token, candidato):
-                del restantes[i]
-                break
+        indice_fuerte = next((i for i, candidato in enumerate(restantes) if coincidencia_fuerte(token, candidato)), None)
+        if indice_fuerte is not None:
+            hay_coincidencia_fuerte = True
+            del restantes[indice_fuerte]
         else:
-            return False
-    return True
+            pendientes.append(token)
+
+    sin_coincidencia = 0
+    for token in pendientes:
+        indice_comodin = next((i for i, candidato in enumerate(restantes) if tokens_coinciden(token, candidato)), None)
+        if indice_comodin is None:
+            sin_coincidencia += 1
+        else:
+            del restantes[indice_comodin]
+
+    return hay_coincidencia_fuerte and sin_coincidencia == 0
 
 
 def emparejar_por_nombre(filas_objetivo, filas_fuente):
@@ -128,7 +150,11 @@ def sincronizar_jugadores(cur):
     jugadores = leer_csv("Datos Jugadores.csv")
     coincidencias_mercado = emparejar_por_nombre(jugadores, leer_csv("Datos Titularidad.csv"))
     coincidencias_estado = emparejar_por_nombre(jugadores, leer_csv("Datos Estado.csv"))
-    coincidencias_posicion = emparejar_por_nombre(jugadores, leer_csv_opcional("Datos Posicion.csv"))
+    posiciones = leer_csv_opcional("Datos Posicion.csv")
+    coincidencias_posicion = emparejar_por_nombre(jugadores, posiciones)
+
+    usadas = {(fila["Equipo"], fila["Jugador"]) for fila in coincidencias_posicion.values()}
+    posiciones_sin_oficial = [p for p in posiciones if (p["Equipo"], p["Jugador"]) not in usadas]
 
     filas = [
         (
@@ -177,6 +203,17 @@ def sincronizar_jugadores(cur):
         if jugador.get("Foto")
     ]
     Común.guardar_csv(Común.ruta_datos("Datos Fotos.csv"), ["ID", "Foto"], fotos)
+
+    cur.execute("delete from posicion_sin_oficial")
+    if posiciones_sin_oficial:
+        execute_values(
+            cur,
+            "insert into posicion_sin_oficial (equipo, nombre, posicion_x, posicion_y) values %s",
+            [
+                (p["Equipo"], p["Jugador"], parsear_numero(p["Posicion X"]), parsear_numero(p["Posicion Y"]))
+                for p in posiciones_sin_oficial
+            ],
+        )
 
     return len(filas)
 

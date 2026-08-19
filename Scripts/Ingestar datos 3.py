@@ -37,15 +37,12 @@ MAPA_DIFICULTAD = {
     "vertical_5.jpg": "Muy alta",
 }
 
-DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-
 MAPA_DIAS_ABREVIADOS = {
     "Lun": "Lunes", "Mar": "Martes", "Mie": "Miércoles", "Jue": "Jueves",
     "Vie": "Viernes", "Sab": "Sábado", "Dom": "Domingo",
 }
 
 MINIMO_PARTIDOS_LIGA = 5
-MESES_A_MIRAR_COMO_MAXIMO = 4
 
 
 def formatear_hora(texto_hora):
@@ -111,141 +108,72 @@ def extraer_formacion(html):
     return list(por_nombre.values())
 
 
-def eventos_desde_ficha_equipo(html, nombre_corto):
+def _partido_a_evento(partido, nombre_corto):
+    competicion_tag = partido.select_one(".logo img")
+    competicion = competicion_tag.get("alt", "") if competicion_tag else ""
+
+    local_tag = partido.select_one(".equipo.local img")
+    visitante_tag = partido.select_one(".equipo.visitante img")
+    local_nombre = local_tag.get("alt", "") if local_tag else ""
+    visitante_nombre = visitante_tag.get("alt", "") if visitante_tag else ""
+    if local_nombre == nombre_corto:
+        rival, localia = visitante_nombre, "Local"
+    else:
+        rival, localia = local_nombre, "Visitante"
+
+    fase_tag = partido.select_one(".fase")
+    jornada = normalizar_jornada(fase_tag.get_text(strip=True) if fase_tag else "")
+
+    date_tag = partido.select_one(".date")
+    texto_fecha = date_tag.get_text(" ", strip=True) if date_tag else ""
+    if " " in texto_fecha:
+        fecha_texto, hora = texto_fecha.rsplit(" ", 1)
+    else:
+        fecha_texto, hora = texto_fecha, ""
+    dia, mes = (int(x) for x in fecha_texto.split()[-1].split("/"))
+    fecha_texto = expandir_dia_semana(fecha_texto)
+    fecha_obj = parsear_fecha_corta(dia, mes, Fecha.today())
+
+    img_dificultad = partido.select_one(".dificultad-container img.dificultad")
+    if img_dificultad:
+        archivo = img_dificultad.get("src", "").rsplit("/", 1)[-1]
+        dificultad = MAPA_DIFICULTAD.get(archivo, "")
+    else:
+        dificultad = ""
+
+    return {
+        "fecha_obj": fecha_obj,
+        "rival": rival,
+        "competicion": competicion,
+        "jornada": jornada,
+        "fecha_texto": fecha_texto,
+        "hora": formatear_hora(hora),
+        "local_o_visitante": localia,
+        "dificultad": dificultad,
+    }
+
+
+def eventos_desde_partidos(html, nombre_corto):
     soup = BeautifulSoup(html, "html.parser")
-    seccion = soup.select_one("section.proximos")
+    seccion = soup.select_one("section.partidos.proximos")
     partidos = seccion.select("a.partido") if seccion else []
 
     eventos = []
+    partidos_liga = 0
     for partido in partidos:
-        competicion_tag = partido.select_one(".logo img")
-        competicion = competicion_tag.get("alt", "") if competicion_tag else ""
-
-        local_tag = partido.select_one(".equipo.local img")
-        visitante_tag = partido.select_one(".equipo.visitante img")
-        local_nombre = local_tag.get("alt", "") if local_tag else ""
-        visitante_nombre = visitante_tag.get("alt", "") if visitante_tag else ""
-        if local_nombre == nombre_corto:
-            rival, localia = visitante_nombre, "Local"
-        else:
-            rival, localia = local_nombre, "Visitante"
-
-        fase_tag = partido.select_one(".fase")
-        jornada = normalizar_jornada(fase_tag.get_text(strip=True) if fase_tag else "")
-
-        date_tag = partido.select_one(".date")
-        texto_fecha = date_tag.get_text(" ", strip=True) if date_tag else ""
-        if " " in texto_fecha:
-            fecha_texto, hora = texto_fecha.rsplit(" ", 1)
-        else:
-            fecha_texto, hora = texto_fecha, ""
-        dia, mes = (int(x) for x in fecha_texto.split()[-1].split("/"))
-        fecha_texto = expandir_dia_semana(fecha_texto)
-        fecha_obj = parsear_fecha_corta(dia, mes, Fecha.today())
-
-        img_dificultad = partido.select_one(".dificultad-container img.dificultad")
-        if img_dificultad:
-            archivo = img_dificultad.get("src", "").rsplit("/", 1)[-1]
-            dificultad = MAPA_DIFICULTAD.get(archivo, "")
-        else:
-            dificultad = ""
-
-        eventos.append({
-            "fecha_obj": fecha_obj,
-            "rival": rival,
-            "competicion": competicion,
-            "jornada": jornada,
-            "fecha_texto": fecha_texto,
-            "hora": formatear_hora(hora),
-            "local_o_visitante": localia,
-            "dificultad": dificultad,
-        })
+        eventos.append(_partido_a_evento(partido, nombre_corto))
+        if eventos[-1]["competicion"] == "LaLiga":
+            partidos_liga += 1
+            if partidos_liga >= MINIMO_PARTIDOS_LIGA:
+                break
 
     eventos.sort(key=lambda e: e["fecha_obj"])
     return eventos
 
 
-def eventos_desde_calendario_mensual(sesion, slug, desde_fecha, partidos_liga_que_faltan):
-    eventos = []
-    mes, anio = desde_fecha.month, desde_fecha.year
-
-    for _ in range(MESES_A_MIRAR_COMO_MAXIMO):
-        if partidos_liga_que_faltan <= 0:
-            break
-
-        url = f"https://www.futbolfantasy.com/equipos/{slug}/calendario/{mes}/{anio}"
-        html = Común.descargar_pagina(sesion, url)
-        soup = BeautifulSoup(html, "html.parser")
-
-        for dia_div in soup.select(".calendar .day"):
-            enlace = dia_div.find("a")
-            competicion_tag = dia_div.select_one(".competicion img")
-            if not enlace or not competicion_tag:
-                continue
-
-            competicion = competicion_tag.get("alt", "")
-
-            numero_tag = dia_div.select_one(".number")
-            if not numero_tag:
-                continue
-            dia = int(numero_tag.get_text(strip=True))
-            fecha_obj = Fecha(anio, mes, dia)
-            if fecha_obj <= desde_fecha:
-                continue
-
-            rival_tag = dia_div.select_one(".rival")
-            rival = ""
-            if rival_tag:
-                id_match = re.search(r"escudom/(\d+)\.png", rival_tag.get("data-src", ""))
-                if id_match:
-                    rival = Común.ID_A_NOMBRE_CORTO.get(int(id_match.group(1)), "")
-
-            jornada_tag = dia_div.select_one(".jornada")
-            jornada = normalizar_jornada(jornada_tag.get_text(strip=True) if jornada_tag else "")
-
-            es_local = dia_div.select_one(".fecha .home") is not None
-            local_o_visitante = "Local" if es_local else "Visitante"
-
-            hora_tag = dia_div.select_one(".fecha")
-            hora_texto = hora_tag.get_text(" ", strip=True) if hora_tag else ""
-            hora = formatear_hora(hora_texto.split()[-1]) if hora_texto else ""
-
-            dia_semana = DIAS_SEMANA[fecha_obj.weekday()]
-            fecha_texto = f"{dia_semana} {dia:02d}/{mes:02d}"
-
-            eventos.append({
-                "fecha_obj": fecha_obj,
-                "rival": rival,
-                "competicion": competicion,
-                "jornada": jornada,
-                "fecha_texto": fecha_texto,
-                "hora": hora,
-                "local_o_visitante": local_o_visitante,
-                "dificultad": "",
-            })
-            if competicion == "LaLiga":
-                partidos_liga_que_faltan -= 1
-                if partidos_liga_que_faltan <= 0:
-                    break
-
-        mes += 1
-        if mes > 12:
-            mes = 1
-            anio += 1
-        time.sleep(0.5)
-
-    eventos.sort(key=lambda e: e["fecha_obj"])
-    return eventos
-
-
-def extraer_calendario(sesion, html_ficha, nombre_corto, slug):
-    eventos = eventos_desde_ficha_equipo(html_ficha, nombre_corto)
-
-    partidos_liga = sum(1 for e in eventos if e["competicion"] == "LaLiga")
-    if partidos_liga < MINIMO_PARTIDOS_LIGA and eventos:
-        faltan = MINIMO_PARTIDOS_LIGA - partidos_liga
-        extra = eventos_desde_calendario_mensual(sesion, slug, eventos[-1]["fecha_obj"], faltan)
-        eventos.extend(extra)
+def extraer_calendario(sesion, nombre_corto, slug):
+    html_partidos = Común.descargar_pagina(sesion, f"https://www.futbolfantasy.com/laliga/equipos/{slug}/partidos")
+    eventos = eventos_desde_partidos(html_partidos, nombre_corto)
 
     unir = lambda clave: " | ".join(e[clave] for e in eventos)
     rivales_oficiales = " | ".join(Común.MAPA_EQUIPOS.get(e["rival"], e["rival"]) for e in eventos)
@@ -283,7 +211,8 @@ if __name__ == "__main__":
             slug = SLUGS_EQUIPO[nombre_corto]
             try:
                 html_ficha = Común.descargar_pagina(sesion, f"https://www.futbolfantasy.com/laliga/equipos/{slug}")
-                datos = extraer_calendario(sesion, html_ficha, nombre_corto, slug)
+                time.sleep(1)
+                datos = extraer_calendario(sesion, nombre_corto, slug)
             except Común.ErrorBloqueo:
                 break
             except Exception:
