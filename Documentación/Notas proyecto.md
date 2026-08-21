@@ -133,9 +133,24 @@ alguno). Para cada jugador del catálogo: se descarta si su posición es
 `valor` = `marketValue` oficial, `valor_liga` = la cláusula de quien lo
 tenga en la liga (de cualquier equipo, no solo el tuyo) o el mismo
 `marketValue` si nadie lo tiene, `Foto` = el campo `image` del catálogo
-(validado contra `Común.PREFIJO_ASSETS_LALIGA_FANTASY`). `Datos Puntos
-jornada.csv` se escribe con cabecera pero sin filas — pendiente del
-formato real de `playerStats` (vacío mientras no haya partidos jugados).
+(validado contra `Común.PREFIJO_ASSETS_LALIGA_FANTASY`).
+
+**Puntos por jornada, desde el 22/08/2026**: cada elemento de `/players`
+trae también `points` (total de la temporada) y `weekPoints` (lista
+`{weekNumber, points}`, una entrada por cada jornada ya jugada, histórico
+completo cada vez, no solo la última) — sin ninguna petición extra, es el
+mismo catálogo que ya se pedía para el valor. Antes de esta fecha
+`Datos Puntos jornada.csv` se escribía con cabecera pero sin filas, a la
+espera de encontrar el formato real de `playerStats` (que solo empezó a
+devolver datos cuando arrancó la temporada 2026/27). Se investigó
+`GET /player/{id}?x-lang=es` (que sí trae el desglose de estadísticas por
+jornada, `stats.mins_played`/`goals`/etc.) pero es **una petición por
+jugador** — con ~715 jugadores sale carísimo, el mismo problema que ya
+forzó a abandonar el `Ingestar datos 2.py` original antes del Paso 8. Por
+eso de momento solo se usa `weekPoints` del catálogo bulk (da `Jornada` y
+`Puntos`, no el desglose `Estadísticas` ni `Tarjetas amarillas
+acumuladas`, que se guardan vacíos) — sigue pendiente el desglose real
+por estadística, ver "Pendiente".
 
 ### `Ingestar datos 1.py`
 
@@ -373,11 +388,18 @@ historial para calcular algo, 3 para `aceleracion`.
 - `historial_valor` (`id, fecha` PK): solo `valor_liga` de cada jugador,
   un snapshot por día. Solo se insertan filas nuevas (`ON CONFLICT DO
   NOTHING`), nunca se corrigen las que ya había.
-- `puntos_jornada` (`id, jornada` PK): UPSERT — pendiente de datos reales.
+- `puntos_jornada` (`id, jornada` PK): desde el 22/08/2026 se borra
+  **entera** y se reinserta en cada sincronización (`sincronizar_puntos()`
+  ya no hace `UPSERT`) — la API da el histórico completo de la temporada
+  en cada respuesta, así que un refresco total es correcto y además
+  limpia solo cualquier fila vieja/incorrecta que hubiera quedado de
+  antes. `estadisticas` y `tarjetas_amarillas_acumuladas` se guardan
+  vacíos por ahora (ver "Pendiente").
 - `puntos_jornada_detalle`: tabla creada, **sin sincronizar por ahora** —
   el parser que existía dependía del formato de texto de un script ya
   eliminado; hay que escribir uno nuevo cuando se conozca el formato real
-  de `playerStats`.
+  del desglose por jugador (ver "Pendiente" — necesita `GET
+  /player/{id}?x-lang=es`, una petición por jugador).
 - `calendario` (`equipo, orden` PK): se borra y reinserta por equipo en
   cada sincronización (la lista de próximos partidos se reemplaza entera).
 - `posicion_sin_oficial` (`equipo, nombre` PK, desde el 19/08/2026): los
@@ -510,20 +532,30 @@ pip install requests beautifulsoup4 psycopg2-binary
    21/08/2026)**: los 3 secretos de LaLiga Fantasy están bien puestos, los
    últimos 20 runs de `scraping.yml` son todos `success`.
 2. ~~Ejecutar en el SQL Editor de Supabase las 3 columnas nuevas del Paso
-   9...~~ **Resuelto (confirmado 21/08/2026)**: `/equipos/[id]` funciona
-   con datos reales (nombre oficial, formación real), las columnas ya
-   existen. ~~Falta una columna nueva más: `probabilidad`...~~ **Resuelto
+   9...~~ ~~Falta una columna nueva más: `probabilidad`...~~ ~~Falta un
+   cambio más: drop not null de posicion_x/y...~~ **Todo resuelto
    (confirmado 21/08/2026)**: el `workflow_dispatch` manual sincronizó
-   `jugadores` sin error. **Falta un cambio más** (ver "Base de datos" más
-   arriba, añadido el mismo día para el banquillo real): `alter table
-   posicion_sin_oficial alter column posicion_x drop not null; alter
-   table posicion_sin_oficial alter column posicion_y drop not null;` —
-   sin esto, `sincronizar_jugadores()` vuelve a fallar entera en cuanto
-   haya algún jugador de banquillo sin ficha oficial (sin coordenadas).
-3. **`minutos_jugados` / `puntos_jornada` / `puntos_jornada_detalle`**: en
-   cuanto se jueguen partidos de LaLiga 2026/27, mirar el formato real de
-   `playerStats` y escribir el parser (hoy vacío en toda respuesta de la
-   API).
+   `jugadores` sin error y Gordon/Adeyemi aparecieron en el banquillo
+   real del Barça, confirmando que las 3 columnas del Paso 9,
+   `probabilidad` y el `drop not null` de `posicion_x`/`posicion_y` están
+   todos aplicados en Supabase.
+3. **`puntos_jornada` resuelto parcialmente (22/08/2026)**: `Jornada` y
+   `Puntos` ya salen reales para todos los jugadores (`weekPoints` del
+   catálogo `/players`, ver "`Ingestar datos liga.py`" más arriba) — antes
+   solo un puñado de filas sueltas y corruptas quedaban de antes de que
+   el pipeline actual existiera (183 filas totales en toda la liga, con
+   la codificación rota, p. ej. "Baena" sin la Á — se limpiaron solas al
+   pasar `sincronizar_puntos()` a borrar y reinsertar entero). **Sigue
+   pendiente**: `minutos_jugados`, `estadisticas` (desglose por jugador,
+   goles/asistencias/tarjetas de cada jornada) y
+   `tarjetas_amarillas_acumuladas` — necesitan `GET
+   /player/{id}?x-lang=es`, que es una petición por jugador (~715 en
+   total); no se ha implementado por el mismo motivo que se abandonó el
+   `Ingestar datos 2.py` original antes del Paso 8 (demasiado caro hacerlo
+   cada hora). Si se quiere en algún momento, tendría que ir en el cron
+   pesado (cada 4-6h) en vez del ligero (cada hora), o limitarse a los
+   jugadores de la liga privada del usuario en vez de los ~715 del
+   catálogo completo.
 4. **Histórico real de `valor` (marketValue oficial)**: se descubrió
    `GET /player/{id}/market-value` con hasta 47 días de histórico real por
    jugador — no integrado todavía en el pipeline (solo se ha usado para

@@ -20,7 +20,6 @@ export const ESTADISTICAS_DETALLE = [
   { clave: "golesPropiaPuerta", nombre: "goles en propia puerta", campo: "cantidad" },
   { clave: "golesEnContra", nombre: "goles en contra", campo: "cantidad" },
   { clave: "tarjetasAmarillas", nombre: "tarjetas amarillas", campo: "cantidad" },
-  { clave: "segundasAmarillas", nombre: "segundas amarillas", campo: "cantidad" },
   { clave: "tarjetasRojas", nombre: "tarjetas rojas", campo: "cantidad" },
   { clave: "tirosPuerta", nombre: "tiros a puerta", campo: "cantidad" },
   { clave: "regates", nombre: "regates", campo: "cantidad" },
@@ -48,7 +47,6 @@ export type Jugador = {
   minutosJugados: number | null;
   puntosTotales: number;
   puntosUltimaJornada: number | null;
-  tarjetasAmarillasAcumuladas: number | null;
   dificultadProximos5: number | null;
   proximoRival: string | null;
   proximaDificultad: string | null;
@@ -214,7 +212,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       group by id
     ),
     ultima_jornada as (
-      select distinct on (id) id, puntos as puntos_ultima_jornada, tarjetas_amarillas_acumuladas
+      select distinct on (id) id, puntos as puntos_ultima_jornada
       from puntos_jornada
       order by id, jornada desc
     ),
@@ -239,7 +237,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       j.porcentaje_titularidad, j.valor_liga as valor, j.diferencia_valor, j.porcentaje_diferencia,
       j.aceleracion, j.tendencia_dias, j.estado, j.minutos_jugados,
       coalesce(t.puntos_totales, 0) as puntos_totales,
-      uj.puntos_ultima_jornada, uj.tarjetas_amarillas_acumuladas,
+      uj.puntos_ultima_jornada,
       (d.id is not null) as tiene_detalle,
       ${camposDetalleSelect},
       de.dificultad_prox5,
@@ -272,8 +270,6 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       minutosJugados: fila.minutos_jugados,
       puntosTotales: Number(fila.puntos_totales),
       puntosUltimaJornada: fila.puntos_ultima_jornada === null ? null : Number(fila.puntos_ultima_jornada),
-      tarjetasAmarillasAcumuladas:
-        fila.tarjetas_amarillas_acumuladas === null ? null : Number(fila.tarjetas_amarillas_acumuladas),
       dificultadProximos5: fila.dificultad_prox5 === null ? null : Number(fila.dificultad_prox5),
       proximoRival: fila.proximo_rival,
       proximaDificultad: fila.proxima_dificultad,

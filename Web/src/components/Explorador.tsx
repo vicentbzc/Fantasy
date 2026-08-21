@@ -5,23 +5,42 @@ import type { Jugador } from "@/lib/db";
 import { ORDEN_EQUIPOS } from "@/lib/equipos";
 import { Avatar } from "./Avatar";
 import { MenuMultiSeleccion } from "./MenuMultiSeleccion";
-import { MenuFiltros, type FiltrosNumericos } from "./MenuFiltros";
+import { MenuFiltros, type ColumnasVisibles } from "./MenuFiltros";
 import { GraficaValor } from "./GraficaValor";
 import { HistorialPuntos } from "./HistorialPuntos";
 import { urlFotoJugador, urlEscudoEquipo } from "@/lib/imagenes";
 import { formatearEstado } from "@/lib/formato";
-import { COLUMNAS_NUMERICAS, CLAVES_SUMABLES, formatearNumero, cumpleFiltroNumerico } from "@/lib/columnas";
+import { COLUMNAS_OPCIONALES, CLAVES_SUMABLES, formatearNumero, formatearCelda } from "@/lib/columnas";
 
 const POSICIONES = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 
-type ClaveOrdenable = (typeof COLUMNAS_NUMERICAS)[number]["clave"];
+type ClaveOrdenable = (typeof COLUMNAS_OPCIONALES)[number]["clave"];
+
+function compararPorClave(a: Jugador, b: Jugador, clave: ClaveOrdenable, direccion: "asc" | "desc"): number {
+  const columna = COLUMNAS_OPCIONALES.find((c) => c.clave === clave);
+
+  if (columna?.tipo === "texto") {
+    const va = a[clave] as string | null;
+    const vb = b[clave] as string | null;
+    if (va === null && vb === null) return 0;
+    if (va === null) return 1;
+    if (vb === null) return -1;
+    return direccion === "asc" ? va.localeCompare(vb, "es") : vb.localeCompare(va, "es");
+  }
+
+  const va = a[clave] as number | null;
+  const vb = b[clave] as number | null;
+  if (va === null && vb === null) return 0;
+  if (va === null) return 1;
+  if (vb === null) return -1;
+  return direccion === "asc" ? va - vb : vb - va;
+}
 
 export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   const [busqueda, setBusqueda] = useState("");
   const [posicionesSel, setPosicionesSel] = useState<string[]>([]);
   const [equiposSel, setEquiposSel] = useState<string[]>([]);
-  const [aceleracionSel, setAceleracionSel] = useState<string[]>([]);
-  const [filtrosNumericos, setFiltrosNumericos] = useState<FiltrosNumericos>({});
+  const [columnasVisibles, setColumnasVisibles] = useState<ColumnasVisibles>({});
   const [orden, setOrden] = useState<{ clave: ClaveOrdenable; direccion: "asc" | "desc" }>({
     clave: "valor",
     direccion: "desc",
@@ -53,27 +72,11 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
       if (texto && !j.nombre.toLowerCase().includes(texto)) return false;
       if (posicionesSel.length > 0 && !posicionesSel.includes(j.posicion)) return false;
       if (equiposSel.length > 0 && !equiposSel.includes(j.equipo)) return false;
-      if (aceleracionSel.length > 0 && !(j.aceleracion && aceleracionSel.includes(j.aceleracion))) return false;
-
-      for (const clave of Object.keys(filtrosNumericos) as (keyof Jugador)[]) {
-        const filtro = filtrosNumericos[clave];
-        if (!filtro) continue;
-        const valor = j[clave] as number | null;
-        if (!cumpleFiltroNumerico(valor, filtro.operador, filtro.valor)) return false;
-      }
-
       return true;
     });
 
-    return [...resultado].sort((a, b) => {
-      const va = a[orden.clave] as number | null;
-      const vb = b[orden.clave] as number | null;
-      if (va === null && vb === null) return 0;
-      if (va === null) return 1;
-      if (vb === null) return -1;
-      return orden.direccion === "asc" ? va - vb : vb - va;
-    });
-  }, [jugadores, busqueda, posicionesSel, equiposSel, aceleracionSel, filtrosNumericos, orden]);
+    return [...resultado].sort((a, b) => compararPorClave(a, b, orden.clave, orden.direccion));
+  }, [jugadores, busqueda, posicionesSel, equiposSel, orden]);
 
   function alternarSeleccion(id: number) {
     setSeleccionados((actual) =>
@@ -93,7 +96,8 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   const fijados = seleccionados.map((id) => porId.get(id)).filter((j): j is Jugador => j !== undefined);
   const filas = [...fijados, ...filtrados.filter((j) => !seleccionados.includes(j.id))];
 
-  const columnasVisibles = COLUMNAS_NUMERICAS.filter((columna) => filtrosNumericos[columna.clave] !== undefined);
+  const columnas = COLUMNAS_OPCIONALES.filter((columna) => columnasVisibles[columna.clave]);
+  const columnasNumericas = COLUMNAS_OPCIONALES.filter((columna) => columna.tipo !== "texto");
 
   const totalesEquipo = useMemo(() => {
     if (equiposSel.length !== 1 || seleccionados.length !== 0) return null;
@@ -102,7 +106,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
     if (jugadoresEquipo.length === 0) return null;
 
     const totales = Object.fromEntries(
-      COLUMNAS_NUMERICAS.map((columna) => {
+      COLUMNAS_OPCIONALES.filter((columna) => columna.tipo !== "texto").map((columna) => {
         const valores = jugadoresEquipo
           .map((j) => j[columna.clave] as number | null)
           .filter((v): v is number => v !== null);
@@ -142,12 +146,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
           seleccionados={posicionesSel}
           onChange={setPosicionesSel}
         />
-        <MenuFiltros
-          filtros={filtrosNumericos}
-          onChangeFiltros={setFiltrosNumericos}
-          aceleracion={aceleracionSel}
-          onChangeAceleracion={setAceleracionSel}
-        />
+        <MenuFiltros columnas={columnasVisibles} onChangeColumnas={setColumnasVisibles} />
       </div>
 
       {!seleccionados.length && totalesEquipo && (
@@ -161,7 +160,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
             </h2>
           </div>
           <dl className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
-            {COLUMNAS_NUMERICAS.map((columna) => (
+            {columnasNumericas.map((columna) => (
               <div key={columna.clave} className="flex items-center justify-between gap-2">
                 <dt className="text-neutral-500 truncate">{columna.etiqueta}</dt>
                 <dd className="tabular-nums font-medium">
@@ -183,8 +182,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
               <th className="p-3 whitespace-nowrap">Equipo</th>
               <th className="p-3 whitespace-nowrap">Posición</th>
               <th className="p-3 whitespace-nowrap">Estado</th>
-              <th className="p-3 whitespace-nowrap">Aceleración</th>
-              {columnasVisibles.map((columna) => (
+              {columnas.map((columna) => (
                 <th
                   key={columna.clave}
                   onClick={() => alternarOrden(columna.clave)}
@@ -231,11 +229,9 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                   <td className="p-3 text-neutral-500 whitespace-nowrap max-w-[220px] truncate" title={formatearEstado(j.estado)}>
                     {formatearEstado(j.estado)}
                   </td>
-                  <td className="p-3 text-neutral-500 whitespace-nowrap">{j.aceleracion ?? "—"}</td>
 
-                  {columnasVisibles.map((columna) => {
-                    const valorCelda = formatearNumero(j[columna.clave] as number | null, columna.decimales ?? 0);
-                    const texto = `${valorCelda}${columna.sufijo ?? ""}`;
+                  {columnas.map((columna) => {
+                    const texto = formatearCelda(columna, j[columna.clave]);
 
                     if (columna.clave === "valor") {
                       return (

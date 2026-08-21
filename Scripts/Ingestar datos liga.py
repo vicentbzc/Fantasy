@@ -66,9 +66,9 @@ def guardar_historial(filas, ruta_archivo=Común.ruta_datos("Datos Historial val
             })
 
 
-def guardar_puntos_jornada(ruta_archivo=Común.ruta_datos("Datos Puntos jornada.csv")):
+def guardar_puntos_jornada(filas, ruta_archivo=Común.ruta_datos("Datos Puntos jornada.csv")):
     columnas = ["ID", "Jugador", "Equipo", "Jornada", "Puntos", "Estadísticas", "Tarjetas amarillas acumuladas"]
-    Común.guardar_csv(ruta_archivo, columnas, [])
+    Común.guardar_csv(ruta_archivo, columnas, filas)
 
 
 if __name__ == "__main__":
@@ -93,6 +93,7 @@ if __name__ == "__main__":
         valores_liga = construir_valores_liga(sesion, token, id_liga)
 
         filas = []
+        filas_puntos = []
         for jugador in catalogo:
             posicion = Común.MAPA_POSICION_OFICIAL.get(str(jugador.get("positionId")))
             if posicion is None:
@@ -118,10 +119,24 @@ if __name__ == "__main__":
                 "Valor en la liga": Común.formatear_miles(valor_liga),
                 "Foto": foto,
             })
+            for semana in jugador.get("weekPoints") or []:
+                jornada = semana.get("weekNumber")
+                puntos = semana.get("points")
+                if jornada is None or puntos is None:
+                    continue
+                filas_puntos.append({
+                    "ID": id_oficial,
+                    "Jugador": jugador.get("nickname", ""),
+                    "Equipo": equipo,
+                    "Jornada": jornada,
+                    "Puntos": puntos,
+                    "Estadísticas": "",
+                    "Tarjetas amarillas acumuladas": "",
+                })
 
         if filas:
             guardar_jugadores(filas)
             guardar_historial(filas)
-            guardar_puntos_jornada()
+            guardar_puntos_jornada(filas_puntos)
 
     time.sleep(1)

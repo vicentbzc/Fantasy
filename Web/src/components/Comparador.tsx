@@ -3,15 +3,14 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import type { Jugador } from "@/lib/db";
-import { MenuFiltros, type FiltrosNumericos } from "./MenuFiltros";
+import { MenuFiltros, type ColumnasVisibles } from "./MenuFiltros";
 import { urlFotoJugador } from "@/lib/imagenes";
 import { formatearEstado, COLOR_DIFICULTAD } from "@/lib/formato";
-import { COLUMNAS_NUMERICAS, formatearNumero } from "@/lib/columnas";
+import { COLUMNAS_OPCIONALES, formatearNumero } from "@/lib/columnas";
 
 export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
   const [seleccionados, setSeleccionados] = useState<number[]>([]);
-  const [filtrosNumericos, setFiltrosNumericos] = useState<FiltrosNumericos>({});
-  const [aceleracionSel, setAceleracionSel] = useState<string[]>([]);
+  const [columnasVisibles, setColumnasVisibles] = useState<ColumnasVisibles>({});
   const [abiertoAnadir, setAbiertoAnadir] = useState(false);
   const [busqueda, setBusqueda] = useState("");
 
@@ -34,7 +33,9 @@ export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
     setBusqueda("");
   }
 
-  const columnasVisibles = COLUMNAS_NUMERICAS.filter((columna) => filtrosNumericos[columna.clave] !== undefined);
+  const columnas = COLUMNAS_OPCIONALES.filter(
+    (columna) => columna.clave !== "aceleracion" && columnasVisibles[columna.clave]
+  );
 
   function colorMejorPeor(valores: (number | null)[], i: number): string | undefined {
     const validos = valores.filter((v): v is number => v !== null);
@@ -118,10 +119,9 @@ export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
               <tr>
                 <th className="p-3 text-left w-[140px]">
                   <MenuFiltros
-                    filtros={filtrosNumericos}
-                    onChangeFiltros={setFiltrosNumericos}
-                    aceleracion={aceleracionSel}
-                    onChangeAceleracion={setAceleracionSel}
+                    columnas={columnasVisibles}
+                    onChangeColumnas={setColumnasVisibles}
+                    excluir={["aceleracion"]}
                   />
                 </th>
                 {jugadoresSeleccionados.map((j) => (
@@ -159,7 +159,7 @@ export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
                 </tr>
               ))}
 
-              {columnasVisibles.map((columna, i) => {
+              {columnas.map((columna, i) => {
                 const valores = jugadoresSeleccionados.map((j) => j[columna.clave] as number | null);
                 return (
                   <tr

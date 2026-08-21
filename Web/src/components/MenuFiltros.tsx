@@ -2,21 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Jugador } from "@/lib/db";
-import { COLUMNAS_NUMERICAS, OPCIONES_ACELERACION, type Operador } from "@/lib/columnas";
+import { COLUMNAS_OPCIONALES } from "@/lib/columnas";
 
-export type FiltroNumericoActivo = { operador: Operador; valor: number };
-export type FiltrosNumericos = Partial<Record<keyof Jugador, FiltroNumericoActivo>>;
+export type ColumnasVisibles = Partial<Record<keyof Jugador, true>>;
 
 export function MenuFiltros({
-  filtros,
-  onChangeFiltros,
-  aceleracion,
-  onChangeAceleracion,
+  columnas,
+  onChangeColumnas,
+  excluir,
 }: {
-  filtros: FiltrosNumericos;
-  onChangeFiltros: (nuevo: FiltrosNumericos) => void;
-  aceleracion: string[];
-  onChangeAceleracion: (nuevo: string[]) => void;
+  columnas: ColumnasVisibles;
+  onChangeColumnas: (nuevo: ColumnasVisibles) => void;
+  excluir?: (keyof Jugador)[];
 }) {
   const [abierto, setAbierto] = useState(false);
   const contenedorRef = useRef<HTMLDivElement>(null);
@@ -31,72 +28,17 @@ export function MenuFiltros({
     return () => document.removeEventListener("mousedown", alClicarFuera);
   }, []);
 
-  const numActivos = Object.keys(filtros).length + (aceleracion.length > 0 ? 1 : 0);
+  const numActivos = Object.keys(columnas).length;
+  const opciones = excluir ? COLUMNAS_OPCIONALES.filter((c) => !excluir.includes(c.clave)) : COLUMNAS_OPCIONALES;
 
-  function activar(clave: keyof Jugador, activo: boolean) {
-    const nuevo = { ...filtros };
-    if (activo) {
-      nuevo[clave] = filtros[clave] ?? { operador: ">", valor: 0 };
-    } else {
+  function alternar(clave: keyof Jugador) {
+    const nuevo = { ...columnas };
+    if (nuevo[clave]) {
       delete nuevo[clave];
-    }
-    onChangeFiltros(nuevo);
-  }
-
-  function cambiarOperador(clave: keyof Jugador, operador: Operador) {
-    const actual = filtros[clave];
-    if (!actual) return;
-    onChangeFiltros({ ...filtros, [clave]: { ...actual, operador } });
-  }
-
-  function cambiarValor(clave: keyof Jugador, valor: number) {
-    const actual = filtros[clave];
-    if (!actual) return;
-    onChangeFiltros({ ...filtros, [clave]: { ...actual, valor } });
-  }
-
-  function alternarAceleracion(opcion: string) {
-    if (aceleracion.includes(opcion)) {
-      onChangeAceleracion(aceleracion.filter((o) => o !== opcion));
     } else {
-      onChangeAceleracion([...aceleracion, opcion]);
+      nuevo[clave] = true;
     }
-  }
-
-  const indiceAceleracion = COLUMNAS_NUMERICAS.findIndex((c) => c.clave === "tendenciaDias");
-  const columnasAntesDeAceleracion = COLUMNAS_NUMERICAS.slice(0, indiceAceleracion);
-  const columnasDespuesDeAceleracion = COLUMNAS_NUMERICAS.slice(indiceAceleracion);
-
-  function filaColumna(columna: (typeof COLUMNAS_NUMERICAS)[number]) {
-    const activo = filtros[columna.clave];
-    return (
-      <div key={columna.clave} className="flex items-center gap-2 px-2 py-1">
-        <input
-          type="checkbox"
-          checked={!!activo}
-          onChange={(e) => activar(columna.clave, e.target.checked)}
-          className="shrink-0"
-        />
-        <span className="flex-1 text-sm truncate">{columna.etiqueta}</span>
-        <select
-          value={activo?.operador ?? ">"}
-          disabled={!activo}
-          onChange={(e) => cambiarOperador(columna.clave, e.target.value as Operador)}
-          className="text-sm bg-neutral-100 rounded-md px-1 py-0.5 disabled:opacity-40"
-        >
-          <option value=">">&gt;</option>
-          <option value="<">&lt;</option>
-          <option value="=">=</option>
-        </select>
-        <input
-          type="number"
-          value={activo?.valor ?? 0}
-          disabled={!activo}
-          onChange={(e) => cambiarValor(columna.clave, Number(e.target.value))}
-          className="w-16 text-sm bg-neutral-100 rounded-md px-1.5 py-0.5 disabled:opacity-40"
-        />
-      </div>
-    );
+    onChangeColumnas(nuevo);
   }
 
   return (
@@ -113,37 +55,31 @@ export function MenuFiltros({
       </button>
 
       {abierto && (
-        <div className="absolute z-40 mt-2 w-[340px] max-h-[70vh] overflow-y-auto rounded-2xl bg-white shadow-lg p-3 right-0">
-          {(Object.keys(filtros).length > 0 || aceleracion.length > 0) && (
+        <div className="absolute z-40 mt-2 w-[280px] max-h-[70vh] overflow-y-auto rounded-2xl bg-white shadow-lg p-3 right-0">
+          {numActivos > 0 && (
             <button
               type="button"
-              onClick={() => {
-                onChangeFiltros({});
-                onChangeAceleracion([]);
-              }}
+              onClick={() => onChangeColumnas({})}
               className="w-full text-left px-2 py-1.5 text-xs text-neutral-500 rounded-[10px] transition-colors duration-200 hover:bg-[#FAFAFC] hover:text-neutral-900"
             >
               Limpiar filtros
             </button>
           )}
 
-          {columnasAntesDeAceleracion.map(filaColumna)}
-
-          <div className="grid grid-cols-2 gap-x-2">
-            {OPCIONES_ACELERACION.map((opcion) => (
-              <label key={opcion} className="flex items-center gap-2 px-2 py-1 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={aceleracion.includes(opcion)}
-                  onChange={() => alternarAceleracion(opcion)}
-                  className="shrink-0"
-                />
-                <span className="truncate">{opcion}</span>
-              </label>
-            ))}
-          </div>
-
-          {columnasDespuesDeAceleracion.map(filaColumna)}
+          {opciones.map((columna) => (
+            <label
+              key={columna.clave}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors duration-200 hover:bg-[#FAFAFC] cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={!!columnas[columna.clave]}
+                onChange={() => alternar(columna.clave)}
+                className="shrink-0"
+              />
+              <span className="truncate">{columna.etiqueta}</span>
+            </label>
+          ))}
         </div>
       )}
     </div>

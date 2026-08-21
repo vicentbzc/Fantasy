@@ -356,6 +356,9 @@ def sincronizar_puntos(cur):
         for fila in leer_csv("Datos Puntos jornada.csv")
     ]
 
+    cur.execute("delete from puntos_jornada_detalle")
+    cur.execute("delete from puntos_jornada")
+
     if not filas:
         return 0
 
@@ -366,12 +369,6 @@ def sincronizar_puntos(cur):
             id, jugador, jornada, equipo, puntos, estadisticas,
             tarjetas_amarillas_acumuladas
         ) values %s
-        on conflict (id, jornada) do update set
-            jugador = excluded.jugador,
-            equipo = excluded.equipo,
-            puntos = excluded.puntos,
-            estadisticas = excluded.estadisticas,
-            tarjetas_amarillas_acumuladas = excluded.tarjetas_amarillas_acumuladas
         """,
         filas,
     )
