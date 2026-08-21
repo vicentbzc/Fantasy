@@ -20,7 +20,7 @@ export function FotoJugadorSlot({
   size: number;
   radius: number;
   bg?: string;
-  probabilidad: number;
+  probabilidad: number | null;
   colorProbabilidad: string;
   fontSizeProbabilidad: number;
   colorNombre?: string;
@@ -35,7 +35,7 @@ export function FotoJugadorSlot({
         style={{ color: colorProbabilidad, fontSize: fontSizeProbabilidad }}
         className="font-bold leading-none whitespace-nowrap"
       >
-        {probabilidad}%
+        {probabilidad === null ? "—" : `${probabilidad}%`}
       </span>
       <div
         style={{ width: size, height: size, borderRadius: radius }}

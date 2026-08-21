@@ -14,7 +14,9 @@ const TAMANO_BANQUILLO = 10;
 const MINIMO_OUTFIELD_CON_POSICION_REAL = 8;
 
 function comparar(a: JugadorProbable, b: JugadorProbable) {
-  if (b.probabilidad !== a.probabilidad) return b.probabilidad - a.probabilidad;
+  const pa = a.probabilidad ?? -1;
+  const pb = b.probabilidad ?? -1;
+  if (pb !== pa) return pb - pa;
   return a.nombre.localeCompare(b.nombre, "es");
 }
 

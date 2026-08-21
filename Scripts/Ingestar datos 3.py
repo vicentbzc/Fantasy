@@ -197,7 +197,7 @@ def guardar_csv(filas, ruta_archivo=Común.ruta_datos("Datos 3.csv")):
 
 
 def guardar_posiciones(filas, ruta_archivo=Común.ruta_datos("Datos Posicion.csv")):
-    columnas = ["Equipo", "Jugador", "Posicion X", "Posicion Y"]
+    columnas = ["Equipo", "Jugador", "Posicion X", "Posicion Y", "Probabilidad"]
     Común.guardar_csv(ruta_archivo, columnas, filas)
 
 
@@ -227,6 +227,7 @@ if __name__ == "__main__":
                     "Jugador": jugador["nombre"],
                     "Posicion X": jugador["x"],
                     "Posicion Y": jugador["y"],
+                    "Probabilidad": jugador["probabilidad"],
                 })
 
             time.sleep(1)

@@ -25,10 +25,10 @@ export function minusculaInicial(texto: string): string {
 
 export const COLOR_DIFICULTAD: Record<string, string> = {
   "Muy alta": "#DC2626",
-  Alta: "#C2410C",
-  Media: "#B98200",
-  Baja: "#4C9F6B",
-  "Muy baja": "#2F8A59",
+  Alta: "#EA580C",
+  Media: "#CA8A04",
+  Baja: "#2563EB",
+  "Muy baja": "#16A34A",
 };
 
 export function formatearCuando(

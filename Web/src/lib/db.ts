@@ -174,7 +174,7 @@ export type JugadorProbable = {
   id: number;
   nombre: string;
   posicion: string;
-  probabilidad: number;
+  probabilidad: number | null;
   posX: number | null;
   posY: number | null;
   esFantasma?: boolean;
@@ -190,13 +190,13 @@ export async function obtenerJugadoresEquipo(nombreEquipo: string): Promise<Juga
     id: fila.id,
     nombre: fila.nombre,
     posicion: fila.posicion,
-    probabilidad: fila.porcentaje_titularidad === null ? 0 : Number(fila.porcentaje_titularidad),
+    probabilidad: fila.porcentaje_titularidad === null ? null : Number(fila.porcentaje_titularidad),
     posX: fila.posicion_x === null ? null : Number(fila.posicion_x),
     posY: fila.posicion_y === null ? null : Number(fila.posicion_y),
   }));
 
   const sinOficial = await pool.query(
-    `select nombre, posicion_x, posicion_y from posicion_sin_oficial where equipo = $1`,
+    `select nombre, posicion_x, posicion_y, probabilidad from posicion_sin_oficial where equipo = $1`,
     [nombreEquipo]
   );
 
@@ -204,7 +204,7 @@ export async function obtenerJugadoresEquipo(nombreEquipo: string): Promise<Juga
     id: -(i + 1),
     nombre: fila.nombre,
     posicion: "",
-    probabilidad: 0,
+    probabilidad: fila.probabilidad === null ? null : Number(fila.probabilidad),
     posX: Number(fila.posicion_x),
     posY: Number(fila.posicion_y),
     esFantasma: true,

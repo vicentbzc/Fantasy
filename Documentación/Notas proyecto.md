@@ -196,7 +196,22 @@ grupo. Aun así, 2-3 equipos con mucha incertidumbre de rotación pueden
 salir con más de 11 candidatos; la web (`calcularFormacion()`) recorta a
 los 10 de campo con más probabilidad, así que el sobrante simplemente no
 se usa. Guarda `Datos Posicion.csv`: `Equipo, Jugador, Posicion X,
-Posicion Y` (valores 0-100, un jugador por fila, solo los titulares).
+Posicion Y, Probabilidad` (valores 0-100, un jugador por fila, solo los
+titulares).
+
+Desde el 21/08/2026 la `data-probabilidad` que ya se leía para desempatar
+duplicados **también** se guarda como columna `Probabilidad` (antes se
+calculaba y se descartaba). `Sincronizar` la usa como respaldo de
+`porcentaje_titularidad` cuando el emparejador de `Datos Titularidad.csv`
+no encuentra pareja — ver "Cálculo de tendencias..." más abajo, en
+realidad ver la sección de `Sincronizar` — sin tocar `nombres_coinciden()`
+en absoluto, solo como una segunda fuente para el mismo dato. Motivo: se
+detectó que jugadores "fantasma" (ver Paso 9) como "Swedberg" del Celta
+mostraban "0%"/sin dato en la web aunque futbolfantasy.com sí tenía su
+probabilidad real (confirmado en directo: 50%, coincide exacto con la
+`data-probabilidad` de esta misma página). Los jugadores fantasma nunca
+tienen fila en `jugadores` (no pasan por `Ingestar datos 1.py`), así que
+antes de este cambio no había forma de que tuvieran titularidad.
 
 ### `Descargar imágenes.py`
 
@@ -293,7 +308,11 @@ uno son independientes entre sí:
   "Laporte" con "Aymeric Laporte", etc.). Probado en directo: ~86% de
   acierto en titularidad, ~80% en estado. Lo que no se empareja se queda
   con `NULL` (titularidad) o el valor por defecto (estado) — nunca se
-  inventa un dato.
+  inventa un dato. Desde el 21/08/2026, si `Datos Titularidad.csv` no
+  empareja a un jugador, `porcentaje_titularidad` cae a la `Probabilidad`
+  que sí consiguió `Datos Posicion.csv` para ese mismo jugador (si la
+  tuvo) en vez de quedarse en `NULL` — mismo dato real de
+  futbolfantasy.com, solo que de una página distinta del mismo sitio.
 
 ## Cálculo de tendencias (`diferencia_valor`, `porcentaje_diferencia`, `tendencia_dias`, `aceleracion`)
 
@@ -333,6 +352,11 @@ historial para calcular algo, 3 para `aceleracion`.
   de `playerStats`.
 - `calendario` (`equipo, orden` PK): se borra y reinserta por equipo en
   cada sincronización (la lista de próximos partidos se reemplaza entera).
+- `posicion_sin_oficial` (`equipo, nombre` PK, desde el 19/08/2026): los
+  jugadores "fantasma" (ver Paso 9) — `posicion_x`, `posicion_y` y, desde
+  el 21/08/2026, `probabilidad` (puede ser `null` si futbolfantasy.com no
+  traía `data-probabilidad` para ese jugador). Se borra y reinserta entera
+  en cada sincronización, igual que `calendario`.
 
 **`Esquema base de datos.sql` es el esquema de una base de datos nueva, no
 una migración** — para una base de datos que ya existe (como la real de
@@ -342,7 +366,14 @@ Editor de Supabase:
 alter table equipos add column nombre_oficial text;
 alter table jugadores add column posicion_x numeric;
 alter table jugadores add column posicion_y numeric;
+alter table posicion_sin_oficial add column probabilidad numeric;
 ```
+Hasta que no se ejecute la última línea, `sincronizar_jugadores()` falla
+entera (hace `rollback`) en cada sincronización — no solo se pierde el
+dato nuevo, se detiene también la actualización normal de `jugadores`
+(valor, titularidad, estado...) hasta que se aplique la columna. Mismo
+patrón que las columnas anteriores, solo que esta vez el radio de
+impacto de no aplicarla a tiempo es mayor.
 Hasta que no se ejecute esto, la web da error en `/equipos/[id]` y
 `/mi-equipo` (consultan columnas que todavía no existen) — pendiente de
 que el usuario lo ejecute, ver "Pendiente".
@@ -440,16 +471,17 @@ pip install requests beautifulsoup4 psycopg2-binary
 
 ## Pendiente
 
-1. **Añadir los secretos que faltan en GitHub** (`LALIGA_FANTASY_EMAIL`,
-   `LALIGA_FANTASY_PASSWORD`, `LALIGA_FANTASY_LEAGUE_ID`) en *Settings →
-   Secrets and variables → Actions* — diagnosticado el 19/08/2026: es la
-   causa de que **todas** las ejecuciones horarias (`Ingestar datos
-   liga.py`) fallen desde el Paso 8, y desde el Paso 9 también hace falta
-   para el cron de cada 4-6h (`Descargar imágenes.py` necesita el token
-   para leer `teams-master`).
-2. **Ejecutar en el SQL Editor de Supabase** las 3 columnas nuevas del
-   Paso 9 (ver "Base de datos" más arriba) — sin esto `/equipos/[id]` y
-   `/mi-equipo` dan error en la web.
+1. ~~Añadir los secretos que faltan en GitHub...~~ **Resuelto (confirmado
+   21/08/2026)**: los 3 secretos de LaLiga Fantasy están bien puestos, los
+   últimos 20 runs de `scraping.yml` son todos `success`.
+2. ~~Ejecutar en el SQL Editor de Supabase las 3 columnas nuevas del Paso
+   9...~~ **Resuelto (confirmado 21/08/2026)**: `/equipos/[id]` funciona
+   con datos reales (nombre oficial, formación real), las columnas ya
+   existen. **Falta una columna nueva más** (ver "Base de datos" más
+   arriba): `alter table posicion_sin_oficial add column probabilidad
+   numeric;` — necesaria desde el 21/08/2026 para que `Sincronizar` no
+   falle en `sincronizar_jugadores()` (ver el aviso justo debajo de las
+   3 columnas del Paso 9 sobre el radio de impacto de no aplicarla).
 3. **`minutos_jugados` / `puntos_jornada` / `puntos_jornada_detalle`**: en
    cuanto se jueguen partidos de LaLiga 2026/27, mirar el formato real de
    `playerStats` y escribir el parser (hoy vacío en toda respuesta de la
@@ -820,6 +852,56 @@ ocupa el 100% del ancho disponible (`w-full`, igual que `CampoTactico`) y
 coincide automáticamente con el campo a cualquier tamaño de viewport, sin
 tener que calcular a mano un ancho de columna para cada caso. Verificado:
 652px en ambos a 1280px de viewport, márgenes de 28px en los dos bordes.
+
+## Cuarta ronda de bugs de producción (21/08/2026)
+
+El usuario, ya con el Paso 9 desplegado y confirmado (secretos de GitHub,
+columnas de Supabase, caché de imágenes — ver "Pendiente"), reportó 4
+cosas más viendo la web real:
+
+1. **Colores de dificultad**: `COLOR_DIFICULTAD` en `lib/formato.ts` no
+   seguía una escala reconocible (Muy baja y Baja eran los dos el mismo
+   verde). Cambiado a la escala que pidió el usuario: Muy baja verde
+   (`#16A34A`), Baja azul (`#2563EB`), Media amarillo (`#CA8A04`), Alta
+   naranja (`#EA580C`), Muy alta rojo (`#DC2626`, sin cambios).
+2. **Bloque VS de `/equipos/[id]` descentrado**: el header de "Posible
+   alineación de la jornada X" (arriba del todo, el VS de la propia
+   jornada de liga — no las tarjetas de "Próximos partidos", esas ya
+   tenían el fix) seguía usando el layout `flex flex-wrap justify-center`
+   antiguo, el mismo problema que `TarjetaProximoPartido.tsx` ya había
+   resuelto con un grid `1fr auto 1fr` en el Paso 9. Se le aplicó el mismo
+   grid — nunca se migró en su momento porque son dos componentes
+   distintos con el mismo bug visual.
+3. **"0%" en vez de "sin dato"**: `probabilidad` se calculaba como
+   `porcentaje_titularidad === null ? 0 : ...` en `lib/db.ts` y
+   `mi-equipo/page.tsx` (3 sitios) — un jugador sin emparejar (ver "Tres
+   catálogos distintos") se veía como "0% de probabilidad" en vez de "sin
+   dato". Cambiado a propagar `null` hasta `FotoJugadorSlot`, que ahora
+   muestra "—" en ese caso (`probabilidad: number | null` en todo el
+   camino: `JugadorProbable`, `comparar()` en `lib/formacion.ts` con
+   `?? -1` al ordenar, y el propio componente). Afecta a Álex Balde
+   (documentado ya como caso sin `porcentaje_titularidad` real) y a
+   cualquier jugador fantasma (antes tenían `probabilidad: 0` a mano).
+4. **Jugadores fantasma sin ninguna titularidad real disponible**: al
+   investigar el caso "Álex Balde" salió un caso más concreto —
+   "Swedberg" (Celta, fantasma, sin ficha oficial todavía) aparecía sin
+   dato aunque futbolfantasy.com sí muestra su probabilidad (50%,
+   confirmado en directo). Los fantasmas nunca pasan por `Ingestar datos
+   1.py` (no tienen fila en `jugadores`), así que no tenían ninguna vía
+   posible hacia una titularidad real. Se aprovechó que
+   `extraer_formacion()` en `Ingestar datos 3.py` ya leía
+   `data-probabilidad` de la misma página (hasta ahora solo para
+   desempatar duplicados, luego se descartaba) — ahora se guarda como
+   columna `Probabilidad` en `Datos Posicion.csv` y `Sincronizar` la usa
+   de dos formas: (a) como `probabilidad` de `posicion_sin_oficial` para
+   los fantasmas, y (b) como respaldo de `porcentaje_titularidad` en
+   `jugadores` cuando `Datos Titularidad.csv` no logró emparejar a ese
+   jugador (`primero_no_nulo()`, sin tocar `nombres_coinciden()` en
+   absoluto). Verificado en directo contra Celta real: "Swedberg" sale
+   con probabilidad 50, exactamente lo que reportó el usuario. Requiere
+   una columna nueva en Supabase (`posicion_sin_oficial.probabilidad`,
+   ver "Base de datos" y "Pendiente") antes de que el cron pueda
+   sincronizar `jugadores` sin error.
 
 ## Historia breve
 

@@ -43,26 +43,28 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
         </div>
 
         {equipo.rivalJornadaLiga && (
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-            <span className="text-[16px] font-semibold">{nombreDisplay}</span>
-            <ImagenCuadrada
-              src={urlEscudoEquipo(equipo.id)}
-              alt={nombreDisplay}
-              size={104}
-              radius={18}
-              bg="transparent"
-              padding={18}
-            />
-            <span className="text-base font-bold text-[#6E6E73]">VS</span>
-            <ImagenCuadrada
-              src={urlEscudoEquipo(equipo.rivalJornadaLigaId)}
-              alt={rivalDisplay ?? ""}
-              size={104}
-              radius={18}
-              bg="transparent"
-              padding={18}
-            />
-            <span className="text-[16px] font-semibold">{rivalDisplay}</span>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-5 gap-y-2 w-full">
+            <span className="text-[16px] font-semibold text-right">{nombreDisplay}</span>
+            <div className="flex items-center gap-5">
+              <ImagenCuadrada
+                src={urlEscudoEquipo(equipo.id)}
+                alt={nombreDisplay}
+                size={104}
+                radius={18}
+                bg="transparent"
+                padding={18}
+              />
+              <span className="text-base font-bold text-[#6E6E73]">VS</span>
+              <ImagenCuadrada
+                src={urlEscudoEquipo(equipo.rivalJornadaLigaId)}
+                alt={rivalDisplay ?? ""}
+                size={104}
+                radius={18}
+                bg="transparent"
+                padding={18}
+              />
+            </div>
+            <span className="text-[16px] font-semibold text-left">{rivalDisplay}</span>
           </div>
         )}
 

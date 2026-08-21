@@ -46,6 +46,13 @@ def dividir(texto):
     return texto.split(" | ") if texto else []
 
 
+def primero_no_nulo(*valores):
+    for valor in valores:
+        if valor is not None:
+            return valor
+    return None
+
+
 def tokenizar_nombre(nombre):
     return [t for t in re.split(r"[^a-z0-9]+", Común.normalizar_nombre(nombre)) if t]
 
@@ -162,7 +169,10 @@ def sincronizar_jugadores(cur):
             jugador["Jugador"],
             jugador["Equipo"],
             jugador["Posición"],
-            parsear_porcentaje(coincidencias_mercado.get(jugador["ID"], {}).get("Porcentaje de titularidad")),
+            primero_no_nulo(
+                parsear_porcentaje(coincidencias_mercado.get(jugador["ID"], {}).get("Porcentaje de titularidad")),
+                parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Probabilidad")),
+            ),
             parsear_entero_miles(jugador["Valor"]),
             parsear_entero_miles(jugador["Valor en la liga"]),
             coincidencias_estado.get(jugador["ID"], {}).get("Estado", "Disponible para competir"),
@@ -208,9 +218,15 @@ def sincronizar_jugadores(cur):
     if posiciones_sin_oficial:
         execute_values(
             cur,
-            "insert into posicion_sin_oficial (equipo, nombre, posicion_x, posicion_y) values %s",
+            "insert into posicion_sin_oficial (equipo, nombre, posicion_x, posicion_y, probabilidad) values %s",
             [
-                (p["Equipo"], p["Jugador"], parsear_numero(p["Posicion X"]), parsear_numero(p["Posicion Y"]))
+                (
+                    p["Equipo"],
+                    p["Jugador"],
+                    parsear_numero(p["Posicion X"]),
+                    parsear_numero(p["Posicion Y"]),
+                    parsear_numero(p.get("Probabilidad")),
+                )
                 for p in posiciones_sin_oficial
             ],
         )

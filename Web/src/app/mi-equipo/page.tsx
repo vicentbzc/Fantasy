@@ -17,7 +17,7 @@ function aProbable(j: Jugador): JugadorProbable {
     id: j.id,
     nombre: j.nombre,
     posicion: j.posicion,
-    probabilidad: j.porcentajeTitularidad ?? 0,
+    probabilidad: j.porcentajeTitularidad,
     posX: null,
     posY: null,
   };
@@ -87,7 +87,7 @@ export default async function MiEquipo() {
               alt={j.nombre}
               size={62}
               radius={12}
-              probabilidad={j.porcentajeTitularidad ?? 0}
+              probabilidad={j.porcentajeTitularidad}
               colorProbabilidad="#6E6E73"
               fontSizeProbabilidad={14}
             />
@@ -108,7 +108,7 @@ export default async function MiEquipo() {
               alt={seguido.nombre}
               size={62}
               radius={12}
-              probabilidad={seguido.porcentajeTitularidad ?? 0}
+              probabilidad={seguido.porcentajeTitularidad}
               colorProbabilidad="#6E6E73"
               fontSizeProbabilidad={14}
             />

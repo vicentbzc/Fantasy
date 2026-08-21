@@ -72,5 +72,6 @@ create table posicion_sin_oficial (
     nombre text not null,
     posicion_x numeric not null,
     posicion_y numeric not null,
+    probabilidad numeric,
     primary key (equipo, nombre)
 );
