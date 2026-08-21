@@ -111,6 +111,7 @@ export type EquipoDetalle = {
   nombre: string;
   nombreOficial: string | null;
   jornadaLiga: string | null;
+  jornadaLigaOrden: number | null;
   rivalJornadaLiga: string | null;
   rivalJornadaLigaNombreOficial: string | null;
   rivalJornadaLigaId: number | null;
@@ -159,6 +160,7 @@ export async function obtenerEquipoDetalle(id: number): Promise<EquipoDetalle | 
     nombre: equipoFila.nombre,
     nombreOficial: equipoFila.nombre_oficial,
     jornadaLiga: proximaLiga?.jornada?.replace(/^Jornada\s+/i, "") ?? null,
+    jornadaLigaOrden: proximaLiga?.orden ?? null,
     rivalJornadaLiga: proximaLiga?.rival ?? null,
     rivalJornadaLigaNombreOficial: proximaLiga?.rivalNombreOficial ?? null,
     rivalJornadaLigaId: proximaLiga?.rivalId ?? null,
@@ -205,8 +207,8 @@ export async function obtenerJugadoresEquipo(nombreEquipo: string): Promise<Juga
     nombre: fila.nombre,
     posicion: "",
     probabilidad: fila.probabilidad === null ? null : Number(fila.probabilidad),
-    posX: Number(fila.posicion_x),
-    posY: Number(fila.posicion_y),
+    posX: fila.posicion_x === null ? null : Number(fila.posicion_x),
+    posY: fila.posicion_y === null ? null : Number(fila.posicion_y),
     esFantasma: true,
   }));
 

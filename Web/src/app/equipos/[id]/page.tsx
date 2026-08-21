@@ -27,6 +27,7 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
   const colorDificultad = equipo.dificultadJornadaLiga ? COLOR_DIFICULTAD[equipo.dificultadJornadaLiga] : null;
   const nombreDisplay = equipo.nombreOficial ?? equipo.nombre;
   const rivalDisplay = equipo.rivalJornadaLigaNombreOficial ?? equipo.rivalJornadaLiga;
+  const proximosPartidos = equipo.partidos.filter((partido) => partido.orden !== equipo.jornadaLigaOrden);
 
   return (
     <div className="max-w-[700px] mx-auto w-full px-6 pt-14 pb-22 flex flex-col items-center gap-14 text-center">
@@ -84,7 +85,7 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
           Próximos partidos
         </h2>
         <div className="w-full rounded-[28px] bg-white p-[28px] flex flex-col gap-[18px]">
-          {equipo.partidos.map((partido) => (
+          {proximosPartidos.map((partido) => (
             <TarjetaProximoPartido
               key={partido.orden}
               partido={partido}

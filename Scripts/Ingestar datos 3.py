@@ -42,7 +42,7 @@ MAPA_DIAS_ABREVIADOS = {
     "Vie": "Viernes", "Sab": "Sábado", "Dom": "Domingo",
 }
 
-MINIMO_PARTIDOS_LIGA = 5
+MINIMO_PARTIDOS_LIGA = 6
 
 
 def formatear_hora(texto_hora):
@@ -71,6 +71,20 @@ def parsear_fecha_corta(dia, mes, hoy):
     return fecha
 
 
+def _leer_probabilidad(marcador):
+    camiseta_tag = marcador.select_one("a.camiseta")
+    probabilidad_texto = camiseta_tag.get("data-probabilidad", "0%") if camiseta_tag else "0%"
+    try:
+        return int(probabilidad_texto.rstrip("%"))
+    except ValueError:
+        return 0
+
+
+def _leer_nombre(marcador):
+    nombre_tag = marcador.select_one(".truncate-name")
+    return nombre_tag.get_text(strip=True) if nombre_tag else ""
+
+
 def extraer_formacion(html):
     soup = BeautifulSoup(html, "html.parser")
     por_slot = {}
@@ -82,17 +96,11 @@ def extraer_formacion(html):
         coincidencia_y = re.search(r"top:\s*([\d.]+)%", estilo)
         if not (coincidencia_x and coincidencia_y):
             continue
-        nombre_tag = marcador.select_one(".truncate-name")
-        nombre = nombre_tag.get_text(strip=True) if nombre_tag else ""
+        nombre = _leer_nombre(marcador)
         if not nombre:
             continue
 
-        camiseta_tag = marcador.select_one("a.camiseta")
-        probabilidad_texto = camiseta_tag.get("data-probabilidad", "0%") if camiseta_tag else "0%"
-        try:
-            probabilidad = int(probabilidad_texto.rstrip("%"))
-        except ValueError:
-            probabilidad = 0
+        probabilidad = _leer_probabilidad(marcador)
 
         slot = (coincidencia_x.group(1), coincidencia_y.group(1))
         actual = por_slot.get(slot)
@@ -106,6 +114,41 @@ def extraer_formacion(html):
             por_nombre[jugador["nombre"]] = jugador
 
     return list(por_nombre.values())
+
+
+def extraer_suplentes(html):
+    soup = BeautifulSoup(html, "html.parser")
+    por_nombre = {}
+    for marcador in soup.select(".camiseta-wrapper"):
+        if marcador.get("data-onceff") != "suplente":
+            continue
+        nombre = _leer_nombre(marcador)
+        if not nombre:
+            continue
+
+        probabilidad = _leer_probabilidad(marcador)
+
+        actual = por_nombre.get(nombre)
+        if actual is None or probabilidad > actual["probabilidad"]:
+            por_nombre[nombre] = {"nombre": nombre, "probabilidad": probabilidad}
+
+    return list(por_nombre.values())
+
+
+def extraer_rival_ficha(html, nombre_corto):
+    soup = BeautifulSoup(html, "html.parser")
+    seccion = soup.select_one(".alineacion-partido")
+    if not seccion:
+        return None
+    local_tag = seccion.select_one(".equipo.local")
+    visitante_tag = seccion.select_one(".equipo.visitante")
+    local_nombre = local_tag.get_text(strip=True) if local_tag else ""
+    visitante_nombre = visitante_tag.get_text(strip=True) if visitante_tag else ""
+    if local_nombre == nombre_corto:
+        return visitante_nombre
+    if visitante_nombre == nombre_corto:
+        return local_nombre
+    return None
 
 
 def _partido_a_evento(partido, nombre_corto):
@@ -177,7 +220,7 @@ def extraer_calendario(sesion, nombre_corto, slug):
 
     unir = lambda clave: " | ".join(e[clave] for e in eventos)
     rivales_oficiales = " | ".join(Común.MAPA_EQUIPOS.get(e["rival"], e["rival"]) for e in eventos)
-    return {
+    datos = {
         "Siguientes rivales": rivales_oficiales,
         "Competición": unir("competicion"),
         "Jornada": unir("jornada"),
@@ -186,6 +229,7 @@ def extraer_calendario(sesion, nombre_corto, slug):
         "Estadio": unir("local_o_visitante"),
         "Dificultad de los rivales": unir("dificultad"),
     }
+    return datos, eventos
 
 
 def guardar_csv(filas, ruta_archivo=Común.ruta_datos("Datos 3.csv")):
@@ -212,7 +256,7 @@ if __name__ == "__main__":
             try:
                 html_ficha = Común.descargar_pagina(sesion, f"https://www.futbolfantasy.com/laliga/equipos/{slug}")
                 time.sleep(1)
-                datos = extraer_calendario(sesion, nombre_corto, slug)
+                datos, eventos = extraer_calendario(sesion, nombre_corto, slug)
             except Común.ErrorBloqueo:
                 break
             except Exception:
@@ -221,14 +265,30 @@ if __name__ == "__main__":
             datos["Equipo"] = nombre_oficial
             filas.append(datos)
 
-            for jugador in extraer_formacion(html_ficha):
-                filas_posicion.append({
-                    "Equipo": nombre_oficial,
-                    "Jugador": jugador["nombre"],
-                    "Posicion X": jugador["x"],
-                    "Posicion Y": jugador["y"],
-                    "Probabilidad": jugador["probabilidad"],
-                })
+            proxima_liga = next((e for e in eventos if e["competicion"] == "LaLiga"), None)
+            rival_ficha = extraer_rival_ficha(html_ficha, nombre_corto)
+            alineacion_es_de_liga = (
+                proxima_liga is not None
+                and rival_ficha is not None
+                and Común.normalizar_nombre(rival_ficha) == Común.normalizar_nombre(proxima_liga["rival"])
+            )
+            if alineacion_es_de_liga:
+                for jugador in extraer_formacion(html_ficha):
+                    filas_posicion.append({
+                        "Equipo": nombre_oficial,
+                        "Jugador": jugador["nombre"],
+                        "Posicion X": jugador["x"],
+                        "Posicion Y": jugador["y"],
+                        "Probabilidad": jugador["probabilidad"],
+                    })
+                for jugador in extraer_suplentes(html_ficha):
+                    filas_posicion.append({
+                        "Equipo": nombre_oficial,
+                        "Jugador": jugador["nombre"],
+                        "Posicion X": "",
+                        "Posicion Y": "",
+                        "Probabilidad": jugador["probabilidad"],
+                    })
 
             time.sleep(1)
     except KeyboardInterrupt:

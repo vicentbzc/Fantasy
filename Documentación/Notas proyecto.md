@@ -161,25 +161,19 @@ la web, no uno inventado).
 
 ### `Ingestar datos 3.py`
 
-Por cada uno de los 20 equipos, descarga su ficha (hasta 5 próximos
-partidos con dificultad) y, si hace falta completar 5 partidos de LIGA,
-también el calendario mensual. Guarda `Datos 3.csv`:
-`Equipo, Siguientes rivales, Competición, Jornada, Día, Hora, Estadio,
-Dificultad de los rivales` (varios partidos separados por ` | `).
-Dificultad traducida a mano de la imagen que usa la web: 1=Muy baja,
-2=Baja, 3=Media, 4=Alta, 5=Muy alta (amistosos sin dificultad, a
+Por cada uno de los 20 equipos hace 2 peticiones: la ficha del equipo
+(`/laliga/equipos/{slug}`, para `extraer_formacion()`) y su página de
+partidos (`/laliga/equipos/{slug}/partidos`, temporada completa, para
+`extraer_calendario()`/`eventos_desde_partidos()`) — ver "Dificultad de
+partidos lejanos, arreglada de raíz" más abajo para el porqué de la
+segunda en vez del calendario mensual antiguo (ya eliminado). Se detiene
+en cuanto acumula `MINIMO_PARTIDOS_LIGA` partidos de competición "LaLiga"
+(6 desde el 21/08/2026, antes 5 — ver "Quinta ronda" más abajo). Guarda
+`Datos 3.csv`: `Equipo, Siguientes rivales, Competición, Jornada, Día,
+Hora, Estadio, Dificultad de los rivales` (varios partidos separados por
+` | `). Dificultad traducida a mano de la imagen que usa la web: 1=Muy
+baja, 2=Baja, 3=Media, 4=Alta, 5=Muy alta (amistosos sin dificultad, a
 propósito).
-
-**Limitación conocida (confirmada en directo el 19/08/2026)**: cuando
-hace falta el calendario mensual para completar los 5 partidos de LIGA
-(p. ej. si uno de los 5 huecos de la ficha lo ocupa un amistoso de
-pretemporada), esos partidos sacados del calendario mensual **nunca
-llevan dificultad** — se comprobó el HTML de esa vista y no publica
-ningún dato de dificultad en ningún sitio, a diferencia de la ficha
-principal del equipo. No es un bug, es una limitación real de esa vista
-de futbolfantasy.com; sacar la dificultad ahí obligaría a visitar la
-ficha de cada partido individualmente, disparando el número de
-peticiones.
 
 Desde el 19/08/2026 (Paso 9) la misma ficha de equipo que ya se descargaba
 para el calendario **también** se usa para `extraer_formacion()`: la web
@@ -196,8 +190,42 @@ grupo. Aun así, 2-3 equipos con mucha incertidumbre de rotación pueden
 salir con más de 11 candidatos; la web (`calcularFormacion()`) recorta a
 los 10 de campo con más probabilidad, así que el sobrante simplemente no
 se usa. Guarda `Datos Posicion.csv`: `Equipo, Jugador, Posicion X,
-Posicion Y, Probabilidad` (valores 0-100, un jugador por fila, solo los
-titulares).
+Posicion Y, Probabilidad` (valores 0-100, un jugador por fila).
+
+**Banquillo real, desde el 21/08/2026** (ver "Quinta ronda" más abajo):
+la misma ficha también tiene marcadores `.camiseta-wrapper` con
+`data-onceff="suplente"` para el banquillo (layout en filas de `top: 44px
+/ 148px / 250px`, sin coordenadas porcentuales — no se dibujan sobre el
+campo). `extraer_suplentes()` los lee igual que los titulares (nombre +
+`data-probabilidad`, dedup por nombre) y se guardan **en el mismo**
+`Datos Posicion.csv`, con `Posicion X`/`Posicion Y` vacíos — así
+`Sincronizar` los emparaja con `emparejar_por_nombre()` exactamente igual
+que a los titulares, sin código nuevo en `Sincronizar`. Confirmado en
+directo que titulares y suplentes nunca comparten nombre en la misma
+ficha (los `data-onceff="titular"` "fantasma" sin `data-probabilidad`
+que aparecen por rotación incierta siempre pierden el desempate de
+`extraer_formacion()` frente al titular real de esa posición, así que un
+suplente real nunca cuela como titular). Antes de este cambio, el
+"banquillo" de la web era **puramente sintético** (los jugadores del
+catálogo oficial que sobraban de la alineación, ordenados por
+`porcentaje_titularidad`) y nunca reflejaba el banquillo real de
+futbolfantasy.com — motivo: el usuario vio que Gordon y Adeyemi salían al
+50% en el banquillo real de futbolfantasy.com pero no aparecían en
+absoluto en el nuestro (ninguno de los dos está en el catálogo oficial de
+LaLiga Fantasy bajo el Barça, así que el banquillo sintético no tenía
+ninguna fila suya de la que tirar).
+
+**Desde el 21/08/2026, solo si la ficha es de un partido de LIGA** (ver
+"Quinta ronda" más abajo): `extraer_rival_ficha()` lee el rival mostrado
+en `.alineacion-partido` de la propia ficha (misma estructura
+`.equipo.local`/`.equipo.visitante` que `_partido_a_evento()`) y se
+compara contra el rival de la próxima jornada de LIGA que ya dio
+`eventos_desde_partidos()`. Si no coinciden (la ficha muestra la
+alineación de un partido de otra competición que cae antes que la
+siguiente jornada de liga), no se guarda ninguna fila de posición **ni de
+titulares ni de suplentes** para ese equipo esa vuelta — la web cae sola
+al reparto sintético en vez de
+mostrar una alineación real pero del partido equivocado.
 
 Desde el 21/08/2026 la `data-probabilidad` que ya se leía para desempatar
 duplicados **también** se guarda como columna `Probabilidad` (antes se
@@ -353,10 +381,12 @@ historial para calcular algo, 3 para `aceleracion`.
 - `calendario` (`equipo, orden` PK): se borra y reinserta por equipo en
   cada sincronización (la lista de próximos partidos se reemplaza entera).
 - `posicion_sin_oficial` (`equipo, nombre` PK, desde el 19/08/2026): los
-  jugadores "fantasma" (ver Paso 9) — `posicion_x`, `posicion_y` y, desde
-  el 21/08/2026, `probabilidad` (puede ser `null` si futbolfantasy.com no
-  traía `data-probabilidad` para ese jugador). Se borra y reinserta entera
-  en cada sincronización, igual que `calendario`.
+  jugadores "fantasma" (ver Paso 9) — `posicion_x`, `posicion_y` (desde
+  el 21/08/2026 pueden ser `null`: un fantasma del banquillo, ver
+  "Quinta ronda", no tiene coordenadas de campo) y `probabilidad` (puede
+  ser `null` si futbolfantasy.com no traía `data-probabilidad` para ese
+  jugador). Se borra y reinserta entera en cada sincronización, igual que
+  `calendario`.
 
 **`Esquema base de datos.sql` es el esquema de una base de datos nueva, no
 una migración** — para una base de datos que ya existe (como la real de
@@ -367,13 +397,18 @@ alter table equipos add column nombre_oficial text;
 alter table jugadores add column posicion_x numeric;
 alter table jugadores add column posicion_y numeric;
 alter table posicion_sin_oficial add column probabilidad numeric;
+alter table posicion_sin_oficial alter column posicion_x drop not null;
+alter table posicion_sin_oficial alter column posicion_y drop not null;
 ```
-Hasta que no se ejecute la última línea, `sincronizar_jugadores()` falla
-entera (hace `rollback`) en cada sincronización — no solo se pierde el
-dato nuevo, se detiene también la actualización normal de `jugadores`
-(valor, titularidad, estado...) hasta que se aplique la columna. Mismo
-patrón que las columnas anteriores, solo que esta vez el radio de
-impacto de no aplicarla a tiempo es mayor.
+Hasta que no se ejecuten las 3 últimas líneas, `sincronizar_jugadores()`
+falla entera (hace `rollback`) en cada sincronización — no solo se pierde
+el dato nuevo, se detiene también la actualización normal de `jugadores`
+(valor, titularidad, estado...) hasta que se apliquen. Mismo patrón que
+las columnas anteriores, solo que esta vez el radio de impacto de no
+aplicarlas a tiempo es mayor. Las 2 primeras líneas de esta lista de 3 ya
+se confirmaron aplicadas el 21/08/2026 (el `workflow_dispatch` manual
+sincronizó sin error) — falta solo el `drop not null` de las
+coordenadas, añadido el mismo día para los fantasmas de banquillo.
 Hasta que no se ejecute esto, la web da error en `/equipos/[id]` y
 `/mi-equipo` (consultan columnas que todavía no existen) — pendiente de
 que el usuario lo ejecute, ver "Pendiente".
@@ -477,11 +512,14 @@ pip install requests beautifulsoup4 psycopg2-binary
 2. ~~Ejecutar en el SQL Editor de Supabase las 3 columnas nuevas del Paso
    9...~~ **Resuelto (confirmado 21/08/2026)**: `/equipos/[id]` funciona
    con datos reales (nombre oficial, formación real), las columnas ya
-   existen. **Falta una columna nueva más** (ver "Base de datos" más
-   arriba): `alter table posicion_sin_oficial add column probabilidad
-   numeric;` — necesaria desde el 21/08/2026 para que `Sincronizar` no
-   falle en `sincronizar_jugadores()` (ver el aviso justo debajo de las
-   3 columnas del Paso 9 sobre el radio de impacto de no aplicarla).
+   existen. ~~Falta una columna nueva más: `probabilidad`...~~ **Resuelto
+   (confirmado 21/08/2026)**: el `workflow_dispatch` manual sincronizó
+   `jugadores` sin error. **Falta un cambio más** (ver "Base de datos" más
+   arriba, añadido el mismo día para el banquillo real): `alter table
+   posicion_sin_oficial alter column posicion_x drop not null; alter
+   table posicion_sin_oficial alter column posicion_y drop not null;` —
+   sin esto, `sincronizar_jugadores()` vuelve a fallar entera en cuanto
+   haya algún jugador de banquillo sin ficha oficial (sin coordenadas).
 3. **`minutos_jugados` / `puntos_jornada` / `puntos_jornada_detalle`**: en
    cuanto se jueguen partidos de LaLiga 2026/27, mirar el formato real de
    `playerStats` y escribir el parser (hoy vacío en toda respuesta de la
@@ -902,6 +940,81 @@ cosas más viendo la web real:
    una columna nueva en Supabase (`posicion_sin_oficial.probabilidad`,
    ver "Base de datos" y "Pendiente") antes de que el cron pueda
    sincronizar `jugadores` sin error.
+
+Confirmado en directo con el propio caso real que puso sobre aviso al
+usuario para lo que sigue: en el Barça, la Jornada 1 (vs Athletic,
+27/08) sale **después** que la Jornada 2 (vs Elche, 23/08) — el número de
+jornada no es fiable como orden cronológico, solo la fecha real (que es
+justo lo que ya usa `orden`, asignado en `Ingestar datos 3.py` tras
+`eventos.sort(key=lambda e: e["fecha_obj"])`).
+
+## Quinta ronda: partido duplicado y alineación de la competición equivocada (21/08/2026, mismo día)
+
+1. **"Próximos partidos" repetía el partido ya mostrado en grande**: el
+   bloque VS de arriba de `/equipos/[id]` y la lista de abajo leían la
+   misma fuente (`equipo.partidos`) sin excluirse entre sí. Arreglado
+   añadiendo `jornadaLigaOrden` a `EquipoDetalle` (el `orden` exacto del
+   partido que ya se muestra arriba) y filtrando la lista por ese `orden`
+   en `equipos/[id]/page.tsx` — **por `orden`, nunca por número de
+   jornada ni por posición en el array**, precisamente por el caso
+   Jornada 1/Jornada 2 de arriba.
+2. **La alineación grande no estaba garantizado que fuera la del
+   siguiente partido de LIGA**: `extraer_formacion()` lee la ficha
+   principal del equipo, que pinta la alineación probable de **el
+   siguiente partido que sea, cualquiera que sea su competición** — sin
+   ningún cruce contra el calendario de LIGA que decide el texto
+   "Jornada X" de la cabecera (son dos scrapes independientes de páginas
+   distintas). Si el siguiente partido real fuera, por ejemplo, de
+   Champions League, la cabecera diría igualmente "Jornada X" con el
+   rival de LIGA correcto (porque esa parte sí viene bien filtrada por
+   `competicion == "LaLiga"`), pero los jugadores del campo serían los
+   probables para el partido de Champions, no para esa jornada de LIGA.
+   No se pudo reproducir en directo (a día 21/08/2026 ningún equipo tiene
+   un partido de otra competición antes de su siguiente jornada — la
+   Champions no empieza hasta septiembre) pero el riesgo era real en
+   cuanto empezara la fase de grupos para los equipos españoles en
+   Europa. **Arreglado con `extraer_rival_ficha()`**: lee el rival que
+   muestra la propia sección `.alineacion-partido` de la ficha (mismo
+   patrón `.equipo.local`/`.equipo.visitante` que ya usa
+   `_partido_a_evento()` en la página de partidos) y solo se guarda
+   `extraer_formacion()` si ese rival coincide (`Común.normalizar_nombre`)
+   con el rival de la próxima jornada de LIGA que ya dio
+   `eventos_desde_partidos()`. Si no coincide, no se guarda ninguna
+   posición para ese equipo esa vuelta — la web cae sola al reparto
+   sintético por líneas en vez de mostrar una alineación real pero de otro
+   partido. Verificado en directo contra el Barça real: ficha → rival
+   "Elche", próxima jornada de LIGA → rival "Elche", coinciden.
+3. **Mínimo de partidos de LIGA en la lista bajó a 4 tras arreglar el
+   punto 1**: al excluir de la lista el partido que ya se muestra arriba,
+   como antes solo se pedían 5 partidos de LIGA en total (`Datos
+   Posicion.csv`/`Datos 3.csv`), quedaban 4 en "Próximos partidos".
+   `MINIMO_PARTIDOS_LIGA` subió de 5 a 6 en `Ingestar datos 3.py` para
+   que, tras excluir 1, sigan quedando 5 partidos de LIGA reales en la
+   lista — mismo criterio "mínimo 5" que ya pedía el usuario originalmente
+   en el Paso 9, solo que ahora contando el que se ve arriba aparte.
+4. **El banquillo era 100% sintético, nunca el real de futbolfantasy.com**:
+   el usuario vio a "Gordon" y "Adeyemi" al 50% en el banquillo real del
+   Barça en futbolfantasy.com y no aparecían en absoluto en el nuestro.
+   Investigado en directo: la ficha SÍ tiene marcadores de banquillo real
+   (`data-onceff="suplente"`, con su propia `data-probabilidad`), en una
+   sección aparte de los titulares que hasta ahora `Ingestar datos 3.py`
+   ignoraba por completo — el "banquillo" de la web se rellenaba
+   únicamente con los jugadores del catálogo oficial que sobraban de la
+   alineación (`calcularFormacion()` en `lib/formacion.ts`), así que un
+   jugador de banquillo real que aún no está en el catálogo oficial de
+   LaLiga Fantasy (caso de Gordon y Adeyemi, igual que "Swedberg" de la
+   Cuarta ronda pero en el banquillo en vez del campo) no tenía ninguna
+   vía posible hacia la web. **Arreglado con `extraer_suplentes()`**
+   (mismo patrón que `extraer_formacion()`, dedup por nombre) — se guardan
+   en el mismo `Datos Posicion.csv` con `Posicion X`/`Posicion Y` vacíos,
+   así `Sincronizar` los empareja exactamente igual que a los titulares
+   sin ningún código nuevo ahí. Confirmado en directo contra la ficha real
+   del Barça: 15 suplentes reales, ninguno comparte nombre con los 11
+   titulares (los candidatos "fantasma" de rotación incierta que
+   `extraer_formacion()` ya descarta por probabilidad no interfieren).
+   Requiere permitir `null` en `posicion_sin_oficial.posicion_x/y` (ver
+   "Base de datos" y "Pendiente") porque un fantasma de banquillo no tiene
+   coordenadas de campo.
 
 ## Historia breve
 
