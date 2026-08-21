@@ -5,11 +5,13 @@ import { useEffect, useRef, useState } from "react";
 export function MenuMultiSeleccion({
   etiqueta,
   opciones,
+  etiquetas,
   seleccionados,
   onChange,
 }: {
   etiqueta: string;
   opciones: string[];
+  etiquetas?: Record<string, string>;
   seleccionados: string[];
   onChange: (nuevos: string[]) => void;
 }) {
@@ -71,7 +73,7 @@ export function MenuMultiSeleccion({
                 onChange={() => alternar(opcion)}
                 className="shrink-0"
               />
-              <span className="truncate">{opcion}</span>
+              <span className="truncate">{etiquetas?.[opcion] ?? opcion}</span>
             </label>
           ))}
         </div>

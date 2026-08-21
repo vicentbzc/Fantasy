@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Jugador } from "@/lib/db";
+import { ORDEN_EQUIPOS } from "@/lib/equipos";
 import { Avatar } from "./Avatar";
 import { MenuMultiSeleccion } from "./MenuMultiSeleccion";
 import { MenuFiltros, type FiltrosNumericos } from "./MenuFiltros";
@@ -30,9 +31,20 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   const [modalPuntos, setModalPuntos] = useState<Jugador | null>(null);
 
   const equipos = useMemo(
-    () => Array.from(new Set(jugadores.map((j) => j.equipo))).sort((a, b) => a.localeCompare(b, "es")),
+    () =>
+      Array.from(new Set(jugadores.map((j) => j.equipo))).sort(
+        (a, b) => ORDEN_EQUIPOS.indexOf(a) - ORDEN_EQUIPOS.indexOf(b)
+      ),
     [jugadores]
   );
+
+  const nombresOficialesEquipo = useMemo(() => {
+    const mapa: Record<string, string> = {};
+    for (const j of jugadores) {
+      if (j.equipoNombreOficial) mapa[j.equipo] = j.equipoNombreOficial;
+    }
+    return mapa;
+  }, [jugadores]);
 
   const filtrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -115,9 +127,15 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar a un jugador"
-          className="h-12 bg-white rounded-[14px] px-4 text-sm flex-1 min-w-[200px]"
+          className="h-12 bg-white rounded-[14px] px-4 text-sm flex-1 min-w-[200px] transition-colors duration-200 hover:bg-[#FAFAFC]"
         />
-        <MenuMultiSeleccion etiqueta="Equipos" opciones={equipos} seleccionados={equiposSel} onChange={setEquiposSel} />
+        <MenuMultiSeleccion
+          etiqueta="Equipos"
+          opciones={equipos}
+          etiquetas={nombresOficialesEquipo}
+          seleccionados={equiposSel}
+          onChange={setEquiposSel}
+        />
         <MenuMultiSeleccion
           etiqueta="Posiciones"
           opciones={POSICIONES}

@@ -10,16 +10,15 @@ export type ColumnaNumerica = {
 };
 
 export const COLUMNAS_NUMERICAS: ColumnaNumerica[] = [
-  { clave: "porcentajeTitularidad", etiqueta: "% Titularidad", sufijo: "%" },
+  { clave: "porcentajeTitularidad", etiqueta: "Porcentaje de titularidad", sufijo: "%" },
   { clave: "valor", etiqueta: "Valor" },
   { clave: "diferenciaValor", etiqueta: "Diferencia de valor" },
-  { clave: "porcentajeDiferencia", etiqueta: "% Diferencia", sufijo: "%", decimales: 2 },
-  { clave: "tendenciaDias", etiqueta: "Tendencia (días)" },
-  { clave: "minutosJugados", etiqueta: "Minutos jugados" },
+  { clave: "porcentajeDiferencia", etiqueta: "Porcentaje de diferencia", sufijo: "%", decimales: 2 },
+  { clave: "tendenciaDias", etiqueta: "Tendencia" },
   { clave: "puntosUltimaJornada", etiqueta: "Puntos última jornada" },
   { clave: "puntosTotales", etiqueta: "Puntos totales" },
-  { clave: "tarjetasAmarillasAcumuladas", etiqueta: "Amarillas acumuladas" },
-  { clave: "dificultadProximos5", etiqueta: "Dificultad próx. 5", decimales: 1 },
+  { clave: "dificultadProximos5", etiqueta: "Dificultad del calendario", decimales: 1 },
+  { clave: "minutosJugados", etiqueta: "Minutos jugados" },
   { clave: "goles", etiqueta: "Goles" },
   { clave: "asistenciasGol", etiqueta: "Asistencias de gol" },
   { clave: "asistenciasSinGol", etiqueta: "Asistencias sin gol" },
@@ -33,13 +32,14 @@ export const COLUMNAS_NUMERICAS: ColumnaNumerica[] = [
   { clave: "golesPropiaPuerta", etiqueta: "Goles en propia puerta" },
   { clave: "golesEnContra", etiqueta: "Goles en contra" },
   { clave: "tarjetasAmarillas", etiqueta: "Tarjetas amarillas" },
-  { clave: "segundasAmarillas", etiqueta: "Segundas amarillas" },
   { clave: "tarjetasRojas", etiqueta: "Tarjetas rojas" },
   { clave: "tirosPuerta", etiqueta: "Tiros a puerta" },
   { clave: "regates", etiqueta: "Regates" },
   { clave: "balonesRecuperados", etiqueta: "Balones recuperados" },
   { clave: "posesionesPerdidas", etiqueta: "Posesiones perdidas" },
   { clave: "puntosDazn", etiqueta: "Puntos DAZN", decimales: 1 },
+  { clave: "tarjetasAmarillasAcumuladas", etiqueta: "Amarillas acumuladas" },
+  { clave: "segundasAmarillas", etiqueta: "Segundas amarillas" },
 ];
 
 export const CLAVES_SUMABLES = new Set<keyof Jugador>([

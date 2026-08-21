@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { ORDEN_EQUIPOS } from "./equipos";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -59,29 +60,6 @@ export type Equipo = {
   nombre: string;
   nombreOficial: string | null;
 };
-
-const ORDEN_EQUIPOS = [
-  "Deportivo Alavés",
-  "Athletic Club",
-  "Atlético de Madrid",
-  "Fútbol Club Barcelona",
-  "Real Betis Balompié",
-  "Real Club Celta de Vigo",
-  "Real Club Deportivo de A Coruña",
-  "Elche Club de Fútbol",
-  "Real Club Deportivo Espanyol de Barcelona",
-  "Getafe Club de Fútbol",
-  "Levante Unión Deportiva",
-  "Málaga Club de Fútbol",
-  "Club Atlético Osasuna",
-  "Real Racing Club de Santander",
-  "Rayo Vallecano de Madrid",
-  "Real Madrid",
-  "Real Sociedad de Fútbol",
-  "Sevilla Fútbol Club",
-  "Valencia Club de Fútbol",
-  "Villarreal Club de Fútbol",
-];
 
 export async function obtenerEquipos(): Promise<Equipo[]> {
   const resultado = await pool.query(`

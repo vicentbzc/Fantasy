@@ -63,6 +63,42 @@ export function MenuFiltros({
     }
   }
 
+  const indiceAceleracion = COLUMNAS_NUMERICAS.findIndex((c) => c.clave === "tendenciaDias");
+  const columnasAntesDeAceleracion = COLUMNAS_NUMERICAS.slice(0, indiceAceleracion);
+  const columnasDespuesDeAceleracion = COLUMNAS_NUMERICAS.slice(indiceAceleracion);
+
+  function filaColumna(columna: (typeof COLUMNAS_NUMERICAS)[number]) {
+    const activo = filtros[columna.clave];
+    return (
+      <div key={columna.clave} className="flex items-center gap-2 px-2 py-1">
+        <input
+          type="checkbox"
+          checked={!!activo}
+          onChange={(e) => activar(columna.clave, e.target.checked)}
+          className="shrink-0"
+        />
+        <span className="flex-1 text-sm truncate">{columna.etiqueta}</span>
+        <select
+          value={activo?.operador ?? ">"}
+          disabled={!activo}
+          onChange={(e) => cambiarOperador(columna.clave, e.target.value as Operador)}
+          className="text-sm bg-neutral-100 rounded-md px-1 py-0.5 disabled:opacity-40"
+        >
+          <option value=">">&gt;</option>
+          <option value="<">&lt;</option>
+          <option value="=">=</option>
+        </select>
+        <input
+          type="number"
+          value={activo?.valor ?? 0}
+          disabled={!activo}
+          onChange={(e) => cambiarValor(columna.clave, Number(e.target.value))}
+          className="w-16 text-sm bg-neutral-100 rounded-md px-1.5 py-0.5 disabled:opacity-40"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative" ref={contenedorRef}>
       <button
@@ -91,7 +127,8 @@ export function MenuFiltros({
             </button>
           )}
 
-          <p className="px-2 pt-2 pb-1 text-xs font-semibold text-neutral-400 uppercase">Aceleración</p>
+          {columnasAntesDeAceleracion.map(filaColumna)}
+
           <div className="grid grid-cols-2 gap-x-2">
             {OPCIONES_ACELERACION.map((opcion) => (
               <label key={opcion} className="flex items-center gap-2 px-2 py-1 text-sm cursor-pointer">
@@ -106,38 +143,7 @@ export function MenuFiltros({
             ))}
           </div>
 
-          <p className="px-2 pt-3 pb-1 text-xs font-semibold text-neutral-400 uppercase">Estadísticas</p>
-          {COLUMNAS_NUMERICAS.map((columna) => {
-            const activo = filtros[columna.clave];
-            return (
-              <div key={columna.clave} className="flex items-center gap-2 px-2 py-1">
-                <input
-                  type="checkbox"
-                  checked={!!activo}
-                  onChange={(e) => activar(columna.clave, e.target.checked)}
-                  className="shrink-0"
-                />
-                <span className="flex-1 text-sm truncate">{columna.etiqueta}</span>
-                <select
-                  value={activo?.operador ?? ">"}
-                  disabled={!activo}
-                  onChange={(e) => cambiarOperador(columna.clave, e.target.value as Operador)}
-                  className="text-sm bg-neutral-100 rounded-md px-1 py-0.5 disabled:opacity-40"
-                >
-                  <option value=">">&gt;</option>
-                  <option value="<">&lt;</option>
-                  <option value="=">=</option>
-                </select>
-                <input
-                  type="number"
-                  value={activo?.valor ?? 0}
-                  disabled={!activo}
-                  onChange={(e) => cambiarValor(columna.clave, Number(e.target.value))}
-                  className="w-16 text-sm bg-neutral-100 rounded-md px-1.5 py-0.5 disabled:opacity-40"
-                />
-              </div>
-            );
-          })}
+          {columnasDespuesDeAceleracion.map(filaColumna)}
         </div>
       )}
     </div>
