@@ -385,6 +385,15 @@ historial para calcular algo, 3 para `aceleracion`.
   `posicion_y` (desde el 19/08/2026 — coordenadas 0-100 de la formación
   táctica real, `null` si el jugador no es titular probable esta jornada
   según futbolfantasy.com). UPSERT en cada sincronización.
+  `minutos_jugados` se fuerza explícitamente a `null` en cada
+  sincronización desde el 22/08/2026 (`sincronizar_jugadores()` no tiene
+  de dónde sacar un valor real todavía, ver "Pendiente") — antes esa
+  columna simplemente no aparecía en el `UPDATE SET`, así que 10
+  jugadores sueltos (de equipos distintos, sin ningún patrón) se habían
+  quedado con un número de minutos de pruebas antiguas que nunca se
+  limpiaba solo, entre ellos "Álex Baena" — el mismo jugador cuyas filas
+  sueltas de `puntos_jornada` motivaron toda la investigación de esta
+  sesión. Mismo tipo de basura vieja, columna distinta.
 - `historial_valor` (`id, fecha` PK): solo `valor_liga` de cada jugador,
   un snapshot por día. Solo se insertan filas nuevas (`ON CONFLICT DO
   NOTHING`), nunca se corrigen las que ya había.

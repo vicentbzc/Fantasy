@@ -202,6 +202,7 @@ def sincronizar_jugadores(cur):
             estado = excluded.estado,
             posicion_x = excluded.posicion_x,
             posicion_y = excluded.posicion_y,
+            minutos_jugados = null,
             actualizado_en = now()
         """,
         filas,
