@@ -67,7 +67,8 @@ Code, no una carpeta de organización del usuario — no tocar ni mover.
 | `calendario` | futbolfantasy.com | `Ingestar datos 3.py` |
 | `posicion_x`, `posicion_y` (formación táctica real, ver más abajo) | futbolfantasy.com | `Ingestar datos 3.py` |
 | `diferencia_valor`, `porcentaje_diferencia`, `tendencia_dias`, `aceleracion` | Calculado por nosotros | `Sincronizar`, comparando contra `historial_valor` |
-| `minutos_jugados`, `puntos_jornada`, `puntos_jornada_detalle` | API LaLiga Fantasy (`playerStats`) | **pendiente** — vacío hasta que empiecen a jugarse partidos de 2026/27 |
+| `puntos_jornada` (jornada, puntos) | API LaLiga Fantasy (`weekPoints` del catálogo `/players`, sin petición extra) | `Ingestar datos liga.py` |
+| `minutos_jugados`, `puntos_jornada_detalle` (desglose por estadística) | API LaLiga Fantasy (`GET /player/{id}`, 1 petición por jugador) | `Ingestar datos detalle.py` |
 
 futbolfantasy.com se raspa **solo** para lo que la API no da: titularidad,
 estado, calendario y la formación táctica real (posición en el campo). Los
@@ -119,6 +120,7 @@ revertida explícitamente por el usuario.
 | `Ingestar datos estado.py` | futbolfantasy.com | `Datos Estado.csv` | 2 peticiones | Cada hora |
 | `Ingestar datos 3.py` | futbolfantasy.com | `Datos 3.csv` (calendario), `Datos Posicion.csv` (formación real) | ~20-40 peticiones | Cada 4-6 horas |
 | `Descargar imágenes.py` | API LaLiga Fantasy (escudos + nombre oficial) + `Datos Fotos.csv` (fotos, ya con URL oficial) | Sube a Supabase Storage, `Datos Equipos.csv` | 1 petición autenticada + Gratis salvo la primera vez para las imágenes | Cada 4-6 horas |
+| `Ingestar datos detalle.py` | API LaLiga Fantasy | `Datos Puntos jornada detalle.csv`, `Datos Minutos.csv` | 1 + N peticiones autenticadas (N = jugadores con algún punto esta temporada, ~254 a fecha de hoy) | Cada 4-6 horas |
 | `Sincronizar base de datos.py` | CSV → Postgres | — | — | Después de cualquiera de los anteriores |
 | `Descubrir liga.py` | API LaLiga Fantasy | imprime tus ligas | 1 petición | Manual, un solo uso |
 
@@ -283,6 +285,22 @@ directamente desde `Datos Jugadores.csv`, ver más abajo). No vuelve a
 descargar/subir lo que ya tiene en disco. Sube cada archivo primero a
 Supabase Storage y solo si funciona lo guarda en local (si se hiciera al
 revés, un fallo de subida quedaría escondido para siempre).
+
+### `Ingestar datos detalle.py`
+
+Desde el 22/08/2026 (ver "Puntos y desglose por jornada, datos reales"
+más abajo para el porqué). Pide el token y el catálogo `/players`
+(mismo catálogo que `Ingestar datos liga.py`, petición aparte porque es
+un script distinto), se queda solo con los jugadores con `weekPoints` no
+vacío (~254 de ~780) y para cada uno pide `GET /player/{id}?x-lang=es`.
+De ahí saca el desglose por estadística de cada jornada
+(`MAPA_ESTADISTICA` traduce cada campo en inglés a la `nombre` española
+que ya usa `ESTADISTICAS_DETALLE` en la web) y los minutos jugados de la
+jornada más reciente. Guarda `Datos Puntos jornada detalle.csv`
+(`ID, Jugador, Equipo, Jornada, Orden, Estadística, Cantidad, Puntos`) y
+`Datos Minutos.csv` (`ID, Minutos`). Corre en el cron pesado (cada
+4-6h), no en el ligero — a ~254 peticiones con 1s de espera cada una,
+sería demasiado para el cron de cada hora.
 
 ## La API de LaLiga Fantasy
 
@@ -548,23 +566,12 @@ pip install requests beautifulsoup4 psycopg2-binary
    real del Barça, confirmando que las 3 columnas del Paso 9,
    `probabilidad` y el `drop not null` de `posicion_x`/`posicion_y` están
    todos aplicados en Supabase.
-3. **`puntos_jornada` resuelto parcialmente (22/08/2026)**: `Jornada` y
-   `Puntos` ya salen reales para todos los jugadores (`weekPoints` del
-   catálogo `/players`, ver "`Ingestar datos liga.py`" más arriba) — antes
-   solo un puñado de filas sueltas y corruptas quedaban de antes de que
-   el pipeline actual existiera (183 filas totales en toda la liga, con
-   la codificación rota, p. ej. "Baena" sin la Á — se limpiaron solas al
-   pasar `sincronizar_puntos()` a borrar y reinsertar entero). **Sigue
-   pendiente**: `minutos_jugados`, `estadisticas` (desglose por jugador,
-   goles/asistencias/tarjetas de cada jornada) y
-   `tarjetas_amarillas_acumuladas` — necesitan `GET
-   /player/{id}?x-lang=es`, que es una petición por jugador (~715 en
-   total); no se ha implementado por el mismo motivo que se abandonó el
-   `Ingestar datos 2.py` original antes del Paso 8 (demasiado caro hacerlo
-   cada hora). Si se quiere en algún momento, tendría que ir en el cron
-   pesado (cada 4-6h) en vez del ligero (cada hora), o limitarse a los
-   jugadores de la liga privada del usuario en vez de los ~715 del
-   catálogo completo.
+3. ~~`puntos_jornada` / `minutos_jugados` / `puntos_jornada_detalle`...~~
+   **Resuelto (22/08/2026)**: ver "Puntos y desglose por jornada, datos
+   reales" más abajo — `Jornada`/`Puntos`, `minutos_jugados` y el
+   desglose por estadística ya salen reales. Confirmado en local con
+   datos de verdad antes de subir el cambio (Baena: 33 minutos jugados,
+   1 gol, coincide con el desglose real de la API).
 4. **Histórico real de `valor` (marketValue oficial)**: se descubrió
    `GET /player/{id}/market-value` con hasta 47 días de histórico real por
    jugador — no integrado todavía en el pipeline (solo se ha usado para
@@ -1056,6 +1063,106 @@ justo lo que ya usa `orden`, asignado en `Ingestar datos 3.py` tras
    Requiere permitir `null` en `posicion_sin_oficial.posicion_x/y` (ver
    "Base de datos" y "Pendiente") porque un fantasma de banquillo no tiene
    coordenadas de campo.
+
+## Puntos y desglose por jornada, datos reales (22/08/2026)
+
+El usuario reportó que en `/jugadores`, para el Atlético, solo "Baena"
+tenía puntos de la última jornada cuando en la vida real muchos más
+jugadores habían puntuado. Investigado en directo contra la base de
+datos real: la tabla `puntos_jornada` tenía 183 filas sueltas con
+jornadas hasta la 38 (la temporada 2026/27 acaba de empezar) y con la
+codificación rota ("Baena" sin la Á) — basura de antes de que el
+pipeline actual existiera, porque `guardar_puntos_jornada()` en
+`Ingestar datos liga.py` escribía **siempre** un CSV vacío (llevaba así
+semanas, a la espera de que arrancara la temporada real). Se encontró el
+mismo patrón en `jugadores.minutos_jugados`: esa columna nunca apareció
+en el `UPDATE SET` de `sincronizar_jugadores()`, así que 10 jugadores
+sueltos de equipos distintos (Baena otra vez entre ellos) se habían
+quedado con un número de minutos de pruebas antiguas para siempre,
+porque nada lo tocaba ni para bien ni para mal.
+
+**Puntos por jornada (gratis, sin petición extra)**: el catálogo
+`/players` que ya se pedía cada hora trae `points` (total de temporada)
+y `weekPoints` (lista `{weekNumber, points}`, histórico completo cada
+vez). `Ingestar datos liga.py` ahora lo guarda en `Datos Puntos
+jornada.csv` (antes vacío a propósito) y `sincronizar_puntos()` pasó de
+`UPSERT` a borrar-y-reinsertar entero — limpia sola cualquier basura
+vieja de paso, sin necesidad de un `DELETE` manual.
+
+**Desglose por estadística y minutos jugados (caro, 1 petición por
+jugador)**: se investigó a fondo antes de implementar nada, porque violar
+"nunca se inventa un dato" mapeando mal un campo es peor que no tener el
+dato. Probados varios candidatos a endpoint bulk por equipo/semana
+(`/teams/{id}/players`, `/players?week=1`) — ninguno existe o ninguno
+trae el desglose; solo `GET /player/{id}?x-lang=es` lo tiene, y es 1
+petición por jugador. El usuario eligió explícitamente la opción de
+traerlo para el catálogo completo en el cron pesado (cada 4-6h) en vez
+de limitarlo a su liga privada o no implementarlo. Optimización real: solo
+se pide el detalle de jugadores con `weekPoints` no vacío (254 de ~780 a
+fecha de hoy, no ~715 como se había estimado antes de comprobar) — un
+jugador que no ha puntuado nunca no tiene nada que desglosar.
+
+Nuevo script `Ingestar datos detalle.py` (cron pesado, necesita
+`LALIGA_FANTASY_EMAIL`/`PASSWORD` pero no `LEAGUE_ID` — el login no es
+por liga). Cada entrada de `playerStats` trae `stats` con cada
+estadística como un array `[cantidad, puntos]` (confirmado contra datos
+reales de Baena: `"goals": [1, 5]` = 1 gol, 5 puntos por ello;
+`"mins_played": [33, 1]` = 33 minutos, 1 punto). `MAPA_ESTADISTICA`
+traduce cada clave en inglés de
+la API a la `nombre` española exacta que ya usaba `ESTADISTICAS_DETALLE`
+en `Web/src/lib/db.ts`, para que el `SUM(CASE WHEN estadistica = ...)`
+del lado web siga funcionando sin tocarlo:
+
+| Campo API | Estadística (español) |
+|---|---|
+| `goals` | goles |
+| `goal_assist` | asistencias de gol |
+| `offtarget_att_assist` | asistencias sin gol |
+| `pen_area_entries` | balones al área |
+| `penalty_won` | penaltis provocados |
+| `penalty_conceded` | penaltis cometidos |
+| `penalty_save` | penaltis parados |
+| `saves` | paradas |
+| `effective_clearance` | despejes |
+| `penalty_failed` | penaltis fallados |
+| `own_goals` | goles en propia puerta |
+| `goals_conceded` | goles en contra |
+| `yellow_card` | tarjetas amarillas |
+| `red_card` | tarjetas rojas |
+| `total_scoring_att` | tiros a puerta |
+| `won_contest` | regates |
+| `ball_recovery` | balones recuperados |
+| `poss_lost_all` | posesiones perdidas |
+| `marca_points` | Puntos DAZN |
+| `mins_played` | no es un detalle — va directo a `jugadores.minutos_jugados` (de la jornada más reciente de cada jugador) |
+| `second_yellow_card` | descartado — "Segundas amarillas" se eliminó de la web esta misma sesión |
+
+**"Puntos DAZN" se queda como estaba**: por el nombre del campo
+(`marca_points`) parecía venir de Diario Marca en vez de DAZN, y se
+probó a renombrar la columna — **revertido de inmediato por el
+usuario**, confirma que "Puntos DAZN" es el nombre correcto pese al
+nombre interno del campo en la API. El `clave` interno (`puntosDazn`) y
+la `nombre`/`etiqueta` visible en la web se quedan igual que siempre.
+
+`sincronizar_jugadores()` ahora lee `Datos Minutos.csv` (opcional, lo
+genera `Ingestar datos detalle.py`) y usa el valor real si existe, `null`
+si no (nunca se queda pillado con un valor viejo). Nueva función
+`sincronizar_detalle()` (borra y reinserta `puntos_jornada_detalle`
+entero, mismo criterio que `puntos_jornada`) añadida al pipeline
+**después** de `puntos_jornada` — importante el orden, porque
+`puntos_jornada_detalle` tiene `foreign key (id, jornada) references
+puntos_jornada(id, jornada)` y necesita que esas filas ya existan.
+`sincronizar_puntos()` también borra `puntos_jornada_detalle` antes de
+borrar `puntos_jornada` (para no violar esa misma FK) — en una pasada
+donde solo corre el cron ligero, esto deja `puntos_jornada_detalle`
+vacía hasta la siguiente pasada del cron pesado; se autocorrige solo,
+no hace falta ninguna acción manual.
+
+Probado en local contra la API real antes de subir nada: 254 jugadores
+con petición de detalle, 4.978 filas de desglose, 224 con minutos reales
+(no todos los 254 tienen `mins_played` en su jornada más reciente).
+Baena: 33 minutos, 1 gol — ya no el "720" ni el "9 puntos sin desglose"
+de antes.
 
 ## Historia breve
 

@@ -69,6 +69,13 @@ jobs:
           LALIGA_FANTASY_LEAGUE_ID: ${{ secrets.LALIGA_FANTASY_LEAGUE_ID }}
         run: python "Scripts/Descargar imágenes.py"
 
+      - name: Ingestar datos detalle (puntos por jugador y jornada)
+        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-barato')
+        env:
+          LALIGA_FANTASY_EMAIL: ${{ secrets.LALIGA_FANTASY_EMAIL }}
+          LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
+        run: python "Scripts/Ingestar datos detalle.py"
+
       - name: Sincronizar con Supabase
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

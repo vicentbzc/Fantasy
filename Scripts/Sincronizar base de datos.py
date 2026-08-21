@@ -163,6 +163,8 @@ def sincronizar_jugadores(cur):
     usadas = {(fila["Equipo"], fila["Jugador"]) for fila in coincidencias_posicion.values()}
     posiciones_sin_oficial = [p for p in posiciones if (p["Equipo"], p["Jugador"]) not in usadas]
 
+    minutos_por_id = {fila["ID"]: fila["Minutos"] for fila in leer_csv_opcional("Datos Minutos.csv")}
+
     filas = [
         (
             int(jugador["ID"]),
@@ -178,6 +180,7 @@ def sincronizar_jugadores(cur):
             coincidencias_estado.get(jugador["ID"], {}).get("Estado", "Disponible para competir"),
             parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Posicion X")),
             parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Posicion Y")),
+            parsear_entero(minutos_por_id.get(jugador["ID"])),
         )
         for jugador in jugadores
     ]
@@ -190,7 +193,7 @@ def sincronizar_jugadores(cur):
         """
         insert into jugadores (
             id, nombre, equipo, posicion, porcentaje_titularidad, valor, valor_liga, estado,
-            posicion_x, posicion_y
+            posicion_x, posicion_y, minutos_jugados
         ) values %s
         on conflict (id) do update set
             nombre = excluded.nombre,
@@ -202,7 +205,7 @@ def sincronizar_jugadores(cur):
             estado = excluded.estado,
             posicion_x = excluded.posicion_x,
             posicion_y = excluded.posicion_y,
-            minutos_jugados = null,
+            minutos_jugados = excluded.minutos_jugados,
             actualizado_en = now()
         """,
         filas,
@@ -376,6 +379,36 @@ def sincronizar_puntos(cur):
     return len(filas)
 
 
+def sincronizar_detalle(cur):
+    filas = [
+        (
+            int(fila["ID"]),
+            parsear_jornada_numero(fila["Jornada"]),
+            parsear_entero(fila["Orden"]),
+            fila["Estadística"],
+            parsear_numero(fila["Cantidad"]),
+            parsear_numero(fila["Puntos"]),
+        )
+        for fila in leer_csv_opcional("Datos Puntos jornada detalle.csv")
+    ]
+
+    cur.execute("delete from puntos_jornada_detalle")
+
+    if not filas:
+        return 0
+
+    execute_values(
+        cur,
+        """
+        insert into puntos_jornada_detalle (
+            id, jornada, orden, estadistica, cantidad, puntos
+        ) values %s
+        """,
+        filas,
+    )
+    return len(filas)
+
+
 def sincronizar_calendario(cur):
     total = 0
     for fila in leer_csv("Datos 3.csv"):
@@ -422,6 +455,7 @@ def main():
                 ("historial_valor", sincronizar_historial),
                 ("tendencias", calcular_tendencias),
                 ("puntos_jornada", sincronizar_puntos),
+                ("puntos_jornada_detalle", sincronizar_detalle),
                 ("calendario", sincronizar_calendario),
             ]:
                 try:
