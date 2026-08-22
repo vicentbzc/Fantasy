@@ -10,7 +10,7 @@ export function Avatar({ src, alt, size }: { src: string; alt: string; size: num
     return (
       <div
         style={{ width: size, height: size }}
-        className="rounded-full bg-neutral-200 flex items-center justify-center text-neutral-500 text-[10px] shrink-0"
+        className="flex items-center justify-center text-neutral-500 text-[10px] shrink-0"
       >
         {alt.slice(0, 2).toUpperCase()}
       </div>
@@ -23,7 +23,7 @@ export function Avatar({ src, alt, size }: { src: string; alt: string; size: num
       alt={alt}
       width={size}
       height={size}
-      className="rounded-full object-cover bg-neutral-200 shrink-0"
+      className="object-contain shrink-0"
       onError={() => setError(true)}
     />
   );

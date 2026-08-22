@@ -1,14 +1,5 @@
 import type { Jugador } from "./db";
-
-export const OPCIONES_ACELERACION = [
-  "Acelera mucho",
-  "Acelera",
-  "Estable",
-  "Desacelera",
-  "Desacelera mucho",
-  "Inflexión positiva",
-  "Inflexión negativa",
-];
+import { formatearEstado } from "./formato";
 
 export type ColumnaOpcional = {
   clave: keyof Jugador;
@@ -16,16 +7,26 @@ export type ColumnaOpcional = {
   sufijo?: string;
   decimales?: number;
   tipo?: "texto";
-  ordenTexto?: string[];
+  formatear?: (valor: unknown) => string;
 };
 
 export const COLUMNAS_OPCIONALES: ColumnaOpcional[] = [
+  { clave: "equipo", etiqueta: "Equipo", tipo: "texto" },
+  { clave: "posicion", etiqueta: "Posición", tipo: "texto" },
+  { clave: "estado", etiqueta: "Estado", tipo: "texto", formatear: (v) => formatearEstado(v as string | null) },
   { clave: "porcentajeTitularidad", etiqueta: "Titularidad", sufijo: "%" },
   { clave: "valor", etiqueta: "Valor" },
   { clave: "diferenciaValor", etiqueta: "Revalorización" },
   { clave: "porcentajeDiferencia", etiqueta: "Porcentaje de revalorización", sufijo: "%", decimales: 2 },
-  { clave: "aceleracion", etiqueta: "Aceleración", tipo: "texto", ordenTexto: OPCIONES_ACELERACION },
-  { clave: "tendenciaDias", etiqueta: "Tendencia" },
+  {
+    clave: "tendenciaDias",
+    etiqueta: "Tendencia",
+    formatear: (v) => {
+      const n = v as number | null;
+      if (n === null) return "—";
+      return `${n} ${n === 1 ? "día" : "días"}`;
+    },
+  },
   { clave: "puntosUltimaJornada", etiqueta: "Puntos en la última jornada" },
   { clave: "puntosTotales", etiqueta: "Puntos totales" },
   { clave: "dificultadProximos5", etiqueta: "Dificultad del calendario", decimales: 1 },
@@ -48,7 +49,7 @@ export const COLUMNAS_OPCIONALES: ColumnaOpcional[] = [
   { clave: "regates", etiqueta: "Regates" },
   { clave: "balonesRecuperados", etiqueta: "Balones recuperados" },
   { clave: "posesionesPerdidas", etiqueta: "Posesiones perdidas" },
-  { clave: "puntosDazn", etiqueta: "Puntos DAZN", decimales: 1 },
+  { clave: "puntosDazn", etiqueta: "Puntos DAZN" },
 ];
 
 export const CLAVES_SUMABLES = new Set<keyof Jugador>([
@@ -84,6 +85,9 @@ export function formatearNumero(valor: number | null, decimales = 0): string {
 }
 
 export function formatearCelda(columna: ColumnaOpcional, valor: unknown): string {
+  if (columna.formatear) return columna.formatear(valor);
   if (columna.tipo === "texto") return (valor as string | null) ?? "—";
-  return `${formatearNumero(valor as number | null, columna.decimales ?? 0)}${columna.sufijo ?? ""}`;
+  const numero = valor as number | null;
+  if (numero === null) return "—";
+  return `${formatearNumero(numero, columna.decimales ?? 0)}${columna.sufijo ?? ""}`;
 }

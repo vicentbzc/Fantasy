@@ -33,8 +33,9 @@ export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
     setBusqueda("");
   }
 
+  const CLAVES_EXCLUIDAS = new Set<keyof Jugador>(["equipo", "posicion", "estado"]);
   const columnas = COLUMNAS_OPCIONALES.filter(
-    (columna) => columna.clave !== "aceleracion" && columnasVisibles[columna.clave]
+    (columna) => !CLAVES_EXCLUIDAS.has(columna.clave) && columnasVisibles[columna.clave]
   );
 
   function colorMejorPeor(valores: (number | null)[], i: number): string | undefined {
@@ -121,7 +122,7 @@ export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
                   <MenuFiltros
                     columnas={columnasVisibles}
                     onChangeColumnas={setColumnasVisibles}
-                    excluir={["aceleracion"]}
+                    excluir={["equipo", "posicion", "estado"]}
                   />
                 </th>
                 {jugadoresSeleccionados.map((j) => (

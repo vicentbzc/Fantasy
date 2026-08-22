@@ -3,6 +3,7 @@ import time
 import Común
 
 MAPA_ESTADISTICA = {
+    "mins_played": "minutos jugados",
     "goals": "goles",
     "goal_assist": "asistencias de gol",
     "offtarget_att_assist": "asistencias sin gol",
@@ -27,8 +28,8 @@ MAPA_ESTADISTICA = {
 
 def extraer_jugador(id_oficial, nombre, equipo, detalle):
     filas_detalle = []
-    minutos = None
-    jornada_maxima = None
+    minutos_totales = 0
+    alguna_jornada = False
 
     for entrada in detalle.get("playerStats") or []:
         jornada = entrada.get("weekNumber")
@@ -36,14 +37,14 @@ def extraer_jugador(id_oficial, nombre, equipo, detalle):
         if jornada is None:
             continue
 
-        if jornada_maxima is None or jornada > jornada_maxima:
-            jornada_maxima = jornada
-            minutos_semana = stats.get("mins_played")
-            minutos = minutos_semana[0] if minutos_semana else None
+        alguna_jornada = True
+        minutos_semana = stats.get("mins_played")
+        if minutos_semana:
+            minutos_totales += minutos_semana[0]
 
         for orden, (clave_api, nombre_estadistica) in enumerate(MAPA_ESTADISTICA.items(), start=1):
             valor = stats.get(clave_api)
-            if not valor:
+            if not valor or not valor[0]:
                 continue
             filas_detalle.append({
                 "ID": id_oficial,
@@ -56,7 +57,7 @@ def extraer_jugador(id_oficial, nombre, equipo, detalle):
                 "Puntos": valor[1],
             })
 
-    return filas_detalle, minutos
+    return filas_detalle, (minutos_totales if alguna_jornada else None)
 
 
 def guardar_detalle(filas, ruta_archivo=Común.ruta_datos("Datos Puntos jornada detalle.csv")):

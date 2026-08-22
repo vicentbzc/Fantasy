@@ -38,6 +38,11 @@ def parsear_entero(texto):
     return int(float(texto))
 
 
+def parsear_entero_absoluto(texto):
+    valor = parsear_entero(texto)
+    return None if valor is None else abs(valor)
+
+
 def parsear_fecha(texto):
     return datetime.strptime(texto, "%d/%m/%Y").date()
 
@@ -181,6 +186,9 @@ def sincronizar_jugadores(cur):
             parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Posicion X")),
             parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Posicion Y")),
             parsear_entero(minutos_por_id.get(jugador["ID"])),
+            parsear_entero(coincidencias_mercado.get(jugador["ID"], {}).get("Diferencia")),
+            parsear_numero(coincidencias_mercado.get(jugador["ID"], {}).get("Diferencia porcentaje")),
+            parsear_entero_absoluto(coincidencias_mercado.get(jugador["ID"], {}).get("Tendencia")),
         )
         for jugador in jugadores
     ]
@@ -193,7 +201,8 @@ def sincronizar_jugadores(cur):
         """
         insert into jugadores (
             id, nombre, equipo, posicion, porcentaje_titularidad, valor, valor_liga, estado,
-            posicion_x, posicion_y, minutos_jugados
+            posicion_x, posicion_y, minutos_jugados, diferencia_valor, porcentaje_diferencia,
+            tendencia_dias
         ) values %s
         on conflict (id) do update set
             nombre = excluded.nombre,
@@ -206,6 +215,9 @@ def sincronizar_jugadores(cur):
             posicion_x = excluded.posicion_x,
             posicion_y = excluded.posicion_y,
             minutos_jugados = excluded.minutos_jugados,
+            diferencia_valor = excluded.diferencia_valor,
+            porcentaje_diferencia = excluded.porcentaje_diferencia,
+            tendencia_dias = excluded.tendencia_dias,
             actualizado_en = now()
         """,
         filas,
@@ -293,7 +305,7 @@ def calcular_tendencias(cur):
                    row_number() over (partition by id order by fecha desc) as posicion
             from historial_valor
         ) reciente
-        where posicion <= 15
+        where posicion <= 3
         order by id, fecha desc
     """)
 
@@ -306,26 +318,14 @@ def calcular_tendencias(cur):
         if len(valores) < 2 or valores[0] is None or valores[1] is None or not valores[1]:
             continue
 
-        diferencia = valores[0] - valores[1]
-        porcentaje = round(diferencia / valores[1] * 100, 2)
-
-        direccion = 1 if diferencia > 0 else (-1 if diferencia < 0 else 0)
-        tendencia_dias = 0
-        for i in range(len(valores) - 1):
-            if valores[i] is None or valores[i + 1] is None or not valores[i + 1]:
-                break
-            delta = valores[i] - valores[i + 1]
-            dir_delta = 1 if delta > 0 else (-1 if delta < 0 else 0)
-            if dir_delta != direccion or dir_delta == 0:
-                break
-            tendencia_dias += 1
+        porcentaje = round((valores[0] - valores[1]) / valores[1] * 100, 2)
 
         aceleracion = "Estable"
         if len(valores) >= 3 and valores[2] not in (None, 0):
             porcentaje_anterior = round((valores[1] - valores[2]) / valores[2] * 100, 2)
             aceleracion = clasificar_aceleracion(porcentaje, porcentaje_anterior)
 
-        actualizaciones.append((id_jugador, diferencia, porcentaje, tendencia_dias, aceleracion))
+        actualizaciones.append((id_jugador, aceleracion))
 
     if not actualizaciones:
         return 0
@@ -334,11 +334,8 @@ def calcular_tendencias(cur):
         cur,
         """
         update jugadores as j set
-            diferencia_valor = datos.diferencia_valor,
-            porcentaje_diferencia = datos.porcentaje_diferencia,
-            tendencia_dias = datos.tendencia_dias,
             aceleracion = datos.aceleracion
-        from (values %s) as datos (id, diferencia_valor, porcentaje_diferencia, tendencia_dias, aceleracion)
+        from (values %s) as datos (id, aceleracion)
         where j.id = datos.id
         """,
         actualizaciones,

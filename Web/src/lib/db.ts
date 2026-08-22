@@ -295,21 +295,43 @@ export async function obtenerHistorialValor(id: number): Promise<PuntoHistorialV
   }));
 }
 
+export type DetalleEstadistica = {
+  estadistica: string;
+  cantidad: number;
+  puntos: number;
+};
+
 export type JornadaPuntos = {
   jornada: number;
   puntos: number;
   estadisticas: string | null;
+  desglose: DetalleEstadistica[];
 };
 
 export async function obtenerHistorialPuntos(id: number): Promise<JornadaPuntos[]> {
-  const resultado = await pool.query(
-    `select jornada, puntos, estadisticas from puntos_jornada where id = $1 order by jornada desc`,
-    [id]
-  );
+  const [puntosResultado, detalleResultado] = await Promise.all([
+    pool.query(`select jornada, puntos, estadisticas from puntos_jornada where id = $1 order by jornada desc`, [id]),
+    pool.query(
+      `select jornada, estadistica, cantidad, puntos from puntos_jornada_detalle where id = $1 order by jornada, orden`,
+      [id]
+    ),
+  ]);
 
-  return resultado.rows.map((fila) => ({
+  const desglosePorJornada = new Map<number, DetalleEstadistica[]>();
+  for (const fila of detalleResultado.rows) {
+    const lista = desglosePorJornada.get(fila.jornada) ?? [];
+    lista.push({
+      estadistica: fila.estadistica,
+      cantidad: Number(fila.cantidad),
+      puntos: Number(fila.puntos),
+    });
+    desglosePorJornada.set(fila.jornada, lista);
+  }
+
+  return puntosResultado.rows.map((fila) => ({
     jornada: fila.jornada,
     puntos: fila.puntos,
     estadisticas: fila.estadisticas,
+    desglose: desglosePorJornada.get(fila.jornada) ?? [],
   }));
 }

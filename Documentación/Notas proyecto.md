@@ -1164,6 +1164,256 @@ con petición de detalle, 4.978 filas de desglose, 224 con minutos reales
 Baena: 33 minutos, 1 gol — ya no el "720" ni el "9 puntos sin desglose"
 de antes.
 
+## Sexta ronda: rediseño a fondo de la tabla de Jugadores (22/08/2026)
+
+El usuario pidió 15 cambios sobre `/jugadores` en un solo mensaje, casi
+todos verificados en directo contra el navegador antes de darlos por
+buenos (no solo compilando). Los más simples: orden alfabético por
+nombre cuando no hay ninguna columna ordenada activamente (antes
+ordenaba por "Valor" aunque esa columna ni se mostrara), sin sufijo
+(`%`, "días"...) cuando el valor es `null` (antes salía "—%"),
+`Avatar.tsx` sin `rounded-full`/fondo — `object-contain` en vez de
+`object-cover` para que ni fotos de jugador ni escudos se recorten, y
+"Histórico de valor · Nombre" → "Histórico del valor de Nombre".
+
+**`minutos_jugados` pasa a ser acumulado de toda la temporada, no de la
+última jornada**: `extraer_jugador()` en `Ingestar datos detalle.py`
+sumaba solo `mins_played` de la jornada más reciente; ahora suma las de
+todas las `playerStats` del jugador. De paso, `mins_played` se añadió
+también a `MAPA_ESTADISTICA` (como "minutos jugados", primera entrada)
+para que aparezca en el desglose por jornada del modal de puntos — antes
+solo alimentaba `jugadores.minutos_jugados` y se descartaba del todo del
+desglose. También se filtran las filas con cantidad 0 (`if not valor or
+not valor[0]: continue`) — antes se guardaban las ~19 estadísticas de
+cada jugador en cada jornada aunque no hubiera pasado nada (ej. un
+centrocampista con "0 paradas"), inflando `puntos_jornada_detalle` sin
+aportar nada útil al desglose.
+
+**Nulos como el valor más bajo al ordenar**: antes un valor `null`
+siempre iba al final de la lista da igual la dirección del orden
+(`if (va === null) return 1`). Ahora se trata como "más pequeño que
+cualquier valor real": en ascendente sale primero, en descendente sale
+último — mismo criterio en `compararPorClave()` para números y para
+texto.
+
+**"Aceleración" eliminada del todo de `/jugadores`** (de
+`COLUMNAS_OPCIONALES`, ya no aparece en Filtros ni como columna) — a
+petición explícita del usuario, revierte parte de lo hecho horas antes
+en la misma sesión. `Comparador.tsx` **no se tocó**: sigue teniendo su
+fila fija de "Aceleración" (siempre visible al comparar, independiente
+de `COLUMNAS_OPCIONALES`), porque el usuario solo habló de la página de
+Jugadores.
+
+**"Posición" y "Estado" pasan de columnas fijas a columnas opcionales**,
+primeras en el orden de Filtros (antes de "Titularidad"). Por defecto,
+sin ningún filtro activo, la tabla ahora solo muestra Jugador y Equipo
+— antes siempre mostraba también Posición y Estado sin poder ocultarlos.
+El desplegable "Posiciones" que ya filtraba filas (al lado de "Equipos")
+se dejó tal cual, es un concepto distinto (filtra qué jugadores se ven)
+del nuevo "Posición" de Filtros (muestra la columna). `Comparador.tsx`
+ya tenía sus propias filas fijas de "Posición" y "Estado" — se añadió
+`estado`/`posicion` a su lista de claves excluidas del propio
+`MenuFiltros` (antes solo excluía `aceleracion`) para que no salgan
+duplicadas ahí.
+
+**Revalorización y su porcentaje, coloreados** (verde positivo, rojo
+negativo, color normal si es 0 o `null`) — mismo criterio que ya usaba
+`Comparador.tsx` para "mejor/peor" (`#16A34A`/`#DC2626`), aplicado tanto
+en la tabla principal como en el panel de "Totales".
+
+**Tendencia con "día"/"días"**: `ColumnaOpcional` ganó un campo opcional
+`formatear?: (valor) => string` (reemplaza el mecanismo genérico de
+`sufijo` cuando la lógica no es un simple `${numero}${sufijo}`) — usado
+para pluralizar Tendencia y para que "Estado" pase por
+`formatearEstado()` en vez de mostrarse en crudo.
+
+**Sticky ampliado a Jugador + Equipo** (antes solo Jugador, y sin
+`z-index` en las celdas del `<tbody>`, solo en la cabecera) — al hacer
+scroll horizontal con muchas columnas activas, el resto de datos se
+pintaban encima de la foto/nombre del jugador porque las celdas fijas
+del cuerpo no tenían `z-10` como sí tenía la cabecera. Arreglado dando
+ancho fijo a Jugador (260px) y Equipo (220px) para poder calcular el
+`left` de scroll de Equipo (`left-[300px]`, después de los 40px del
+checkbox + 260px de Jugador) y añadiendo `z-10` a las tres celdas fijas
+del cuerpo.
+
+**Rayado de filas con colores sólidos** (`#F7F7F8`/`#FFFFFF` en vez de
+`rgba(29,29,31,0.04)`/`#FFFFFF`) — el usuario vio la celda de Jugador
+más gris que el resto de su misma fila, con una línea blanca separándola
+de la casilla de selección. Un color semi-transparente compuesto sobre
+celdas `position: sticky` no pinta exactamente igual que sobre celdas
+normales (cada capa sticky crea su propio contexto de composición);
+usar un color sólido equivalente elimina cualquier diferencia posible
+entre celdas fijas y no fijas de la misma fila.
+
+**Panel "Totales de equipo" rediseñado**: título = nombre del equipo,
+subtítulo pequeño debajo = "N jugadores" (antes todo en una sola línea
+"Totales de X · N jugadores"); excluye explícitamente Titularidad,
+Porcentaje de revalorización, Tendencia y Minutos jugados
+(`CLAVES_EXCLUIDAS_TOTALES`); usa `formatearCelda()` en vez de
+`formatearNumero() + sufijo` a mano, así hereda gratis el mismo
+formateo (sin sufijo en nulos, "Puntos DAZN" en vez de números pelados,
+etc.) que ya tiene la tabla principal. El escudo ya no se recorta en
+círculo (heredado del arreglo de `Avatar.tsx`).
+
+**Modal "Puntos por jornada" con desglose real, expandible**: título
+"Puntos por jornada de {nombre}" (antes "Puntos por jornada · {nombre}"),
+quitado el subtítulo "El rival y el resultado... todavía no se guardan"
+(ya no aplica, era de cuando `estadisticas` en `puntos_jornada` estaba
+siempre vacío). `obtenerHistorialPuntos()` en `db.ts` ahora hace una
+segunda consulta a `puntos_jornada_detalle` (en paralelo con
+`Promise.all`) y agrupa las filas por jornada en JS; cada jornada del
+modal es un botón que expande/colapsa mostrando cada línea como
+"{cantidad} {estadística}: {puntos} puntos" (ej. "1 goles: 5 puntos").
+Verificado en directo: funciona correctamente, aunque con los datos que
+había en producción en el momento de la prueba todavía salían las
+~19 filas por jornada sin filtrar (la sincronización con el filtro de
+cantidad 0 y `mins_played` en el desglose es posterior a esos datos) —
+se limpia solo en el próximo sync, nada que arreglar en la web.
+
+**El caso de Mariano no era un bug**: el usuario vio que su
+revalorización de hoy debería ser +494.429 y salía 0. Investigado en
+directo contra la base de datos real: los dos últimos snapshots de
+`historial_valor` para ese jugador (20/08 y 21/08) tienen el mismo valor
+exacto (5.721.255) porque el último `Ingestar datos liga.py` real corrió
+a las 23:38 UTC del 21/08 y nada ha corrido desde entonces (confirmado
+contra el historial de runs de GitHub Actions) — la subida que el
+usuario ve en la app real todavía no ha llegado a nuestra base de datos.
+`calcular_tendencias()` está calculando bien la diferencia entre los dos
+snapshots que existen; el "0" es correcto para los datos disponibles,
+no un fallo de la fórmula. **Nota del 22/08/2026 (ronda siguiente,
+mismo día)**: aunque el cálculo no tenía fallos, el usuario prefirió
+eliminar esta clase entera de bug (retrasos de sincronización) usando
+directamente el dato ya calculado por futbolfantasy.com en vez de
+recalcularlo nosotros — ver "Séptima ronda" más abajo.
+`calcular_tendencias()` ya no escribe `diferencia_valor` /
+`porcentaje_diferencia` / `tendencia_dias`, solo `aceleracion`.
+
+## Séptima ronda: revalorización real y arreglos finos de Jugadores (22/08/2026, mismo día)
+
+1. **Solapamiento al hacer scroll horizontal, causa real encontrada**: el
+   arreglo de la Sexta ronda (columnas Jugador/Equipo con `sticky` y
+   ancho fijo) no funcionaba del todo — el `<span>` del nombre estaba
+   dentro de un `div class="flex items-center gap-2"` sin `min-w-0`. Un
+   hijo flex sin `min-width: 0` nunca se encoge por debajo del ancho de
+   su contenido, así que un nombre largo hacía que la celda de Jugador
+   creciera **de verdad** más allá de los 260px declarados — y como el
+   `left-[300px]` de Equipo se calculó asumiendo esos 260px reales, la
+   celda de Equipo (y todo lo que viene después) se plantaba en un sitio
+   que ya no coincidía con el ancho real de Jugador. Arreglado añadiendo
+   `min-w-0` + `flex-1` + `truncate` a los spans de nombre de jugador Y
+   de equipo (por si `equipoNombreOficial` es `null` alguna vez y cae al
+   nombre largo interno). Verificado con `elementFromPoint()` en el
+   punto donde antes se solapaban: el elemento visible es el de la celda
+   fija (`Equipo`), no el de la columna que se desplaza por detrás — tal
+   y como debe comportarse una columna `sticky`.
+2. **Minutos jugados / desglose sin filtrar / orden del desglose**: ya
+   estaban arreglados en el código de la ronda anterior (acumulado de
+   toda la temporada, filtro de cantidad 0, mismo orden que Filtros) pero
+   **nunca se llegaron a subir ni sincronizar** — el usuario probó en
+   producción antes de que hubiera commit+push+workflow_dispatch de por
+   medio. Nada que tocar de nuevo, solo desplegar.
+3. **"Puntos DAZN" sin decimales**: tenía `decimales: 1` puesto de
+   antemano (antes de tener datos reales) — quitado, ahora usa el
+   `decimales` por defecto (0) de `formatearNumero()`.
+4. **Revalorización, porcentaje y tendencia: dejan de calcularse,
+   ahora son el dato real de futbolfantasy.com**. El usuario, tras ver
+   el caso de Mariano, pidió explícitamente no volver a calcular esto
+   nosotros nunca más ("evitarnos errores de cálculo por fallos de
+   script"). Investigado en directo: la misma tabla de mercado que ya
+   raspa `Ingestar datos 1.py` para `porcentaje_titularidad` trae en
+   cada `<tr>` los atributos `data-diferencia1`, `data-diferencia-pct1`
+   y `data-tendencia` — el valor absoluto en dinero, el porcentaje y los
+   días de tendencia, **ya calculados por futbolfantasy.com**, sin
+   petición extra (mismo HTML que ya se descargaba). Confirmado contra
+   Mariano en directo: `data-diferencia1="494429"`,
+   `data-diferencia-pct1="23.53..."`, `data-tendencia="6"` — coincide
+   exacto con lo que el usuario veía en la web real. `_leer_fila_mercado()`
+   en `Común.py` ahora también devuelve `diferencia`/`diferencia_pct`/
+   `tendencia`, `Ingestar datos 1.py` los guarda en `Datos
+   Titularidad.csv` (3 columnas nuevas) y `sincronizar_jugadores()` los
+   usa directamente (mismo emparejador `coincidencias_mercado` que ya
+   usaba para titularidad) en vez de que `calcular_tendencias()` los
+   derive de `historial_valor`. `data-tendencia` puede venir en negativo
+   (tendencia bajista) — se guarda en valor absoluto
+   (`parsear_entero_absoluto()`) para no romper el "días" que muestra la
+   web, que no distingue signo. **`calcular_tendencias()` se simplificó
+   a solo `aceleracion`** (lo único que de verdad necesitaba el bucle de
+   15 días de histórico; bajado a 3 días, que es lo que hace falta para
+   comparar la velocidad de hoy contra la de ayer). **Ojo**: "Valor" en
+   la web es `valor_liga` (la cláusula de tu liga privada), pero la
+   revalorización que ahora se usa viene de lo que futbolfantasy.com
+   entiende como "valor" (previsiblemente `marketValue` oficial, no
+   `valor_liga`) — para la inmensa mayoría de jugadores son el mismo
+   número (`valor_liga` solo diverge para quien tiene la cláusula subida
+   a mano en tu liga), pero técnicamente no está garantizado que
+   "Revalorización" sea exactamente `Valor(hoy) − Valor(ayer)` para esos
+   pocos casos. No se ha resuelto porque no hay (todavía) una fuente de
+   histórico de `valor_liga` en ningún sitio externo.
+5. **Todas las columnas de Filtros, alineadas a la izquierda** (antes
+   `text-right`) — igual que Jugador y Equipo, a petición del usuario.
+6. **Buscador insensible a tildes**: "Martin" no encontraba "T.
+   Martínez" porque `"martínez".includes("martin")` es `false` en
+   JavaScript (la í con tilde no es lo mismo carácter que la i suelta).
+   Nueva `normalizarTexto()` en `Explorador.tsx` (quita diacríticos con
+   `.normalize("NFKD")` + reemplazo del rango Unicode de marcas
+   combinadas) aplicada tanto al texto buscado como a cada nombre antes
+   de comparar — mismo problema, mismo tipo de solución, que
+   `Común.normalizar_nombre()` ya resolvía hace tiempo en el lado
+   Python para el emparejador de nombres.
+7. **Histórico de valor (la gráfica), pendiente de decisión del
+   usuario**: pidió que tampoco se calcule nosotros, que venga de
+   futbolfantasy.com. La misma fila de la tabla de mercado trae
+   `data-valor1/2/3/7/14/30` (el valor de hace 1, 2, 3, 7, 14 y 30 días)
+   — pero son **6 puntos fijos**, no una serie diaria continua como la
+   que ya se acumula sola en `historial_valor` desde el Paso 8 (un punto
+   más cada día, sin límite). Cambiar la gráfica a estos 6 puntos sería
+   perder granularidad del histórico ya acumulado a cambio de no
+   depender de nuestro propio cálculo — un cambio de arquitectura real,
+   no una corrección de bug, así que se dejó sin implementar hasta que
+   el usuario decida explícitamente qué prefiere. **Resuelto (mismo
+   día)**: el usuario prefirió mantener el histórico diario propio tal
+   cual estaba — no se tocó nada de `historial_valor` ni `GraficaValor.tsx`.
+
+## Octava ronda: retoques finales de Jugadores (22/08/2026, mismo día)
+
+1. **"-1" delante de "Puntos DAZN" en el desglose**: `marca_points` de
+   la API no es una cantidad contable como el resto de estadísticas —
+   su primer valor (`cantidad`) no tiene un significado real, solo el
+   segundo (`puntos`) importa (confirmado con Baena: `[-1, 3]`). Antes
+   el desglose mostraba literalmente "-1 Puntos DAZN". `HistorialPuntos.tsx`
+   ahora tiene un caso especial: si la estadística es "Puntos DAZN" no
+   antepone la cantidad, solo muestra la etiqueta.
+2. **Desglose también para "Puntos en la última jornada"**: antes solo
+   "Puntos totales" abría un modal (con las jornadas colapsadas,
+   click para expandir cada una). Ahora "Puntos en la última jornada"
+   también es clicable y abre el mismo componente `HistorialPuntos` en
+   un modo nuevo (`soloUltimaJornada`) que solo pide/muestra la primera
+   fila (la más reciente, ya que `obtenerHistorialPuntos` ordena por
+   `jornada desc`) y la enseña ya desplegada directamente, sin necesidad
+   de otro clic — título "Puntos de la última jornada de {nombre}" en
+   vez de "Puntos por jornada de {nombre}".
+3. **Jugador y Estado dejan de ser ordenables**: a petición explícita del
+   usuario, revierte parte de lo añadido en la Sexta ronda (donde se hizo
+   clicable el propio encabezado "Jugador" para poder volver al alfabético
+   a mano). El orden alfabético por nombre **sigue siendo el que se aplica
+   por defecto** (no cambia el estado inicial), simplemente ya no hay forma
+   de volver a activarlo a mano una vez se ordena por otra columna — ni
+   "Jugador" ni "Estado" tienen ya flecha ni `cursor-pointer` ni `onClick`.
+4. **Equipo pasa de columna fija a opcional**, primera en Filtros (antes
+   de Posición) — mismo patrón que ya se le aplicó a Posición y Estado en
+   la ronda anterior. Sin ningún filtro activo la tabla ahora solo muestra
+   Jugador (antes Jugador + Equipo). Al activarse, se renderiza igual que
+   antes (escudo + nombre oficial) pero como una columna dinámica más,
+   ya no `sticky` — deja de estar fija durante el scroll horizontal, cosa
+   que no se pidió mantener. El desplegable "Equipos" que ya filtraba
+   filas (al lado del buscador) se dejó tal cual, es un concepto distinto
+   (qué jugadores se ven) del nuevo "Equipo" de Filtros (si se muestra la
+   columna) — mismo razonamiento que ya se aplicó a "Posiciones". Como
+   ya pasaba con Posición/Estado, `Comparador.tsx` tiene su propia fila
+   fija de "Equipo" — se añadió a su lista de claves excluidas del propio
+   `MenuFiltros` para que no salga duplicada.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

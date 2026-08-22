@@ -295,4 +295,7 @@ def _leer_fila_mercado(fila):
         "nombre": nombre,
         "equipo": equipo,
         "titularidad": titularidad,
+        "diferencia": fila.get("data-diferencia1", ""),
+        "diferencia_pct": fila.get("data-diferencia-pct1", ""),
+        "tendencia": fila.get("data-tendencia", ""),
     }
