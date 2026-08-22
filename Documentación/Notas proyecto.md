@@ -115,14 +115,24 @@ revertida explícitamente por el usuario.
 
 | Script | Fuente | Genera | Coste | Cadencia actual |
 |---|---|---|---|---|
-| `Ingestar datos liga.py` | API LaLiga Fantasy | `Datos Jugadores.csv`, `Datos Historial valor.csv`, `Datos Puntos jornada.csv` | 1 + 1 + N peticiones autenticadas (N = equipos de tu liga) | Cada hora |
-| `Ingestar datos 1.py` | futbolfantasy.com | `Datos Titularidad.csv` | 1 petición | Cada hora |
-| `Ingestar datos estado.py` | futbolfantasy.com | `Datos Estado.csv` | 2 peticiones | Cada hora |
-| `Ingestar datos 3.py` | futbolfantasy.com | `Datos 3.csv` (calendario), `Datos Posicion.csv` (formación real) | ~20-40 peticiones | Cada 4-6 horas |
-| `Descargar imágenes.py` | API LaLiga Fantasy (escudos + nombre oficial) + `Datos Fotos.csv` (fotos, ya con URL oficial) | Sube a Supabase Storage, `Datos Equipos.csv` | 1 petición autenticada + Gratis salvo la primera vez para las imágenes | Cada 4-6 horas |
-| `Ingestar datos detalle.py` | API LaLiga Fantasy | `Datos Puntos jornada detalle.csv`, `Datos Minutos.csv` | 1 + N peticiones autenticadas (N = jugadores con algún punto esta temporada, ~254 a fecha de hoy) | Cada 4-6 horas |
+| `Ingestar datos liga.py` | API LaLiga Fantasy | `Datos Jugadores.csv`, `Datos Historial valor.csv`, `Datos Puntos jornada.csv` | 1 + 1 + N peticiones autenticadas (N = equipos de tu liga) | Cada 15 minutos |
+| `Ingestar datos 1.py` | futbolfantasy.com | `Datos Titularidad.csv` | 1 petición | Cada 5 minutos |
+| `Ingestar datos estado.py` | futbolfantasy.com | `Datos Estado.csv` | 2 peticiones | Cada 5 minutos |
+| `Ingestar datos 3.py` | futbolfantasy.com | `Datos 3.csv` (calendario), `Datos Posicion.csv` (formación real) | ~20-40 peticiones | Cada 15 minutos |
+| `Descargar imágenes.py` | API LaLiga Fantasy (escudos + nombre oficial) + `Datos Fotos.csv` (fotos, ya con URL oficial) | Sube a Supabase Storage, `Datos Equipos.csv` | 1 petición autenticada + Gratis salvo la primera vez para las imágenes | Cada 5 horas |
+| `Ingestar datos detalle.py` | API LaLiga Fantasy | `Datos Puntos jornada detalle.csv`, `Datos Minutos.csv` | 1 + N peticiones autenticadas (N = jugadores con algún punto esta temporada, ~254 a fecha de hoy) | Cada 15 minutos |
 | `Sincronizar base de datos.py` | CSV → Postgres | — | — | Después de cualquiera de los anteriores |
 | `Descubrir liga.py` | API LaLiga Fantasy | imprime tus ligas | 1 petición | Manual, un solo uso |
+
+**Cadencias fijadas por el usuario el 22/08/2026** (ver "Novena ronda" más abajo), no
+deducidas por nosotros — el criterio es qué dato de la web depende de cada script, no
+el script en sí:
+- Imágenes (jugadores, equipos, competiciones): máximo 24h de margen, se dejó en la
+  cadencia que ya tenía (~5h) porque ya lo cumplía de sobra.
+- Alineaciones probables y próximos partidos (`Ingestar datos 3.py`): máximo 15 min.
+- Estado y titularidad: exactamente cada 5 min (no es un máximo, es fijo).
+- Todo lo demás que aparece como columna opcional en "Filtros" de `/jugadores`
+  (Valor, Puntos, desglose de estadísticas, minutos jugados...): máximo 15 min.
 
 ### `Ingestar datos liga.py`
 
@@ -475,19 +485,36 @@ error).
 Repositorio público (Actions minutos ilimitados y gratis en público, muy
 por encima de los 2.000 min/mes gratis de un repo privado).
 
-- Dos cron: `0 * * * *` (cada hora — `Ingestar datos liga.py`, `1.py`,
-  `estado.py`) y `0 */5 * * *` (cada 4-6h — `3.py`,
-  `Descargar imágenes.py`). `Sincronizar` corre al final de cualquiera de
-  los dos disparos.
+- **Tres cron, desde el 22/08/2026** (ver "Novena ronda" más abajo): `*/5 * * * *`
+  (cada 5 min — `1.py` titularidad, `estado.py`), `*/15 * * * *` (cada 15 min —
+  `Ingestar datos liga.py`, `3.py`, `Ingestar datos detalle.py`) y `0 */5 * * *`
+  (cada 5h — `Descargar imágenes.py`). `Sincronizar` corre siempre al final,
+  sin condición, en cualquiera de los tres disparos. Antes de esta fecha eran
+  solo dos cron (`0 * * * *` / `0 */5 * * *`), ver "Historia breve" para el
+  porqué del cambio.
 - `concurrency: group: fantasy-scraping, cancel-in-progress: false` —
   ejecuciones que coinciden se encolan, nunca corren en paralelo (evita
-  que dos procesos escriban a la vez sobre la caché de `Datos/`).
-- `actions/cache` sobre toda la carpeta `Datos/` (clave
-  `datos-fantasy-${{ github.run_id }}` + `restore-keys`) — necesario para
-  que `Token LaLiga Fantasy.json` sobreviva entre ejecuciones (si no, cada
-  hora tocaría loguear con contraseña en vez de solo refrescar).
-- `workflow_dispatch` con input `modo` (`todo` / `solo-barato` /
-  `solo-pesado`) para lanzarlo a mano sin esperar al cron.
+  que dos procesos escriban a la vez sobre la caché de `Datos/`). Efecto
+  secundario aceptado del cron de 5 min: si coincide con una ejecución del
+  cron de 15 min todavía corriendo (~5-7 min, sobre todo por las 254
+  peticiones de `Ingestar datos detalle.py`), la de 5 min se encola detrás
+  y ese ciclo concreto de titularidad/estado llega unos minutos tarde. Se
+  eligió esto en vez de varios workflows en paralelo porque correr
+  `Sincronizar` o el refresco del token de LaLiga Fantasy (`Común.
+  obtener_token_laliga_fantasy()`, que reutiliza el mismo `refresh_token`
+  cacheado) a la vez desde procesos distintos sí sería un riesgo real de
+  condición de carrera; encolado en un único job, nunca pasa.
+- **Volumen de peticiones aceptado explícitamente por el usuario el
+  22/08/2026**: pasar `Ingestar datos detalle.py` (254 peticiones, 1 por
+  jugador) de cada 4-6h a cada 15 min multiplica por ~20 las peticiones
+  diarias contra la cuenta real de LaLiga Fantasy (de ~1.200 a ~24.400
+  peticiones/día) — el usuario confirmó que lo quiere así pese al
+  aumento, avisado explícitamente del número antes de aplicarlo. Mismo
+  criterio de riesgo que ya se aceptó en el Paso 8 (ver "Historia breve"),
+  ahora a mayor escala.
+- `workflow_dispatch` con input `modo` (`todo` / `solo-rapido` /
+  `solo-medio` / `solo-lento`, uno por cada franja de cron) para lanzarlo
+  a mano sin esperar al cron.
 - **Secretos usados**: `DATABASE_URL`, `SUPABASE_URL`,
   `SUPABASE_SERVICE_ROLE_KEY` (ya configurados desde antes del Paso 8) +
   `LALIGA_FANTASY_EMAIL`, `LALIGA_FANTASY_PASSWORD`,
@@ -1413,6 +1440,41 @@ recalcularlo nosotros — ver "Séptima ronda" más abajo.
    ya pasaba con Posición/Estado, `Comparador.tsx` tiene su propia fila
    fija de "Equipo" — se añadió a su lista de claves excluidas del propio
    `MenuFiltros` para que no salga duplicada.
+
+## Novena ronda: cadencias fijadas por el usuario (22/08/2026)
+
+El usuario dio instrucciones explícitas de cada cuánto debe refrescarse cada
+tipo de dato de la web, en vez de dejarlo a criterio nuestro como hasta
+ahora:
+
+1. Imágenes (jugadores, equipos, competiciones): máximo 24h.
+2. Alineaciones probables y próximos partidos: máximo 15 min.
+3. Estado y titularidad: exactamente cada 5 min (fijo, no un máximo).
+4. Todo el resto de columnas opcionales de "Filtros" en `/jugadores`:
+   máximo 15 min.
+
+El workflow pasó de 2 cron a 3 (ver "GitHub Actions" más arriba) para
+poder cumplir el punto 3 sin arrastrar a esa cadencia todo lo demás.
+Antes de aplicar el cambio se avisó al usuario de un efecto concreto:
+`Ingestar datos detalle.py` (el desglose de estadísticas por jugador —
+minutos, goles, asistencias, tarjetas, Puntos DAZN... todo lo que no es
+estado/titularidad/alineación) hace **1 petición por jugador contra la
+cuenta real** (254 a día de hoy) y estaba en el cron de 4-6h precisamente
+por ser caro. Pasarlo a 15 min multiplica sus peticiones diarias por ~20
+(de ~1.200 a ~24.400 peticiones/día contra la API no oficial de LaLiga
+Fantasy, con la cuenta real logueada). **El usuario confirmó explícitamente
+que lo quiere así**, asumiendo ese aumento — se le dieron las cifras
+exactas antes de que dijera que sí, no se implementó a ciegas.
+
+`Ingestar datos liga.py` (valor, puntos totales, puntos por jornada) se
+movió del cron de cada hora al de 15 min — antes vivía en el barato junto a
+titularidad/estado sin ninguna razón especial de fondo (solo porque ambos
+eran "el cron ligero"), pero "Valor" y "Puntos" son columnas de Filtros
+igual que el resto del punto 4, no titularidad/estado del punto 3.
+
+`Descargar imágenes.py` no se tocó (cadencia ~5h, sigue en su propio cron
+`0 */5 * * *`) porque el límite de 24h del punto 1 ya se cumplía de sobra
+sin cambiar nada.
 
 ## Historia breve
 

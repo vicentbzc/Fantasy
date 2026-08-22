@@ -2,7 +2,8 @@ name: Scraping y sincronización
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '*/5 * * * *'
+    - cron: '*/15 * * * *'
     - cron: '0 */5 * * *'
   workflow_dispatch:
     inputs:
@@ -11,8 +12,9 @@ on:
         type: choice
         options:
           - todo
-          - solo-barato
-          - solo-pesado
+          - solo-rapido
+          - solo-medio
+          - solo-lento
         default: todo
 
 concurrency:
@@ -39,28 +41,35 @@ jobs:
           key: datos-fantasy-v2-${{ github.run_id }}
           restore-keys: datos-fantasy-v2-
 
+      - name: Ingestar datos 1 (titularidad)
+        if: github.event.schedule == '*/5 * * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-rapido'))
+        run: python "Scripts/Ingestar datos 1.py"
+
+      - name: Ingestar datos estado (lesionados/sancionados)
+        if: github.event.schedule == '*/5 * * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-rapido'))
+        run: python "Scripts/Ingestar datos estado.py"
+
       - name: Ingestar datos liga (API LaLiga Fantasy)
-        if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-pesado')
+        if: github.event.schedule == '*/15 * * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-medio'))
         env:
           LALIGA_FANTASY_EMAIL: ${{ secrets.LALIGA_FANTASY_EMAIL }}
           LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
           LALIGA_FANTASY_LEAGUE_ID: ${{ secrets.LALIGA_FANTASY_LEAGUE_ID }}
         run: python "Scripts/Ingestar datos liga.py"
 
-      - name: Ingestar datos 1 (titularidad)
-        if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-pesado')
-        run: python "Scripts/Ingestar datos 1.py"
-
-      - name: Ingestar datos estado (lesionados/sancionados)
-        if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-pesado')
-        run: python "Scripts/Ingestar datos estado.py"
-
-      - name: Ingestar datos 3 (calendario)
-        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-barato')
+      - name: Ingestar datos 3 (calendario y alineaciones)
+        if: github.event.schedule == '*/15 * * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-medio'))
         run: python "Scripts/Ingestar datos 3.py"
 
+      - name: Ingestar datos detalle (puntos por jugador y jornada)
+        if: github.event.schedule == '*/15 * * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-medio'))
+        env:
+          LALIGA_FANTASY_EMAIL: ${{ secrets.LALIGA_FANTASY_EMAIL }}
+          LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
+        run: python "Scripts/Ingestar datos detalle.py"
+
       - name: Descargar imágenes
-        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-barato')
+        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-lento'))
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -68,13 +77,6 @@ jobs:
           LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
           LALIGA_FANTASY_LEAGUE_ID: ${{ secrets.LALIGA_FANTASY_LEAGUE_ID }}
         run: python "Scripts/Descargar imágenes.py"
-
-      - name: Ingestar datos detalle (puntos por jugador y jornada)
-        if: github.event.schedule == '0 */5 * * *' || (github.event_name == 'workflow_dispatch' && inputs.modo != 'solo-barato')
-        env:
-          LALIGA_FANTASY_EMAIL: ${{ secrets.LALIGA_FANTASY_EMAIL }}
-          LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
-        run: python "Scripts/Ingestar datos detalle.py"
 
       - name: Sincronizar con Supabase
         env:
