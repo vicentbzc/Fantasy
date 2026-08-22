@@ -1,9 +1,12 @@
 import csv
 import os
 import time
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import Común
+
+ZONA_BARCELONA = ZoneInfo("Europe/Madrid")
 
 
 def construir_valores_liga(sesion, token, id_liga):
@@ -41,7 +44,11 @@ def guardar_jugadores(filas, ruta_archivo=Común.ruta_datos("Datos Jugadores.csv
 
 
 def guardar_historial(filas, ruta_archivo=Común.ruta_datos("Datos Historial valor.csv")):
-    hoy = date.today().strftime("%d/%m/%Y")
+    ahora = datetime.now(ZONA_BARCELONA)
+    if ahora.hour < 8:
+        return
+
+    hoy = ahora.strftime("%d/%m/%Y")
     columnas = ["Fecha", "ID", "Jugador", "Equipo", "Valor"]
 
     archivo_existe = os.path.isfile(ruta_archivo)

@@ -577,8 +577,16 @@ guardar una plantilla real, ver "Pendiente").
 ## Dependencias
 
 ```
-pip install requests beautifulsoup4 psycopg2-binary
+pip install requests beautifulsoup4 psycopg2-binary tzdata
 ```
+
+`tzdata` añadido el 22/08/2026 para `ZoneInfo("Europe/Madrid")` en `Ingestar
+datos liga.py` (ver "Décima ronda" más abajo) — sin este paquete,
+`zoneinfo` falla en Windows (no trae base de datos de husos horarios
+propia, a diferencia de Linux/GitHub Actions que normalmente sí la tiene
+del sistema); con `tzdata` instalado funciona igual en cualquier
+plataforma, así que se añadió como dependencia explícita en vez de confiar
+en que el runner de turno la tenga.
 
 ## Pendiente
 
@@ -1475,6 +1483,65 @@ igual que el resto del punto 4, no titularidad/estado del punto 3.
 `Descargar imágenes.py` no se tocó (cadencia ~5h, sigue en su propio cron
 `0 */5 * * *`) porque el límite de 24h del punto 1 ya se cumplía de sobra
 sin cambiar nada.
+
+## Décima ronda: retoques de Jugadores y reinicio del histórico de valor (22/08/2026)
+
+1. **Columna Estado, más ancha y sin salto de línea**: textos como "Baja
+   hasta finales de agosto" se partían en varias líneas dentro de la
+   celda. La celda genérica de columna (todas las columnas de Filtros
+   salvo Equipo/Valor/Puntos, que ya tenían render especial) no llevaba
+   `whitespace-nowrap` — solo lo llevaba la cabecera, no el cuerpo.
+   Añadido a la celda genérica de `Explorador.tsx`, más `min-w-[220px]`
+   solo para Estado (cabecera y cuerpo) para que tenga sitio de sobra.
+2. **Línea fina entre la casilla de selección y "Jugador" con contenido
+   de detrás asomando al hacer scroll**: eran dos `<td>`/`<th>` `sticky`
+   independientes y contiguos (`left-0` la casilla, `left-10` Jugador) —
+   un problema clásico de subpíxel al posicionar dos elementos `sticky`
+   pegados: el navegador puede redondear cada uno a un píxel físico
+   distinto y dejar una rendija de un píxel por la que se ve la columna
+   que se desplaza por detrás, aunque los colores de fondo ya coincidan.
+   Arreglado de raíz fusionando checkbox + avatar + nombre en **una sola**
+   celda `sticky` de 300px (antes 40px + 260px por separado) — con un solo
+   elemento `sticky` no hay dos bordes que puedan desalinearse entre sí.
+3. **Desglose de puntos por jornada, solo estadísticas con puntos
+   distintos de 0**: antes se mostraba cualquier línea con `cantidad`
+   distinta de 0 aunque hubiera aportado 0 puntos (ej. "1 tiros a puerta:
+   0 puntos"). `obtenerHistorialPuntos()` en `db.ts` ahora filtra
+   `puntos <> 0` en la propia consulta SQL — a propósito **no** se tocó
+   `Ingestar datos detalle.py` (que sigue filtrando por `cantidad`, no por
+   `puntos`), porque esas filas con 0 puntos sí cuentan para las columnas
+   agregadas de la tabla principal (ej. "Tiros a puerta" de toda la
+   temporada); filtrar en el origen habría restado esas estadísticas del
+   total. El orden del desglose (`order by jornada, orden`) ya coincidía
+   con el de "Filtros" sin tocar nada — la columna `orden` se asigna en
+   `Ingestar datos detalle.py` recorriendo `MAPA_ESTADISTICA`, que está
+   escrito en el mismo orden que `COLUMNAS_OPCIONALES` en `columnas.ts`
+   (confirmado comparando ambas listas entrada por entrada).
+4. **Histórico de valor, reiniciado y con ventana de las 8:00**: el
+   usuario detectó que el valor de un jugador a veces sale mal justo
+   después de la actualización diaria (~00:00 hora de Barcelona) y se
+   corrige solo a los pocos minutos — y como `guardar_historial()` en
+   `Ingestar datos liga.py` grababa el **primer** valor que veía cada día
+   (con un guardián para no repetir el mismo día, `ya_guardado_hoy`), con
+   el cron nuevo de 15 min ese primer valor podía ser precisamente el
+   erróneo, y se quedaba fijado para siempre (la sincronización hace
+   `on conflict (id, fecha) do nothing`, nunca corrige lo ya guardado).
+   El usuario pidió considerar el valor real recién a partir de las 14:00
+   hora de Barcelona — cambiado más tarde el mismo día a las **8:00**,
+   también su petición explícita. `guardar_historial()` ahora usa
+   `datetime.now(ZoneInfo("Europe/Madrid"))` en vez de `date.today()`
+   (que en GitHub Actions corre en UTC, no en hora española) y no escribe
+   ninguna fila si son antes de las 8:00 — así el primer valor que se
+   graba cada día es el de la primera ejecución del cron de 15 min a
+   partir de esa hora, ya asentado. **Tabla `historial_valor` vaciada por
+   completo** (`truncate table historial_valor`, ejecutado en directo
+   contra Supabase, 4.437 filas antiguas borradas) para que el histórico
+   empiece a contar limpio desde hoy con la lógica nueva — la clave de
+   `actions/cache` en `scraping.yml` también subió a `datos-fantasy-v3-`
+   (mismo truco que en los "3 bugs reales" del Paso 9) para que `Datos
+   Historial valor.csv`, que se iba acumulando día a día dentro de la
+   caché del runner, también parta vacío y no reintroduzca las fechas
+   viejas.
 
 ## Historia breve
 

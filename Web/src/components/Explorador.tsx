@@ -208,8 +208,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
         <table className="text-sm border-separate border-spacing-0 w-full">
           <thead className="text-neutral-500 text-left">
             <tr>
-              <th className="p-3 w-10 sticky left-0 bg-white z-10"></th>
-              <th className="p-3 w-[260px] sticky left-10 bg-white z-10 whitespace-nowrap">Jugador</th>
+              <th className="p-3 w-[300px] sticky left-0 bg-white z-10 whitespace-nowrap">Jugador</th>
               {columnas.map((columna) => {
                 const ordenable = columna.clave !== "estado";
                 return (
@@ -217,8 +216,8 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                     key={columna.clave}
                     onClick={ordenable ? () => alternarOrden(columna.clave) : undefined}
                     className={`p-3 text-left whitespace-nowrap ${
-                      ordenable ? "cursor-pointer select-none hover:text-neutral-800" : ""
-                    }`}
+                      columna.clave === "estado" ? "min-w-[220px]" : ""
+                    } ${ordenable ? "cursor-pointer select-none hover:text-neutral-800" : ""}`}
                   >
                     {columna.etiqueta}
                     {ordenable && orden.clave === columna.clave ? (orden.direccion === "asc" ? " ↑" : " ↓") : ""}
@@ -238,16 +237,15 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                   style={{ backgroundColor: bg }}
                   className="cursor-pointer transition-colors duration-200 hover:bg-[#FAFAFC]"
                 >
-                  <td className="p-3 sticky left-0 z-10" style={{ backgroundColor: bg }}>
-                    <input
-                      type="checkbox"
-                      checked={marcado}
-                      onChange={() => alternarSeleccion(j.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </td>
-                  <td className="p-3 w-[260px] sticky left-10 z-10 overflow-hidden" style={{ backgroundColor: bg }}>
+                  <td className="p-3 w-[300px] sticky left-0 z-10 overflow-hidden" style={{ backgroundColor: bg }}>
                     <div className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={marcado}
+                        onChange={() => alternarSeleccion(j.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0"
+                      />
                       <Avatar src={urlFotoJugador(j.id)} alt={j.nombre} size={32} />
                       <span className="truncate min-w-0 flex-1">{j.nombre}</span>
                     </div>
@@ -327,7 +325,9 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                     return (
                       <td
                         key={columna.clave}
-                        className="p-3 text-left tabular-nums text-neutral-700"
+                        className={`p-3 text-left tabular-nums text-neutral-700 whitespace-nowrap ${
+                          columna.clave === "estado" ? "min-w-[220px]" : ""
+                        }`}
                         style={{ color: colorRevalor }}
                       >
                         {texto}

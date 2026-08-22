@@ -312,7 +312,7 @@ export async function obtenerHistorialPuntos(id: number): Promise<JornadaPuntos[
   const [puntosResultado, detalleResultado] = await Promise.all([
     pool.query(`select jornada, puntos, estadisticas from puntos_jornada where id = $1 order by jornada desc`, [id]),
     pool.query(
-      `select jornada, estadistica, cantidad, puntos from puntos_jornada_detalle where id = $1 order by jornada, orden`,
+      `select jornada, estadistica, cantidad, puntos from puntos_jornada_detalle where id = $1 and puntos <> 0 order by jornada, orden`,
       [id]
     ),
   ]);
