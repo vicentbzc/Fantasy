@@ -389,6 +389,10 @@ def sincronizar_detalle(cur):
         for fila in leer_csv_opcional("Datos Puntos jornada detalle.csv")
     ]
 
+    cur.execute("select id, jornada from puntos_jornada")
+    pares_validos = set(cur.fetchall())
+    filas = [fila for fila in filas if (fila[0], fila[1]) in pares_validos]
+
     cur.execute("delete from puntos_jornada_detalle")
 
     if not filas:

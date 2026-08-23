@@ -31,6 +31,25 @@ export const COLOR_DIFICULTAD: Record<string, string> = {
   "Muy baja": "#16A34A",
 };
 
+export function bucketDificultadCalendario(
+  valor: number | null
+): "Muy fácil" | "Fácil" | "Normal" | "Difícil" | "Muy difícil" | null {
+  if (valor === null) return null;
+  if (valor <= 1) return "Muy fácil";
+  if (valor <= 2) return "Fácil";
+  if (valor <= 3) return "Normal";
+  if (valor <= 4) return "Difícil";
+  return "Muy difícil";
+}
+
+export const COLOR_DIFICULTAD_CALENDARIO: Record<string, string> = {
+  "Muy fácil": COLOR_DIFICULTAD["Muy baja"],
+  Fácil: COLOR_DIFICULTAD["Baja"],
+  Normal: COLOR_DIFICULTAD["Media"],
+  Difícil: COLOR_DIFICULTAD["Alta"],
+  "Muy difícil": COLOR_DIFICULTAD["Muy alta"],
+};
+
 export function formatearCuando(
   prefijo: string | null,
   dia: string | null,

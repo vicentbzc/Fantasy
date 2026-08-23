@@ -10,6 +10,9 @@ import { GraficaValor } from "./GraficaValor";
 import { HistorialPuntos } from "./HistorialPuntos";
 import { urlFotoJugador, urlEscudoEquipo } from "@/lib/imagenes";
 import { COLUMNAS_OPCIONALES, CLAVES_SUMABLES, formatearCelda } from "@/lib/columnas";
+import { normalizarTexto } from "@/lib/texto";
+import { COLOR_DIFICULTAD_CALENDARIO } from "@/lib/formato";
+import { ProximosPartidos } from "./ProximosPartidos";
 
 const POSICIONES = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 const CLAVES_EXCLUIDAS_TOTALES = new Set<keyof Jugador>([
@@ -21,12 +24,6 @@ const CLAVES_EXCLUIDAS_TOTALES = new Set<keyof Jugador>([
 const CLAVES_REVALORIZACION = new Set<keyof Jugador>(["diferenciaValor", "porcentajeDiferencia"]);
 
 type ClaveOrdenable = (typeof COLUMNAS_OPCIONALES)[number]["clave"] | "nombre";
-
-const RANGO_DIACRITICOS = /[̀-ͯ]/g;
-
-function normalizarTexto(texto: string): string {
-  return texto.normalize("NFKD").replace(RANGO_DIACRITICOS, "").toLowerCase();
-}
 
 function colorRevalorizacion(valor: number | null): string | undefined {
   if (valor === null || valor === 0) return undefined;
@@ -70,6 +67,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   const [modalValor, setModalValor] = useState<Jugador | null>(null);
   const [modalPuntos, setModalPuntos] = useState<Jugador | null>(null);
   const [modalUltimaJornada, setModalUltimaJornada] = useState<Jugador | null>(null);
+  const [modalPartidos, setModalPartidos] = useState<Jugador | null>(null);
 
   const equipos = useMemo(
     () =>
@@ -322,6 +320,32 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                       );
                     }
 
+                    if (columna.clave === "dificultadProximos5") {
+                      const colorDificultad = COLOR_DIFICULTAD_CALENDARIO[texto];
+                      if (j.equipoId === null) {
+                        return (
+                          <td key={columna.clave} className="p-3 text-left" style={{ color: colorDificultad }}>
+                            {texto}
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={columna.clave} className="p-3 text-left">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setModalPartidos(j);
+                            }}
+                            className="underline decoration-dotted underline-offset-2 hover:opacity-70"
+                            style={{ color: colorDificultad }}
+                          >
+                            {texto}
+                          </button>
+                        </td>
+                      );
+                    }
+
                     return (
                       <td
                         key={columna.clave}
@@ -348,6 +372,13 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
           jugador={modalUltimaJornada}
           onClose={() => setModalUltimaJornada(null)}
           soloUltimaJornada
+        />
+      )}
+      {modalPartidos && modalPartidos.equipoId !== null && (
+        <ProximosPartidos
+          equipoId={modalPartidos.equipoId}
+          equipoNombre={modalPartidos.equipoNombreOficial ?? modalPartidos.equipo}
+          onClose={() => setModalPartidos(null)}
         />
       )}
     </div>

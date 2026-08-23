@@ -1,5 +1,5 @@
 import type { Jugador } from "./db";
-import { formatearEstado } from "./formato";
+import { formatearEstado, bucketDificultadCalendario } from "./formato";
 
 export type ColumnaOpcional = {
   clave: keyof Jugador;
@@ -29,7 +29,11 @@ export const COLUMNAS_OPCIONALES: ColumnaOpcional[] = [
   },
   { clave: "puntosUltimaJornada", etiqueta: "Puntos en la última jornada" },
   { clave: "puntosTotales", etiqueta: "Puntos totales" },
-  { clave: "dificultadProximos5", etiqueta: "Dificultad del calendario", decimales: 1 },
+  {
+    clave: "dificultadProximos5",
+    etiqueta: "Dificultad del calendario",
+    formatear: (v) => bucketDificultadCalendario(v as number | null) ?? "—",
+  },
   { clave: "minutosJugados", etiqueta: "Minutos jugados" },
   { clave: "goles", etiqueta: "Goles" },
   { clave: "asistenciasGol", etiqueta: "Asistencias de gol" },

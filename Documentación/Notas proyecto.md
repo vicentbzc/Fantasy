@@ -1543,6 +1543,90 @@ sin cambiar nada.
    caché del runner, también parta vacío y no reintroduzca las fechas
    viejas.
 
+## Undécima ronda: puntos_jornada_detalle vacía en producción, causa real (24/08/2026)
+
+El usuario reportó que al hacer clic en "Puntos totales" o "Puntos en la
+última jornada" solo veía la jornada y el total, nunca el motivo (el
+desglose). Investigado en directo contra la base de datos real:
+`puntos_jornada_detalle` tenía **0 filas en toda la tabla**, mientras que
+`jugadores.minutos_jugados` (que sale del mismo script/misma ejecución,
+`Ingestar datos detalle.py`) sí tenía datos reales y recientes para 386
+jugadores — descartando de raíz que fuera un problema de la API o de
+bloqueo de la cuenta (la Novena ronda ya había avisado de ese riesgo al
+subir la cadencia a 15 min, pero no era la causa aquí).
+
+**Causa real, reproducida en local contra la base de datos real**:
+`sincronizar_detalle()` hace un único `execute_values` con las ~2.700
+filas del desglose de la jornada. `puntos_jornada_detalle` tiene
+`foreign key (id, jornada) references puntos_jornada(id, jornada)` — y
+bastaba con que **una sola fila** trajera un `(id, jornada)` que
+`Ingestar datos liga.py` todavía no hubiera registrado en `puntos_jornada`
+(las dos peticiones a `/players` de los dos scripts no son atómicas entre
+sí, así que un jugador recién puntuado puede aparecer en el detalle antes
+de que el otro script lo refleje en el total) para que **todo el lote**
+fallara con `ForeignKeyViolation`, se hiciera `rollback` y la tabla se
+quedara como estaba antes — que, la primera vez que esto pasó, era vacía,
+y se ha quedado vacía desde entonces porque el mismo choque se repite en
+cuanto hay jornadas nuevas. Nada de esto se veía en producción porque
+`Sincronizar` traga el detalle de cualquier excepción a propósito (ver
+"Seguridad" más arriba) — se diagnosticó ejecutando `sincronizar_detalle()`
+suelto en local contra la base de datos real para ver la excepción
+completa.
+
+**Arreglado** filtrando en Python las filas huérfanas antes de insertar:
+`sincronizar_detalle()` ahora consulta primero los pares `(id, jornada)`
+que sí existen en `puntos_jornada` y descarta cualquier fila del CSV que
+no encaje, en vez de confiar en que los dos scripts vayan siempre
+sincronizados. Verificado en directo tras el arreglo: 2.765 de 2.765 filas
+insertadas sin error, Baena ya muestra desglose real de la Jornada 1 y 2
+en el modal.
+
+## Duodécima ronda: desplegable de Filtros con portal, dificultad de 5 niveles, banquillo por posición (24/08/2026)
+
+- **`MenuFiltros.tsx` reescrito para pintar su panel flotante con
+  `createPortal` en `document.body`**, en vez de como hijo `absolute`
+  normal. Motivo: en `Comparador.tsx` el botón necesitaba vivir dentro de
+  la misma fila/celda que los nombres de los jugadores (misma tarjeta
+  blanca que la tabla), pero esa tarjeta necesita `overflow-x-auto` para
+  recortar bien las esquinas redondeadas — y por la especificación CSS,
+  `overflow-x` distinto de `visible` fuerza a `overflow-y` a `auto`
+  también, así que cualquier panel `absolute` anidado ahí se recortaba o
+  necesitaba scroll interno en vez de flotar por encima. Con portal, el
+  panel se posiciona con `position: fixed` calculado desde
+  `getBoundingClientRect()` del botón y no hereda ningún `overflow` de
+  sus ancestros — soluciona el problema de raíz para cualquier sitio
+  donde se use este componente en el futuro, no solo Comparador.
+- **`Comparador.tsx`**: el botón de Filtros pasó a vivir dentro del
+  `<th>` de la cabecera de la tabla (misma fila que los nombres de los
+  jugadores, no una fila aparte encima), con `bg-[#F5F5F7]` (el mismo
+  gris que usan los recuadros de "Próximos partidos" en Equipos) para
+  contrastar contra la tarjeta blanca. El recuadro volvió a llevar
+  `overflow-x-auto` (ya sin riesgo, ver punto anterior), arreglando de
+  paso que las esquinas inferiores se vieran cuadradas y de un color
+  distinto al fondo de la página (el rayado de filas, con su propio
+  `backgroundColor` en el `<tr>`, no se recortaba a la curva del
+  contenedor sin ese `overflow`).
+- **Dificultad del calendario, 5 niveles en vez de 3**: `bucketDificultadCalendario()`
+  en `formato.ts` ahora corta en `≤1` Muy fácil, `≤2` Fácil, `≤3` Normal,
+  `≤4` Difícil, `>4` Muy difícil (antes 3 tramos con corte en 2 y 4, que
+  dejaba a un jugador con promedio exacto 4.0 en "Normal" en vez de
+  "Difícil" — caso real de Boyomo, del Atlético Osasuna, que motivó el
+  cambio). `COLOR_DIFICULTAD_CALENDARIO` reutiliza literalmente los
+  valores de `COLOR_DIFICULTAD` (el de los partidos individuales en
+  Equipos) en vez de definir colores propios, para que combinen siempre
+  aunque `COLOR_DIFICULTAD` cambie en el futuro. Esta paleta absoluta solo
+  se usa en Jugadores; en Comparador la columna sigue con el verde/rojo
+  relativo de `colorMejorPeor()` (mismo criterio que el resto de columnas
+  numéricas ahí), decisión explícita del usuario para no mezclar los dos
+  sistemas de color.
+- **Banquillo de Equipos, agrupado por posición**: `calcularFormacion()`
+  en `lib/formacion.ts` seguía escogiendo los 10 suplentes por
+  probabilidad (sin cambios, sigue siendo el criterio de quién entra en
+  el banquillo) pero ahora aplica un segundo `.sort(compararBanquillo)`
+  solo para el ORDEN de presentación dentro de esos 10 ya elegidos:
+  Portero primero, luego Defensa, Mediocampista y Delantero, con la
+  probabilidad como desempate dentro de cada grupo.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

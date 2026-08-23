@@ -12,12 +12,25 @@ export type Formacion = {
 const LINEAS_ORDEN = ["Defensa", "Mediocampista", "Delantero"];
 const TAMANO_BANQUILLO = 10;
 const MINIMO_OUTFIELD_CON_POSICION_REAL = 8;
+const ORDEN_POSICION_BANQUILLO: Record<string, number> = {
+  Portero: 0,
+  Defensa: 1,
+  Mediocampista: 2,
+  Delantero: 3,
+};
 
 function comparar(a: JugadorProbable, b: JugadorProbable) {
   const pa = a.probabilidad ?? -1;
   const pb = b.probabilidad ?? -1;
   if (pb !== pa) return pb - pa;
   return a.nombre.localeCompare(b.nombre, "es");
+}
+
+function compararBanquillo(a: JugadorProbable, b: JugadorProbable) {
+  const oa = ORDEN_POSICION_BANQUILLO[a.posicion] ?? 4;
+  const ob = ORDEN_POSICION_BANQUILLO[b.posicion] ?? 4;
+  if (oa !== ob) return oa - ob;
+  return comparar(a, b);
 }
 
 function tienePosicionReal(j: JugadorProbable): j is JugadorPosicionado {
@@ -34,7 +47,8 @@ export function calcularFormacion(jugadores: JugadorProbable[]): Formacion {
     const banquillo = jugadores
       .filter((j) => !titularesIds.has(j.id))
       .sort(comparar)
-      .slice(0, TAMANO_BANQUILLO);
+      .slice(0, TAMANO_BANQUILLO)
+      .sort(compararBanquillo);
 
     return {
       portero: porteroReal,
@@ -60,7 +74,8 @@ export function calcularFormacion(jugadores: JugadorProbable[]): Formacion {
   const banquillo = jugadores
     .filter((j) => !titularesIds.has(j.id))
     .sort(comparar)
-    .slice(0, TAMANO_BANQUILLO);
+    .slice(0, TAMANO_BANQUILLO)
+    .sort(compararBanquillo);
 
   return { portero, lineas, posicionesReales: null, banquillo };
 }
