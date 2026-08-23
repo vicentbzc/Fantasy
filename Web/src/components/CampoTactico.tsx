@@ -3,7 +3,7 @@ import { urlFotoJugador } from "@/lib/imagenes";
 import { FotoJugadorSlot } from "./FotoJugadorSlot";
 
 export function CampoTactico({ formacion }: { formacion: Formacion }) {
-  const filas = [...formacion.lineas].reverse();
+  const filas = formacion.lineas;
 
   return (
     <div
@@ -35,7 +35,7 @@ export function CampoTactico({ formacion }: { formacion: Formacion }) {
           <div
             key={jugador.id}
             className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${jugador.posX}%`, top: `${jugador.posY}%` }}
+            style={{ left: `${jugador.posX}%`, top: `${100 - jugador.posY}%` }}
           >
             <FotoJugadorSlot
               src={jugador.esFantasma ? null : urlFotoJugador(jugador.id)}
@@ -51,6 +51,21 @@ export function CampoTactico({ formacion }: { formacion: Formacion }) {
         ))
       ) : (
         <>
+          <div className="relative flex justify-center">
+            {formacion.portero && (
+              <FotoJugadorSlot
+                src={urlFotoJugador(formacion.portero.id)}
+                alt={formacion.portero.nombre}
+                size={62}
+                radius={14}
+                probabilidad={formacion.portero.probabilidad}
+                colorProbabilidad="#FFFFFF"
+                fontSizeProbabilidad={14}
+                colorNombre="#FFFFFF"
+              />
+            )}
+          </div>
+
           {filas.map((linea, i) => (
             <div key={i} className="relative flex justify-around items-start">
               {linea.map((jugador) => (
@@ -68,21 +83,6 @@ export function CampoTactico({ formacion }: { formacion: Formacion }) {
               ))}
             </div>
           ))}
-
-          <div className="relative flex justify-center">
-            {formacion.portero && (
-              <FotoJugadorSlot
-                src={urlFotoJugador(formacion.portero.id)}
-                alt={formacion.portero.nombre}
-                size={62}
-                radius={14}
-                probabilidad={formacion.portero.probabilidad}
-                colorProbabilidad="#FFFFFF"
-                fontSizeProbabilidad={14}
-                colorNombre="#FFFFFF"
-              />
-            )}
-          </div>
         </>
       )}
     </div>
