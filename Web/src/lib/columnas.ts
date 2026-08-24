@@ -15,6 +15,7 @@ export const COLUMNAS_OPCIONALES: ColumnaOpcional[] = [
   { clave: "posicion", etiqueta: "Posición", tipo: "texto" },
   { clave: "estado", etiqueta: "Estado", tipo: "texto", formatear: (v) => formatearEstado(v as string | null) },
   { clave: "porcentajeTitularidad", etiqueta: "Titularidad", sufijo: "%" },
+  { clave: "valorSinClausula", etiqueta: "Valor sin cláusula" },
   { clave: "valor", etiqueta: "Valor" },
   { clave: "diferenciaValor", etiqueta: "Revalorización" },
   { clave: "porcentajeDiferencia", etiqueta: "Porcentaje de revalorización", sufijo: "%", decimales: 2 },
@@ -57,6 +58,7 @@ export const COLUMNAS_OPCIONALES: ColumnaOpcional[] = [
 ];
 
 export const CLAVES_SUMABLES = new Set<keyof Jugador>([
+  "valorSinClausula",
   "valor",
   "diferenciaValor",
   "minutosJugados",

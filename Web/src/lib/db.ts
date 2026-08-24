@@ -38,6 +38,7 @@ export type Jugador = {
   equipoId: number | null;
   posicion: string;
   porcentajeTitularidad: number | null;
+  valorSinClausula: number | null;
   valor: number | null;
   diferenciaValor: number | null;
   porcentajeDiferencia: number | null;
@@ -237,7 +238,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
     )
     select
       j.id, j.nombre, j.equipo, e.id as equipo_id, e.nombre_oficial as equipo_nombre_oficial, j.posicion,
-      j.porcentaje_titularidad, j.valor_liga as valor, j.diferencia_valor, j.porcentaje_diferencia,
+      j.porcentaje_titularidad, j.valor as valor_sin_clausula, j.valor_liga as valor, j.diferencia_valor, j.porcentaje_diferencia,
       j.aceleracion, j.tendencia_dias, j.estado, j.minutos_jugados,
       coalesce(t.puntos_totales, 0) as puntos_totales,
       uj.puntos_ultima_jornada,
@@ -266,6 +267,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       equipoId: fila.equipo_id,
       posicion: fila.posicion,
       porcentajeTitularidad: fila.porcentaje_titularidad === null ? null : Number(fila.porcentaje_titularidad),
+      valorSinClausula: fila.valor_sin_clausula === null ? null : Number(fila.valor_sin_clausula),
       valor: fila.valor === null ? null : Number(fila.valor),
       diferenciaValor: fila.diferencia_valor === null ? null : Number(fila.diferencia_valor),
       porcentajeDiferencia: fila.porcentaje_diferencia === null ? null : Number(fila.porcentaje_diferencia),
@@ -353,12 +355,65 @@ export async function obtenerMiClub(): Promise<MiClub> {
   };
 }
 
-export async function establecerEstadoMiEquipo(jugadorId: number, estado: EstadoMiEquipo): Promise<void> {
-  await pool.query(
-    `insert into mi_equipo_jugadores (jugador_id, estado) values ($1, $2)
-     on conflict (jugador_id) do update set estado = excluded.estado`,
-    [jugadorId, estado]
-  );
+const MAXIMO_TITULARES = 11;
+
+export type ResultadoEstadoMiEquipo = { ok: true } | { ok: false; motivo: string };
+
+export async function establecerEstadoMiEquipo(
+  jugadorId: number,
+  estado: EstadoMiEquipo
+): Promise<ResultadoEstadoMiEquipo> {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("begin");
+
+    if (estado === "titular") {
+      const jugadorResultado = await cliente.query(`select posicion from jugadores where id = $1`, [jugadorId]);
+      const esPortero = jugadorResultado.rows[0]?.posicion === "Portero";
+
+      let porteroExistente: number | null = null;
+      if (esPortero) {
+        const porteroResultado = await cliente.query(
+          `select mej.jugador_id from mi_equipo_jugadores mej
+           join jugadores j on j.id = mej.jugador_id
+           where mej.estado = 'titular' and mej.jugador_id <> $1 and j.posicion = 'Portero'`,
+          [jugadorId]
+        );
+        porteroExistente = porteroResultado.rows[0]?.jugador_id ?? null;
+      }
+
+      // Un portero sustituyendo a otro portero titular es un intercambio neto cero:
+      // no debe contar contra el límite de titulares.
+      if (porteroExistente === null) {
+        const conteo = await cliente.query(
+          `select count(*) from mi_equipo_jugadores where estado = 'titular' and jugador_id <> $1`,
+          [jugadorId]
+        );
+        if (Number(conteo.rows[0].count) >= MAXIMO_TITULARES) {
+          await cliente.query("rollback");
+          return { ok: false, motivo: `Ya tienes ${MAXIMO_TITULARES} titulares.` };
+        }
+      } else {
+        await cliente.query(`update mi_equipo_jugadores set estado = 'suplente' where jugador_id = $1`, [
+          porteroExistente,
+        ]);
+      }
+    }
+
+    await cliente.query(
+      `insert into mi_equipo_jugadores (jugador_id, estado) values ($1, $2)
+       on conflict (jugador_id) do update set estado = excluded.estado`,
+      [jugadorId, estado]
+    );
+
+    await cliente.query("commit");
+    return { ok: true };
+  } catch (error) {
+    await cliente.query("rollback");
+    throw error;
+  } finally {
+    cliente.release();
+  }
 }
 
 export async function eliminarDeMiEquipo(jugadorId: number): Promise<void> {

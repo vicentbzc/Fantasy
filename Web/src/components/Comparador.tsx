@@ -14,6 +14,7 @@ import { COLUMNAS_OPCIONALES, formatearCelda } from "@/lib/columnas";
 const COLUMNAS_VISIBLES_DEFECTO: ColumnasVisibles = {};
 
 const CLAVES_MENOR_ES_MEJOR = new Set<keyof Jugador>([
+  "valorSinClausula",
   "valor",
   "penaltisCometidos",
   "penaltisFallados",

@@ -1740,6 +1740,88 @@ datos reales antes de darla por buena — el usuario puede reorganizarlos
 como quiera desde el menú, esto era solo para no probar contra una
 plantilla vacía.
 
+## Decimocuarta ronda: recorte real de Filtros, "Valor sin cláusula", reglas de Mi equipo (24/08/2026)
+
+**El recorte de Filtros no era el mismo bug de antes**: esta vez el panel
+sí vivía en un portal sin ningún `overflow` ancestro (ya arreglado en la
+ronda anterior), pero seguía calculando una altura fija (`max-h-[70vh]`)
+sin comprobar si el botón estaba lo bastante arriba en la pantalla como
+para que esos 70vh cupieran de verdad — en Comparador, con el botón cerca
+de la mitad de la pantalla, el panel se extendía por debajo del borde
+inferior del viewport, y al ser `position: fixed`, esa parte no se podía
+alcanzar ni haciendo scroll de la página (un elemento fijo no se mueve
+con el scroll, así que lo que queda fuera del viewport queda fuera para
+siempre, no es cuestión de scrollear más). `MenuFiltros.tsx` ahora calcula
+el espacio real disponible arriba y abajo del botón en el momento de
+abrir, y decide: si cabe mejor arriba, abre hacia arriba (`bottom` en vez
+de `top`); el `maxHeight` real es el menor entre el espacio disponible y
+70vh. Verificado en directo forzando el caso real (botón a mitad de
+pantalla): el panel se abrió hacia arriba y se pudo hacer scroll hasta
+"Puntos DAZN" (el último de la lista) sin que nada quedara inalcanzable.
+
+**Mi equipo, reglas de negocio que faltaban** (`establecerEstadoMiEquipo`
+en `db.ts`, ahora con transacción):
+- Máximo 11 titulares — si ya hay 11 y se intenta añadir un 12º, se
+  rechaza y la web muestra un aviso (`alert`) en vez de aplicar el
+  cambio.
+- Poner un portero de titular habiendo ya otro portero titular sustituye
+  al anterior (pasa a suplente) **sin contar contra el límite de 11** —
+  es un intercambio neto cero, no una incorporación. El primer intento
+  de esta regla la aplicaba en el orden equivocado (comprobaba el límite
+  antes de detectar que era un intercambio de portero), lo que bloqueaba
+  precisamente el caso que debía funcionar solo — corregido comprobando
+  primero si hay portero titular a sustituir.
+- Probado en directo con datos reales: intentar un 12º titular (no
+  portero) → bloqueado con el aviso correcto; poner un segundo portero
+  de titular → el primero pasa a suplente automáticamente y el conteo se
+  queda en 11.
+
+**Colores de jugador en el campo, unificados con Jugadores**: antes el
+campo (fondo verde) mostraba todo en blanco a propósito, para que se
+leyera bien — el usuario pidió explícitamente mantener los mismos
+colores que en Jugadores (verde/rojo para revalorización, la paleta de
+dificultad) incluso ahí, así que se quitó la distinción; ahora
+Revalorización y Dificultad del calendario salen coloreadas también
+sobre el césped.
+
+**Dificultad del calendario, clic igual que en Jugadores**: `FotoJugadorSlot`
+ahora acepta un `onClick` por línea (antes solo uno para todo el bloque);
+la línea de dificultad abre el mismo modal `ProximosPartidos` que
+Jugadores, sin activar también el menú de acciones del jugador
+(`stopPropagation`). Verificado en directo: clic en "Normal"/"Difícil"
+abre los partidos reales del equipo, clic en la foto o el nombre sigue
+abriendo el menú de titular/suplente/duda/seguimiento.
+
+**`BotonAgregar.tsx` tenía `bg-white` fijo en la clase base**, y el
+`className` que le pasábamos para los botones "+" en gris se añadía
+*después* en el string — en CSS compilado por Tailwind el orden de las
+clases en el HTML no decide cuál gana, así que `bg-white` seguía
+ganando pese a venir primero visualmente en el código. Arreglado
+quitando el `bg-white` de la clase base y poniéndolo como valor por
+defecto del propio prop `className`, para que nunca haya dos clases de
+fondo compitiendo. Los 4 botones "+" de Mi equipo (campo, banquillo, en
+duda, seguimiento) miden ahora 52px y usan el mismo gris `#F5F5F7` —
+confirmado en directo que ya no salían blancos.
+
+**Nueva columna "Valor sin cláusula"** (`jugadores.valor`, el
+`marketValue` oficial de la API — hasta ahora se traía a la base de
+datos pero no se exponía a la web en ningún sitio, solo se usaba
+`valor_liga` bajo el nombre `valor`). Añadida a `COLUMNAS_OPCIONALES`
+justo después de Titularidad y antes de Valor, en Jugadores, Comparador
+(menor es mejor, igual que Valor) y Mi equipo. **La gráfica del
+histórico se movió de "Valor" a "Valor sin cláusula"** — el clic para
+abrir `GraficaValor` ya no está en la columna Valor, solo en la nueva;
+la gráfica en sí sigue leyendo `historial_valor` tal cual (esa tabla seguía
+guardando esencialmente el mismo dato salvo para los pocos jugadores con
+la cláusula subida a mano, ver Séptima ronda), no ha hecho falta ninguna
+tabla ni pipeline nuevo.
+
+Pendiente de aclarar con el usuario (no se ha podido confirmar en
+directo): si el `teamMoney` de la API ya descuenta o no una puja activa
+en curso — no había ninguna puja pendiente al comprobarlo. El usuario
+pidió expresamente comparar las 3 tarjetas de dinero/valor contra su
+app real; queda a la espera de que lo haga y confirme si cuadra.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

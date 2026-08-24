@@ -269,7 +269,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
                     const texto = formatearCelda(columna, j[columna.clave]);
 
-                    if (columna.clave === "valor") {
+                    if (columna.clave === "valorSinClausula") {
                       return (
                         <td key={columna.clave} className="p-3 text-left tabular-nums">
                           <button

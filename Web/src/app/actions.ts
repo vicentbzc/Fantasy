@@ -24,8 +24,9 @@ export async function accionProximosPartidos(equipoId: number) {
 }
 
 export async function accionEstablecerEstadoMiEquipo(jugadorId: number, estado: EstadoMiEquipo) {
-  await establecerEstadoMiEquipo(jugadorId, estado);
+  const resultado = await establecerEstadoMiEquipo(jugadorId, estado);
   revalidatePath("/mi-equipo");
+  return resultado;
 }
 
 export async function accionEliminarDeMiEquipo(jugadorId: number) {

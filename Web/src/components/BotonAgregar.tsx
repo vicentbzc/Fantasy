@@ -4,7 +4,7 @@ export function BotonAgregar({
   size = 36,
   texto,
   onClick,
-  className = "",
+  className = "bg-white",
 }: {
   size?: number;
   texto?: string;
@@ -17,7 +17,7 @@ export function BotonAgregar({
         type="button"
         onClick={onClick}
         style={{ height: size }}
-        className={`flex items-center gap-1 rounded-[12px] bg-white px-3 text-sm text-neutral-600 transition-colors duration-200 hover:bg-[#FAFAFC] shrink-0 ${className}`}
+        className={`flex items-center gap-1 rounded-[12px] px-3 text-sm text-neutral-600 transition-colors duration-200 hover:bg-[#FAFAFC] shrink-0 ${className}`}
       >
         <span className="text-base leading-none">+</span> {texto}
       </button>
@@ -29,7 +29,7 @@ export function BotonAgregar({
       type="button"
       onClick={onClick}
       style={{ width: size, height: size }}
-      className={`flex items-center justify-center rounded-[12px] bg-white text-neutral-500 text-lg font-medium transition-colors duration-200 hover:bg-[#FAFAFC] shrink-0 ${className}`}
+      className={`flex items-center justify-center rounded-[12px] text-neutral-500 text-lg font-medium transition-colors duration-200 hover:bg-[#FAFAFC] shrink-0 ${className}`}
     >
       +
     </button>

@@ -8,6 +8,7 @@ import { BotonAgregar } from "./BotonAgregar";
 import { TarjetaEstadistica } from "./TarjetaEstadistica";
 import { FotoJugadorSlot } from "./FotoJugadorSlot";
 import { BuscadorJugador } from "./BuscadorJugador";
+import { ProximosPartidos } from "./ProximosPartidos";
 import { MenuFiltros, type ColumnasVisibles } from "./MenuFiltros";
 import { urlFotoJugador } from "@/lib/imagenes";
 import { formatearValor, bucketDificultadCalendario, COLOR_DIFICULTAD_CALENDARIO } from "@/lib/formato";
@@ -15,8 +16,16 @@ import { COLUMNAS_OPCIONALES } from "@/lib/columnas";
 import { LINEAS_ORDEN, type Formacion } from "@/lib/formacion";
 import { accionEstablecerEstadoMiEquipo, accionEliminarDeMiEquipo } from "@/app/actions";
 
-const CLAVES_PERMITIDAS = new Set<keyof Jugador>(["porcentajeTitularidad", "valor", "diferenciaValor", "dificultadProximos5"]);
+const CLAVES_PERMITIDAS = new Set<keyof Jugador>([
+  "porcentajeTitularidad",
+  "valorSinClausula",
+  "valor",
+  "diferenciaValor",
+  "dificultadProximos5",
+]);
 const EXCLUIR_FILTROS = COLUMNAS_OPCIONALES.filter((c) => !CLAVES_PERMITIDAS.has(c.clave)).map((c) => c.clave);
+
+const TAMANO_BOTON_AGREGAR = 52;
 
 const ETIQUETAS_ESTADO: Record<EstadoMiEquipo, string> = {
   titular: "Poner como titular",
@@ -32,27 +41,30 @@ function aProbable(j: Jugador): JugadorProbable {
 function lineasParaJugador(
   j: Jugador,
   columnasVisibles: ColumnasVisibles,
-  permitirColor: boolean
-): { texto: string; color?: string }[] {
-  const lineas: { texto: string; color?: string }[] = [];
+  onClickDificultad: (() => void) | undefined
+): { texto: string; color?: string; onClick?: () => void }[] {
+  const lineas: { texto: string; color?: string; onClick?: () => void }[] = [];
   if (columnasVisibles.porcentajeTitularidad) {
     lineas.push({ texto: j.porcentajeTitularidad === null ? "—" : `${j.porcentajeTitularidad}%` });
+  }
+  if (columnasVisibles.valorSinClausula) {
+    lineas.push({ texto: formatearValor(j.valorSinClausula) });
   }
   if (columnasVisibles.valor) {
     lineas.push({ texto: formatearValor(j.valor) });
   }
   if (columnasVisibles.diferenciaValor) {
     const color =
-      !permitirColor || j.diferenciaValor === null || j.diferenciaValor === 0
-        ? undefined
-        : j.diferenciaValor > 0
-          ? "#16A34A"
-          : "#DC2626";
+      j.diferenciaValor === null || j.diferenciaValor === 0 ? undefined : j.diferenciaValor > 0 ? "#16A34A" : "#DC2626";
     lineas.push({ texto: formatearValor(j.diferenciaValor), color });
   }
   if (columnasVisibles.dificultadProximos5) {
     const bucket = bucketDificultadCalendario(j.dificultadProximos5);
-    lineas.push({ texto: bucket ?? "—", color: permitirColor && bucket ? COLOR_DIFICULTAD_CALENDARIO[bucket] : undefined });
+    lineas.push({
+      texto: bucket ?? "—",
+      color: bucket ? COLOR_DIFICULTAD_CALENDARIO[bucket] : undefined,
+      onClick: onClickDificultad,
+    });
   }
   return lineas;
 }
@@ -61,6 +73,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
   const [columnasVisibles, setColumnasVisibles] = useState<ColumnasVisibles>({});
   const [buscador, setBuscador] = useState<EstadoMiEquipo | null>(null);
   const [menuJugador, setMenuJugador] = useState<Jugador | null>(null);
+  const [modalPartidos, setModalPartidos] = useState<Jugador | null>(null);
 
   const titulares = jugadores.filter((j) => j.estadoMiEquipo === "titular");
   const suplentes = jugadores.filter((j) => j.estadoMiEquipo === "suplente");
@@ -85,12 +98,11 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
     banquillo: suplentes.map(aProbable),
   };
 
-  const datosPorJugadorCampo = Object.fromEntries(
-    [...titulares, ...suplentes].map((j) => [j.id, lineasParaJugador(j, columnasVisibles, false)])
-  );
-  const datosPorJugadorTarjeta = Object.fromEntries(
-    jugadores.map((j) => [j.id, lineasParaJugador(j, columnasVisibles, true)])
-  );
+  function lineasDe(j: Jugador) {
+    return lineasParaJugador(j, columnasVisibles, j.equipoId !== null ? () => setModalPartidos(j) : undefined);
+  }
+
+  const datosPorJugador = Object.fromEntries(jugadores.map((j) => [j.id, lineasDe(j)]));
 
   function abrirMenu(id: number) {
     const j = jugadores.find((x) => x.id === id);
@@ -100,7 +112,10 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
   async function establecer(id: number, estado: EstadoMiEquipo) {
     setMenuJugador(null);
     setBuscador(null);
-    await accionEstablecerEstadoMiEquipo(id, estado);
+    const resultado = await accionEstablecerEstadoMiEquipo(id, estado);
+    if (!resultado.ok) {
+      alert(resultado.motivo);
+    }
   }
 
   async function eliminar(id: number) {
@@ -118,12 +133,16 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
       </div>
 
       <div className="relative w-full">
-        <CampoTactico formacion={formacion} datosPorJugador={datosPorJugadorCampo} onClickJugador={abrirMenu} />
+        <CampoTactico formacion={formacion} datosPorJugador={datosPorJugador} onClickJugador={abrirMenu} />
         <div className="absolute top-4 right-4">
           <MenuFiltros columnas={columnasVisibles} onChangeColumnas={setColumnasVisibles} excluir={EXCLUIR_FILTROS} />
         </div>
         <div className="absolute bottom-4 left-4">
-          <BotonAgregar size={40} onClick={() => setBuscador("titular")} className="bg-[#F5F5F7]" />
+          <BotonAgregar
+            size={TAMANO_BOTON_AGREGAR}
+            onClick={() => setBuscador("titular")}
+            className="bg-[#F5F5F7]"
+          />
         </div>
       </div>
 
@@ -131,14 +150,14 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
         jugadores={formacion.banquillo}
         mostrarAgregar
         onAgregar={() => setBuscador("suplente")}
-        datosPorJugador={datosPorJugadorTarjeta}
+        datosPorJugador={datosPorJugador}
         onClickJugador={abrirMenu}
+        tamanoAgregar={TAMANO_BOTON_AGREGAR}
       />
 
       <div className="w-full flex flex-col items-start gap-[18px]">
         <h2 className="text-[20px] font-bold">En duda</h2>
         <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
-          {enDuda.length === 0 && <p className="text-sm text-neutral-400">Nadie en duda ahora mismo.</p>}
           {enDuda.map((j) => (
             <FotoJugadorSlot
               key={j.id}
@@ -149,13 +168,13 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
               probabilidad={j.porcentajeTitularidad}
               colorProbabilidad="#6E6E73"
               fontSizeProbabilidad={14}
-              lineas={datosPorJugadorTarjeta[j.id]}
+              lineas={datosPorJugador[j.id]}
               onClick={() => abrirMenu(j.id)}
             />
           ))}
           <div className="flex flex-col items-center gap-1">
             <span className="text-[14px] font-bold leading-none opacity-0">+</span>
-            <BotonAgregar size={62} onClick={() => setBuscador("duda")} className="bg-[#F5F5F7]" />
+            <BotonAgregar size={TAMANO_BOTON_AGREGAR} onClick={() => setBuscador("duda")} className="bg-[#F5F5F7]" />
           </div>
         </div>
       </div>
@@ -163,7 +182,6 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
       <div className="w-full flex flex-col items-start gap-[18px]">
         <h2 className="text-[20px] font-bold">Seguimiento</h2>
         <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
-          {seguimiento.length === 0 && <p className="text-sm text-neutral-400">Nadie en seguimiento ahora mismo.</p>}
           {seguimiento.map((j) => (
             <FotoJugadorSlot
               key={j.id}
@@ -174,13 +192,17 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
               probabilidad={j.porcentajeTitularidad}
               colorProbabilidad="#6E6E73"
               fontSizeProbabilidad={14}
-              lineas={datosPorJugadorTarjeta[j.id]}
+              lineas={datosPorJugador[j.id]}
               onClick={() => abrirMenu(j.id)}
             />
           ))}
           <div className="flex flex-col items-center gap-1">
             <span className="text-[14px] font-bold leading-none opacity-0">+</span>
-            <BotonAgregar size={62} onClick={() => setBuscador("seguimiento")} className="bg-[#F5F5F7]" />
+            <BotonAgregar
+              size={TAMANO_BOTON_AGREGAR}
+              onClick={() => setBuscador("seguimiento")}
+              className="bg-[#F5F5F7]"
+            />
           </div>
         </div>
       </div>
@@ -231,6 +253,14 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
             </div>
           </div>
         </div>
+      )}
+
+      {modalPartidos && modalPartidos.equipoId !== null && (
+        <ProximosPartidos
+          equipoId={modalPartidos.equipoId}
+          equipoNombre={modalPartidos.equipoNombreOficial ?? modalPartidos.equipo}
+          onClose={() => setModalPartidos(null)}
+        />
       )}
     </div>
   );

@@ -9,12 +9,14 @@ export function Banquillo({
   onAgregar,
   datosPorJugador,
   onClickJugador,
+  tamanoAgregar = 62,
 }: {
   jugadores: JugadorProbable[];
   mostrarAgregar?: boolean;
   onAgregar?: () => void;
   datosPorJugador?: Record<number, { texto: string; color?: string }[]>;
   onClickJugador?: (id: number) => void;
+  tamanoAgregar?: number;
 }) {
   return (
     <div
@@ -39,7 +41,7 @@ export function Banquillo({
       {mostrarAgregar && (
         <div className="flex flex-col items-center gap-1">
           <span className="text-[14px] font-bold leading-none opacity-0">+</span>
-          <BotonAgregar size={62} onClick={onAgregar} className="bg-[#F5F5F7]" />
+          <BotonAgregar size={tamanoAgregar} onClick={onAgregar} className="bg-[#F5F5F7]" />
         </div>
       )}
     </div>

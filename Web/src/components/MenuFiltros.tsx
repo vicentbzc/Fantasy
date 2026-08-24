@@ -19,7 +19,12 @@ export function MenuFiltros({
   claseBoton?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const [posicion, setPosicion] = useState<{ top: number; right: number } | null>(null);
+  const [posicion, setPosicion] = useState<{
+    top?: number;
+    bottom?: number;
+    right: number;
+    maxHeight: number;
+  } | null>(null);
   const botonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +50,17 @@ export function MenuFiltros({
   function alternarAbierto() {
     if (!abierto && botonRef.current) {
       const rect = botonRef.current.getBoundingClientRect();
-      setPosicion({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      const margen = 16;
+      const espacioAbajo = window.innerHeight - rect.bottom - margen;
+      const espacioArriba = rect.top - margen;
+      const right = window.innerWidth - rect.right;
+      const limite = window.innerHeight * 0.7;
+
+      if (espacioAbajo >= espacioArriba) {
+        setPosicion({ top: rect.bottom + 8, right, maxHeight: Math.min(limite, espacioAbajo) });
+      } else {
+        setPosicion({ bottom: window.innerHeight - rect.top + 8, right, maxHeight: Math.min(limite, espacioArriba) });
+      }
     }
     setAbierto((a) => !a);
   }
@@ -82,8 +97,14 @@ export function MenuFiltros({
         createPortal(
           <div
             ref={panelRef}
-            style={{ position: "fixed", top: posicion.top, right: posicion.right }}
-            className="z-40 w-[280px] max-h-[70vh] overflow-y-auto rounded-2xl bg-white shadow-lg p-3"
+            style={{
+              position: "fixed",
+              top: posicion.top,
+              bottom: posicion.bottom,
+              right: posicion.right,
+              maxHeight: posicion.maxHeight,
+            }}
+            className="z-40 w-[280px] overflow-y-auto rounded-2xl bg-white shadow-lg p-3"
           >
             {numActivos > 0 && (
               <button
