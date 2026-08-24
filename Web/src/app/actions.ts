@@ -6,11 +6,13 @@ import {
   obtenerHistorialPuntos,
   obtenerEquipoDetalle,
   obtenerJugadoresEquipo,
+  obtenerJugadores,
   establecerEstadoMiEquipo,
   eliminarDeMiEquipo,
   type EstadoMiEquipo,
 } from "@/lib/db";
 import { calcularFormacion } from "@/lib/formacion";
+import { preguntarSobreJugadores, type MensajeChat } from "@/lib/ia";
 
 export async function accionHistorialValor(id: number) {
   return obtenerHistorialValor(id);
@@ -50,4 +52,9 @@ export async function accionEstablecerEstadoMiEquipo(jugadorId: number, estado: 
 export async function accionEliminarDeMiEquipo(jugadorId: number) {
   await eliminarDeMiEquipo(jugadorId);
   revalidatePath("/mi-equipo");
+}
+
+export async function accionPreguntarIA(pregunta: string, historial: MensajeChat[]) {
+  const jugadores = await obtenerJugadores();
+  return preguntarSobreJugadores(pregunta, historial, jugadores);
 }

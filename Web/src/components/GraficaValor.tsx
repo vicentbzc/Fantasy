@@ -36,6 +36,11 @@ export function GraficaValor({ jugador, onClose }: { jugador: Jugador; onClose: 
   );
 }
 
+function formatearFechaCorta(fecha: string): string {
+  const [, mes, dia] = fecha.split("-");
+  return `${dia}/${mes}`;
+}
+
 function GraficaLinea({ datos }: { datos: PuntoHistorialValor[] }) {
   const ancho = 460;
   const alto = 180;
@@ -53,6 +58,12 @@ function GraficaLinea({ datos }: { datos: PuntoHistorialValor[] }) {
 
   const linea = puntos.map((p) => `${p.x},${p.y}`).join(" ");
 
+  const MAXIMO_ETIQUETAS = 6;
+  const paso = Math.max(1, Math.ceil((puntos.length - 1) / (MAXIMO_ETIQUETAS - 1)));
+  const indicesEtiquetas = new Set<number>();
+  for (let i = 0; i < puntos.length; i += paso) indicesEtiquetas.add(i);
+  indicesEtiquetas.add(puntos.length - 1);
+
   return (
     <div>
       <svg viewBox={`0 0 ${ancho} ${alto}`} className="w-full h-auto">
@@ -61,9 +72,14 @@ function GraficaLinea({ datos }: { datos: PuntoHistorialValor[] }) {
           <circle key={i} cx={p.x} cy={p.y} r={3} fill="#e83d50" />
         ))}
       </svg>
-      <div className="flex justify-between text-xs text-neutral-500 mt-1">
-        <span>{datos[0].fecha}</span>
-        <span>{datos[datos.length - 1].fecha}</span>
+      <div className="relative h-3 text-[9px] text-neutral-500 mt-1">
+        {puntos
+          .filter((_, i) => indicesEtiquetas.has(i))
+          .map((p, i) => (
+            <span key={i} className="absolute -translate-x-1/2" style={{ left: `${(p.x / ancho) * 100}%` }}>
+              {formatearFechaCorta(p.dato.fecha)}
+            </span>
+          ))}
       </div>
       <div className="flex justify-between text-sm mt-2">
         <span className="text-neutral-500">Mínimo: {formatearValor(min)}</span>

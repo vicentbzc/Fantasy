@@ -643,9 +643,9 @@ en que el runner de turno la tenga.
    (24/08/2026)**: se concretó como avisos por Telegram — ver
    "Decimoséptima ronda" más abajo. Grupo A ya implementado (9 avisos).
    Falta:
-    - Que el usuario cree el bot con @BotFather y ponga
-      `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` en `Configuración local.py`
-      y como secretos de GitHub, para probar un envío real.
+    - ~~Que el usuario cree el bot...~~ **Resuelto (24/08/2026)**: bot
+      creado, credenciales puestas en local y como secretos de GitHub,
+      envío real confirmado por el usuario.
     - **Grupo B**: guardar quién es el dueño de cada jugador de la liga
       (hoy solo se guarda la cláusula, no el manager) — hace falta para
       el aviso de "cambio de valor de un jugador en seguimiento sin
@@ -665,6 +665,10 @@ en que el runner de turno la tenga.
     futbolfantasy.com muestra mucha incertidumbre de rotación — la web
     recorta al mejor 11, funciona pero no es perfecto; revisar si conviene
     afinar más el `data-probabilidad` como desempate.
+12. ~~`GEMINI_API_KEY`...~~ **Resuelto en local (25/08/2026)**: puesta y
+    verificada en directo (ver "Chat con IA sobre jugadores" más abajo).
+    Falta solo añadirla como variable de entorno de Vercel cuando la web
+    se despliegue de verdad (pendiente 6).
 
 ## Rediseño de la web (14/08/2026)
 
@@ -2169,6 +2173,90 @@ las peticiones diarias de este script contra la API real de LaLiga
 Fantasy (de ~1.150 a ~3.450 al día, con la liga actual de 10 mánagers) —
 mismo criterio que ya se aceptó en la Novena ronda para
 `Ingestar datos detalle.py`, esta vez a menor escala.
+
+**Columnas de valor intercambiadas (25/08/2026)**: "Valor sin cláusula"
+pasó a llamarse **"Valor"** y "Valor" pasó a llamarse **"Valor en la
+liga"** — solo el texto (`etiqueta` en `COLUMNAS_OPCIONALES`,
+`Web/src/lib/columnas.ts`), el dato detrás de cada una no cambió. Antes
+el nombre de la columna no coincidía con lo que mostraba (la que
+contenía el valor oficial del juego, no específico de tu liga, se
+llamaba "Valor sin cláusula", y la que sí es la cláusula real de tu liga
+se llamaba solo "Valor").
+
+**Gráfica del histórico de valor (25/08/2026)**: dos cambios en
+`GraficaValor.tsx`. `obtenerHistorialValor()` (`lib/db.ts`) ahora filtra
+por `fecha >= current_date - interval '1 month'` — la gráfica solo pinta
+el último mes (el resto del histórico se queda intacto en
+`historial_valor` para lo demás que lo usa, como `calcular_tendencias`).
+Y el eje de fechas ya no muestra solo la primera/última fecha con
+`flex justify-between` (que además desalineaba con los puntos reales del
+SVG) — ahora muestra hasta 6 fechas en formato DD/MM, repartidas
+uniformemente y posicionadas con `left` en % exactamente bajo su punto,
+para que no se amontonen aunque haya ~30 días de datos.
+
+## Chat con IA sobre jugadores (25/08/2026)
+
+Nueva página `/chat`: un chat en lenguaje natural sobre los datos de los
+jugadores (ej. "¿qué jugadores han marcado en total 7 goles?").
+
+**Decisión de arquitectura, confirmada con el usuario**: en cada
+pregunta se le pasa a la IA el CSV completo de los ~780 jugadores (todo
+lo que ya expone `COLUMNAS_OPCIONALES`) como contexto, en vez de darle
+una herramienta para generar SQL — más simple, y más seguro porque la IA
+nunca ejecuta una consulta de verdad contra la base de datos. El CSV se
+construye en `Web/src/lib/ia.ts` (`jugadoresACsv()`, reutilizando
+`formatearCelda()` de `columnas.ts` para que la IA vea los mismos textos
+que ve el usuario en la tabla — "Muy difícil" en vez de un número de
+dificultad, "—" en vez de `null`, etc.). Los datos se piden frescos
+(`obtenerJugadores()`) en cada pregunta, no se congelan al abrir el chat.
+
+La conversación es multi-turno pero solo vive en el estado de React del
+navegador (`Chat.tsx`) — no hay tabla nueva ni persistencia en Postgres;
+se pierde al recargar la página, a propósito por simplicidad. El
+historial se manda como texto plano dentro del propio mensaje
+(`construirEntrada()` en `lib/ia.ts`), no usando el mecanismo de estado
+de conversación del proveedor — más simple y sin depender de que un id
+de conversación siga vivo entre preguntas.
+
+**Empezó como Claude, se cambió a Gemini el mismo día por coste**: la
+primera versión usaba `claude-opus-5` (`@anthropic-ai/sdk`), pero el
+usuario no quería gastar dinero. Se investigó si el nivel gratuito de la
+API de Gemini era una alternativa real — sí existe, pero los términos de
+Google **prohíben usarlo para servir a usuarios en la UE/Reino
+Unido/Suiza**, solo permiten el nivel de pago ahí. Como el usuario está
+en España, técnicamente su propio uso personal cae dentro de esa
+restricción — se le explicó esto explícitamente y decidió usarlo de
+todas formas, asumiendo el riesgo (bajo, para un proyecto personal de
+poco uso) de que Google lo limite o lo bloquee más adelante. Cambiado a
+`@google/genai` (paquete oficial) — se quitó `@anthropic-ai/sdk` de
+`Web/package.json` al ya no usarse. Sin caché de prompt (Gemini la
+gestiona distinto y no hace falta para uso gratuito): cada pregunta
+reenvía el CSV completo dentro de `systemInstruction`.
+
+**Modelo `gemini-3.6-flash`**, no `gemini-2.5-flash` como decía la
+documentación pública consultada por búsqueda web — al probar la clave
+real, la propia API respondió que `gemini-2.5-flash` "ya no está
+disponible para usuarios nuevos" y que se use `gemini-3.6-flash`. Motivo
+para desconfiar de nombres de modelo sacados solo de búsquedas web sin
+probarlos contra la API real cuando cambian con esta frecuencia.
+
+**Verificado en directo (25/08/2026)**: con la clave real del usuario,
+"¿qué jugadores han marcado en total 2 goles?" devolvió exactamente los
+5 jugadores que dice `puntos_jornada_detalle` de verdad (Raphinha,
+Fermín, Aubameyang, Roberto, Mariano) — comprobado con una consulta SQL
+directa aparte para confirmar que no se inventaba nada. Una segunda
+pregunta en la misma conversación ("de esos, ¿cuál tiene el valor más
+alto?") entendió correctamente el "esos" referido a la lista anterior,
+confirmando que el historial multi-turno funciona.
+
+**Requiere `GEMINI_API_KEY`** en `Web/.env.local` (local, se consigue
+gratis en aistudio.google.com) y como variable de entorno de Vercel
+cuando se despliegue — **ya puesta y probada en local (25/08/2026)**.
+Si falta, `preguntarSobreJugadores()` (`lib/ia.ts`) devuelve un mensaje
+de error
+dentro del propio chat en vez de reventar la página (comprobación
+explícita de `process.env.GEMINI_API_KEY` antes de instanciar el
+cliente).
 
 ## Historia breve
 

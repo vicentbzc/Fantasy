@@ -295,7 +295,10 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
 export type PuntoHistorialValor = { fecha: string; valor: number };
 
 export async function obtenerHistorialValor(id: number): Promise<PuntoHistorialValor[]> {
-  const resultado = await pool.query(`select fecha, valor from historial_valor where id = $1 order by fecha`, [id]);
+  const resultado = await pool.query(
+    `select fecha, valor from historial_valor where id = $1 and fecha >= current_date - interval '1 month' order by fecha`,
+    [id]
+  );
 
   return resultado.rows.map((fila) => ({
     fecha: fila.fecha.toISOString().slice(0, 10),

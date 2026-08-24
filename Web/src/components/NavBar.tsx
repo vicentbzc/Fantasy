@@ -6,6 +6,7 @@ const ENLACES = [
   { href: "/jugadores", etiqueta: "Jugadores" },
   { href: "/comparador", etiqueta: "Comparador" },
   { href: "/mi-equipo", etiqueta: "Mi equipo" },
+  { href: "/chat", etiqueta: "Chat" },
 ];
 
 export function NavBar() {
