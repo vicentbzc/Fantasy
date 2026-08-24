@@ -115,13 +115,14 @@ revertida explícitamente por el usuario.
 
 | Script | Fuente | Genera | Coste | Cadencia actual |
 |---|---|---|---|---|
-| `Ingestar datos liga.py` | API LaLiga Fantasy | `Datos Jugadores.csv`, `Datos Historial valor.csv`, `Datos Puntos jornada.csv` | 1 + 1 + N peticiones autenticadas (N = equipos de tu liga) | Cada 15 minutos |
+| `Ingestar datos liga.py` | API LaLiga Fantasy | `Datos Jugadores.csv`, `Datos Historial valor.csv`, `Datos Puntos jornada.csv`, `Datos Mi club.csv` | 1 + 1 + N peticiones autenticadas (N = equipos de tu liga) | Cada 5 minutos (desde el 25/08/2026, antes cada 15 min) |
 | `Ingestar datos 1.py` | futbolfantasy.com | `Datos Titularidad.csv` | 1 petición | Cada 5 minutos |
 | `Ingestar datos estado.py` | futbolfantasy.com | `Datos Estado.csv` | 2 peticiones | Cada 5 minutos |
-| `Ingestar datos 3.py` | futbolfantasy.com | `Datos 3.csv` (calendario), `Datos Posicion.csv` (formación real) | ~20-40 peticiones | Cada 15 minutos |
+| `Ingestar datos 3.py` | futbolfantasy.com | `Datos 3.csv` (calendario, con fecha real desde el 24/08/2026), `Datos Posicion.csv` (formación real) | ~20-40 peticiones | Cada 15 minutos |
 | `Descargar imágenes.py` | API LaLiga Fantasy (escudos + nombre oficial) + `Datos Fotos.csv` (fotos, ya con URL oficial) | Sube a Supabase Storage, `Datos Equipos.csv` | 1 petición autenticada + Gratis salvo la primera vez para las imágenes | Cada 5 horas |
 | `Ingestar datos detalle.py` | API LaLiga Fantasy | `Datos Puntos jornada detalle.csv`, `Datos Minutos.csv` | 1 + N peticiones autenticadas (N = jugadores con algún punto esta temporada, ~254 a fecha de hoy) | Cada 15 minutos |
 | `Sincronizar base de datos.py` | CSV → Postgres | — | — | Después de cualquiera de los anteriores |
+| `Notificar Telegram.py` | Postgres | Avisos por Telegram (ver "Decimoséptima ronda") | — | Después de Sincronizar, en cualquiera de los tres disparos |
 | `Descubrir liga.py` | API LaLiga Fantasy | imprime tus ligas | 1 petición | Manual, un solo uso |
 
 **Cadencias fijadas por el usuario el 22/08/2026** (ver "Novena ronda" más abajo), no
@@ -2154,6 +2155,20 @@ ningún estado de "aviso enviado" (solo las bases de comparación),
 confirmando que `enviar_telegram` devuelve `False` limpiamente cuando
 faltan las credenciales. Pendiente de que el usuario cree el bot y ponga
 `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` para probar un envío real.
+**Resuelto el mismo día**: el usuario creó el bot, probó un envío real
+(`Común.enviar_telegram` directo) y confirmó que le llegó, y añadió los
+secretos en GitHub.
+
+**`Ingestar datos liga.py` pasa de cada 15 a cada 5 minutos (25/08/2026,
+decisión explícita del usuario)**: antes solo corría en los disparos del
+cron `*/15 * * * *`; ahora corre en los del `*/5 * * * *` (se quitó la
+condición de `*/15` del todo, porque ese cron ya dispara también en todos
+los minutos múltiplos de 15 por su cuenta — mantener las dos condiciones
+habría hecho que corriera dos veces en esos minutos). Multiplica por 3
+las peticiones diarias de este script contra la API real de LaLiga
+Fantasy (de ~1.150 a ~3.450 al día, con la liga actual de 10 mánagers) —
+mismo criterio que ya se aceptó en la Novena ronda para
+`Ingestar datos detalle.py`, esta vez a menor escala.
 
 ## Historia breve
 

@@ -50,7 +50,7 @@ jobs:
         run: python "Scripts/Ingestar datos estado.py"
 
       - name: Ingestar datos liga (API LaLiga Fantasy)
-        if: github.event.schedule == '*/15 * * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-medio'))
+        if: github.event.schedule == '*/5 * * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-rapido' || inputs.modo == 'solo-medio'))
         env:
           LALIGA_FANTASY_EMAIL: ${{ secrets.LALIGA_FANTASY_EMAIL }}
           LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
