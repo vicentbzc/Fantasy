@@ -1,27 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import type { Jugador } from "@/lib/db";
 import { MenuFiltros, type ColumnasVisibles } from "./MenuFiltros";
 import { Avatar } from "./Avatar";
 import { HistorialPuntos } from "./HistorialPuntos";
 import { ProximosPartidos } from "./ProximosPartidos";
+import { BuscadorJugador } from "./BuscadorJugador";
 import { urlFotoJugador, urlEscudoEquipo } from "@/lib/imagenes";
-import { normalizarTexto } from "@/lib/texto";
 import { COLUMNAS_OPCIONALES, formatearCelda } from "@/lib/columnas";
 
-const COLUMNAS_VISIBLES_DEFECTO: ColumnasVisibles = {
-  posicion: true,
-  porcentajeTitularidad: true,
-  valor: true,
-  diferenciaValor: true,
-  puntosUltimaJornada: true,
-  puntosTotales: true,
-  dificultadProximos5: true,
-  minutosJugados: true,
-  tarjetasAmarillas: true,
-};
+const COLUMNAS_VISIBLES_DEFECTO: ColumnasVisibles = {};
 
 const CLAVES_MENOR_ES_MEJOR = new Set<keyof Jugador>([
   "valor",
@@ -52,20 +42,12 @@ export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
   const [seleccionados, setSeleccionados] = useState<number[]>([]);
   const [columnasVisibles, setColumnasVisibles] = useState<ColumnasVisibles>(COLUMNAS_VISIBLES_DEFECTO);
   const [abiertoAnadir, setAbiertoAnadir] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
   const [modalPuntos, setModalPuntos] = useState<{ jugador: Jugador; soloUltimaJornada: boolean } | null>(null);
   const [modalPartidos, setModalPartidos] = useState<Jugador | null>(null);
 
   const jugadoresSeleccionados = seleccionados
     .map((id) => jugadores.find((j) => j.id === id))
     .filter((j): j is Jugador => j !== undefined);
-
-  const candidatos = useMemo(() => {
-    const texto = normalizarTexto(busqueda.trim());
-    return jugadores
-      .filter((j) => !seleccionados.includes(j.id) && (!texto || normalizarTexto(j.nombre).includes(texto)))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [jugadores, seleccionados, busqueda]);
 
   function quitar(id: number) {
     setSeleccionados((actual) => actual.filter((x) => x !== id));
@@ -74,7 +56,6 @@ export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
   function anadir(id: number) {
     setSeleccionados((actual) => (actual.length >= 3 ? actual : [...actual, id]));
     setAbiertoAnadir(false);
-    setBusqueda("");
   }
 
   const columnas = COLUMNAS_OPCIONALES.filter((columna) => columnasVisibles[columna.clave]);
@@ -116,26 +97,7 @@ export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
             </button>
 
             {abiertoAnadir && (
-              <div className="absolute z-40 mt-2 w-64 max-h-72 overflow-y-auto rounded-2xl bg-white shadow-lg p-2 left-1/2 -translate-x-1/2">
-                <input
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar jugador"
-                  className="w-full bg-neutral-100 rounded-md px-2 py-1 text-sm mb-1"
-                  autoFocus
-                />
-                {candidatos.slice(0, 30).map((j) => (
-                  <button
-                    key={j.id}
-                    type="button"
-                    onClick={() => anadir(j.id)}
-                    className="w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 hover:bg-[#FAFAFC]"
-                  >
-                    {j.nombre} <span className="text-neutral-400">{j.equipoNombreOficial ?? j.equipo}</span>
-                  </button>
-                ))}
-                {candidatos.length === 0 && <p className="px-3 py-1.5 text-sm text-neutral-400">Sin resultados</p>}
-              </div>
+              <BuscadorJugador jugadores={jugadores} excluirIds={new Set(seleccionados)} onSeleccionar={anadir} />
             )}
           </div>
         )}

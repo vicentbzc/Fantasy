@@ -51,7 +51,10 @@ export type Jugador = {
   proximoRival: string | null;
   proximaDificultad: string | null;
   proximoDia: string | null;
+  estadoMiEquipo: EstadoMiEquipo | null;
 } & Record<ClaveEstadisticaDetalle, number | null>;
+
+export type EstadoMiEquipo = "titular" | "suplente" | "duda" | "seguimiento";
 
 export type Equipo = {
   id: number | null;
@@ -241,7 +244,8 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       (d.id is not null) as tiene_detalle,
       ${camposDetalleSelect},
       de.dificultad_prox5,
-      c.rival as proximo_rival, c.dificultad as proxima_dificultad, c.dia as proximo_dia
+      c.rival as proximo_rival, c.dificultad as proxima_dificultad, c.dia as proximo_dia,
+      mej.estado as estado_mi_equipo
     from jugadores j
     left join equipos e on e.nombre = j.equipo
     left join detalle_agregado d on d.id = j.id
@@ -249,6 +253,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
     left join totales_jornada t on t.id = j.id
     left join dificultad_equipo de on de.equipo = j.equipo
     left join calendario c on c.equipo = j.equipo and c.orden = 1
+    left join mi_equipo_jugadores mej on mej.jugador_id = j.id
     order by j.valor_liga desc nulls last
   `);
 
@@ -274,6 +279,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       proximoRival: fila.proximo_rival,
       proximaDificultad: fila.proxima_dificultad,
       proximoDia: fila.proximo_dia,
+      estadoMiEquipo: fila.estado_mi_equipo,
     };
 
     const estadisticas = Object.fromEntries(
@@ -334,4 +340,27 @@ export async function obtenerHistorialPuntos(id: number): Promise<JornadaPuntos[
     estadisticas: fila.estadisticas,
     desglose: desglosePorJornada.get(fila.jornada) ?? [],
   }));
+}
+
+export type MiClub = { dinero: number | null; fichas: number | null };
+
+export async function obtenerMiClub(): Promise<MiClub> {
+  const resultado = await pool.query(`select dinero, fichas from mi_club where id = 1`);
+  const fila = resultado.rows[0];
+  return {
+    dinero: fila?.dinero === undefined || fila.dinero === null ? null : Number(fila.dinero),
+    fichas: fila?.fichas === undefined || fila.fichas === null ? null : Number(fila.fichas),
+  };
+}
+
+export async function establecerEstadoMiEquipo(jugadorId: number, estado: EstadoMiEquipo): Promise<void> {
+  await pool.query(
+    `insert into mi_equipo_jugadores (jugador_id, estado) values ($1, $2)
+     on conflict (jugador_id) do update set estado = excluded.estado`,
+    [jugadorId, estado]
+  );
+}
+
+export async function eliminarDeMiEquipo(jugadorId: number): Promise<void> {
+  await pool.query(`delete from mi_equipo_jugadores where jugador_id = $1`, [jugadorId]);
 }

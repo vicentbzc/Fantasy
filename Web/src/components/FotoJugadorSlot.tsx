@@ -14,6 +14,8 @@ export function FotoJugadorSlot({
   fontSizeProbabilidad,
   colorNombre = "#1D1D1F",
   fontSizeNombre = 11,
+  lineas,
+  onClick,
 }: {
   src: string | null;
   alt: string;
@@ -25,18 +27,38 @@ export function FotoJugadorSlot({
   fontSizeProbabilidad: number;
   colorNombre?: string;
   fontSizeNombre?: number;
+  lineas?: { texto: string; color?: string }[];
+  onClick?: () => void;
 }) {
   const [error, setError] = useState(false);
   const mostrarSinFoto = !src || error;
 
   return (
-    <div className="flex flex-col items-center gap-1" style={{ width: size }}>
-      <span
-        style={{ color: colorProbabilidad, fontSize: fontSizeProbabilidad }}
-        className="font-bold leading-none whitespace-nowrap"
-      >
-        {probabilidad === null ? "—" : `${probabilidad}%`}
-      </span>
+    <div
+      className={`flex flex-col items-center gap-1 ${onClick ? "cursor-pointer" : ""}`}
+      style={{ width: size }}
+      onClick={onClick}
+    >
+      {lineas ? (
+        <div className="flex flex-col items-center leading-none">
+          {lineas.map((linea, i) => (
+            <span
+              key={i}
+              style={{ color: linea.color ?? colorProbabilidad, fontSize: fontSizeProbabilidad }}
+              className="font-bold leading-tight whitespace-nowrap"
+            >
+              {linea.texto}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <span
+          style={{ color: colorProbabilidad, fontSize: fontSizeProbabilidad }}
+          className="font-bold leading-none whitespace-nowrap"
+        >
+          {probabilidad === null ? "—" : `${probabilidad}%`}
+        </span>
+      )}
       <div
         style={{ width: size, height: size, borderRadius: radius }}
         className="overflow-hidden shrink-0"

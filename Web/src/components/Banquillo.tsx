@@ -7,10 +7,14 @@ export function Banquillo({
   jugadores,
   mostrarAgregar,
   onAgregar,
+  datosPorJugador,
+  onClickJugador,
 }: {
   jugadores: JugadorProbable[];
   mostrarAgregar?: boolean;
   onAgregar?: () => void;
+  datosPorJugador?: Record<number, { texto: string; color?: string }[]>;
+  onClickJugador?: (id: number) => void;
 }) {
   return (
     <div
@@ -27,13 +31,15 @@ export function Banquillo({
             probabilidad={jugador.probabilidad}
             colorProbabilidad="#6E6E73"
             fontSizeProbabilidad={14}
+            lineas={datosPorJugador?.[jugador.id]}
+            onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
           />
         </div>
       ))}
       {mostrarAgregar && (
         <div className="flex flex-col items-center gap-1">
           <span className="text-[14px] font-bold leading-none opacity-0">+</span>
-          <BotonAgregar size={62} onClick={onAgregar} />
+          <BotonAgregar size={62} onClick={onAgregar} className="bg-[#F5F5F7]" />
         </div>
       )}
     </div>

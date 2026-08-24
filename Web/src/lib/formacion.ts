@@ -9,7 +9,7 @@ export type Formacion = {
   banquillo: JugadorProbable[];
 };
 
-const LINEAS_ORDEN = ["Defensa", "Mediocampista", "Delantero"];
+export const LINEAS_ORDEN = ["Defensa", "Mediocampista", "Delantero"];
 const TAMANO_BANQUILLO = 10;
 const MINIMO_OUTFIELD_CON_POSICION_REAL = 8;
 const ORDEN_POSICION_BANQUILLO: Record<string, number> = {

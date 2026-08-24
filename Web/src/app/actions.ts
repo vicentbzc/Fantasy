@@ -1,6 +1,14 @@
 "use server";
 
-import { obtenerHistorialValor, obtenerHistorialPuntos, obtenerEquipoDetalle } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import {
+  obtenerHistorialValor,
+  obtenerHistorialPuntos,
+  obtenerEquipoDetalle,
+  establecerEstadoMiEquipo,
+  eliminarDeMiEquipo,
+  type EstadoMiEquipo,
+} from "@/lib/db";
 
 export async function accionHistorialValor(id: number) {
   return obtenerHistorialValor(id);
@@ -13,4 +21,14 @@ export async function accionHistorialPuntos(id: number) {
 export async function accionProximosPartidos(equipoId: number) {
   const equipo = await obtenerEquipoDetalle(equipoId);
   return equipo?.partidos ?? [];
+}
+
+export async function accionEstablecerEstadoMiEquipo(jugadorId: number, estado: EstadoMiEquipo) {
+  await establecerEstadoMiEquipo(jugadorId, estado);
+  revalidatePath("/mi-equipo");
+}
+
+export async function accionEliminarDeMiEquipo(jugadorId: number) {
+  await eliminarDeMiEquipo(jugadorId);
+  revalidatePath("/mi-equipo");
 }

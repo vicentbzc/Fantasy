@@ -446,6 +446,22 @@ def sincronizar_calendario(cur):
     return total
 
 
+def sincronizar_mi_club(cur):
+    filas = leer_csv_opcional("Datos Mi club.csv")
+
+    cur.execute("delete from mi_club")
+
+    if not filas:
+        return 0
+
+    fila = filas[0]
+    cur.execute(
+        "insert into mi_club (id, dinero, fichas) values (1, %s, %s)",
+        (parsear_entero(fila["Dinero"]), parsear_entero(fila["Fichas"])),
+    )
+    return 1
+
+
 def main():
     conexion = psycopg2.connect(Común.obtener_configuracion("DATABASE_URL"))
     try:
@@ -458,6 +474,7 @@ def main():
                 ("puntos_jornada", sincronizar_puntos),
                 ("puntos_jornada_detalle", sincronizar_detalle),
                 ("calendario", sincronizar_calendario),
+                ("mi_club", sincronizar_mi_club),
             ]:
                 try:
                     filas_sincronizadas = funcion(cur)

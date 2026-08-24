@@ -30,7 +30,8 @@ export function MenuFiltros({
       if (panelRef.current?.contains(objetivo)) return;
       setAbierto(false);
     }
-    function alHacerScroll() {
+    function alHacerScroll(evento: Event) {
+      if (panelRef.current?.contains(evento.target as Node)) return;
       setAbierto(false);
     }
     document.addEventListener("mousedown", alClicarFuera);

@@ -516,12 +516,15 @@ por encima de los 2.000 min/mes gratis de un repo privado).
   `solo-medio` / `solo-lento`, uno por cada franja de cron) para lanzarlo
   a mano sin esperar al cron.
 - **Secretos usados**: `DATABASE_URL`, `SUPABASE_URL`,
-  `SUPABASE_SERVICE_ROLE_KEY` (ya configurados desde antes del Paso 8) +
+  `SUPABASE_SERVICE_ROLE_KEY` (ya configurados desde antes del Paso 8),
   `LALIGA_FANTASY_EMAIL`, `LALIGA_FANTASY_PASSWORD`,
-  `LALIGA_FANTASY_LEAGUE_ID` (**pendientes de añadir**, ver "Pendiente") —
-  desde el 19/08/2026 `Descargar imágenes.py` (cron de cada 4-6h) **también**
-  necesita estos 3 secretos para pedir el token y leer `teams-master`; antes
-  de esa fecha era el único script del cron pesado que no los necesitaba.
+  `LALIGA_FANTASY_LEAGUE_ID` (los 3 confirmados aplicados el 21/08/2026,
+  ver "Pendiente") + `LALIGA_FANTASY_TEAM_ID` (**pendiente de añadir**,
+  desde el 24/08/2026, ver "Decimotercera ronda") — desde el 19/08/2026
+  `Descargar imágenes.py` (cron de cada 4-6h) **también** necesita los 3
+  secretos de LaLiga Fantasy para pedir el token y leer `teams-master`;
+  antes de esa fecha era el único script del cron pesado que no los
+  necesitaba.
 
 ## Web (`Fantasy/Web/`, Next.js + TypeScript + Tailwind)
 
@@ -628,11 +631,13 @@ en que el runner de turno la tenga.
    variable de entorno del proyecto).
 7. Rol de Postgres de solo lectura para la web, en vez de reutilizar el
    de `Sincronizar`.
-8. `/mi-equipo` ya tiene diseño e interfaz (ver "Rediseño de la web" más
-   abajo) pero **sin datos reales todavía** — no existe el concepto de
-   "mi plantilla" en la base de datos, hoy usa como relleno los 25
-   jugadores de mayor valor. Falta la funcionalidad real (elegir tus
-   jugadores de verdad, guardarlo).
+8. ~~`/mi-equipo` ya tiene diseño e interfaz...~~ **Resuelto (24/08/2026)**:
+   ver "Decimotercera ronda" más abajo — plantilla real vía
+   `mi_equipo_jugadores` (gestionada a mano por el usuario desde la web,
+   primera tabla que la web escribe) y dinero/fichas reales vía
+   `mi_club`. Falta que el usuario añada el secreto
+   `LALIGA_FANTASY_TEAM_ID` en GitHub para que el cron real lo sincronice
+   (ya funciona en local).
 9. **Consultas en vivo para datos de liga privada** (ej. cláusula de
    jugadores de compañeros): el usuario planteó el 19/08/2026 que el
    pipeline por lotes (cada hora) no es suficientemente rápido para esto
@@ -1626,6 +1631,114 @@ en el modal.
   solo para el ORDEN de presentación dentro de esos 10 ya elegidos:
   Portero primero, luego Defensa, Mediocampista y Delantero, con la
   probabilidad como desempate dentro de cada grupo.
+
+## Decimotercera ronda: Mi equipo con datos reales, arreglo del scroll de Filtros (24/08/2026)
+
+**Dos arreglos rápidos primero**:
+- `MenuFiltros.tsx` cerraba el panel entero al hacer scroll dentro de la
+  propia lista de casillas (el listener de `scroll` en `window` no
+  distinguía si el scroll era del panel o de la página) — arreglado
+  comprobando `panelRef.current?.contains(evento.target)` antes de cerrar.
+- `Comparador.tsx` ya no activa ningún filtro por defecto (petición
+  explícita del usuario, antes traía 9 activados de fábrica).
+
+**Mi equipo, de relleno sintético a datos reales**: hasta ahora la página
+usaba los 25 jugadores de mayor valor como plantilla falsa (documentado
+como pendiente desde el rediseño de la web). Investigando la API de
+LaLiga Fantasy para traer el dinero real del club se descubrió que
+`GET /leagues/{id}/teams/{teamId}` (el mismo endpoint que ya se llama por
+cada equipo de la liga para `buyoutClause`, sin petición extra) también
+trae `teamMoney` (dinero del manager) y `playersNumber` (fichas) para
+cualquier equipo, incluido el propio. Nueva variable `LALIGA_FANTASY_TEAM_ID`
+(`38394495`, el equipo de "Vicent Blanquez" en la clasificación) en
+`Configuración local.py`, mismo patrón que `LALIGA_FANTASY_LEAGUE_ID` —
+**pendiente añadir el secreto en GitHub** para que el cron lo recoja (sin
+él, `id_mi_equipo` es `None` y `mi_club` nunca se rellena, sin romper nada
+más).
+
+**Por qué hace falta una tabla nueva y no basta con la API**: el juego
+sabe qué 14 jugadores son tuyos, pero no sabe si tú los consideras
+titulares, suplentes, en duda o en seguimiento — eso es una categorización
+personal dentro de nuestra web, no un dato del juego. Tabla nueva
+`mi_equipo_jugadores` (`jugador_id` PK, `estado` con check de los 4
+valores), gestionada **enteramente desde la web** (primera vez que la web
+escribe en la base de datos, no solo lee) a través de dos server actions
+nuevas (`accionEstablecerEstadoMiEquipo`, `accionEliminarDeMiEquipo`) que
+llaman `revalidatePath("/mi-equipo")` tras cada cambio. Tabla `mi_club`
+(fila única con `dinero`/`fichas`) sincronizada por el pipeline normal
+como cualquier otra tabla (`sincronizar_mi_club()`, borra-y-reinserta como
+`calendario`). Ambas tablas creadas directamente contra Supabase (aditivo,
+sin tocar datos existentes) y documentadas en `Esquema base de datos.sql`.
+
+**Fórmulas de las 4 tarjetas**, orden pedido explícitamente (Valor de mi
+club, Valor de mi equipo, Revalorización, Fichas de mi equipo):
+- Valor de mi equipo = suma de `valor` de titulares + suplentes.
+- Revalorización = suma de `diferenciaValor` de titulares + suplentes
+  (los negativos restan, no se ignoran).
+- Valor de mi club = Valor de mi equipo + `mi_club.dinero` (el dinero
+  real de la app, **sin contar ninguna puja activa** — es literalmente
+  `teamMoney` tal cual lo da la API; no se ha podido confirmar en directo
+  si esa cifra ya excluye pujas pendientes porque no había ninguna activa
+  al probarlo, revisar si algún día no cuadra con la app real).
+- Fichas de mi equipo = `mi_club.fichas` (de la API, no contado desde
+  titulares+suplentes — pueden no coincidir si el usuario no ha colocado
+  manualmente todos sus jugadores reales todavía, es intencional).
+- Revalorización ya pintaba en rojo/verde según signo desde antes de esta
+  ronda (el usuario preguntó si estaba contemplado — sí, confirmado).
+
+**Un solo componente `MiEquipo.tsx`** (antes iba todo directo en
+`page.tsx`, ahora ese archivo solo hace `obtenerJugadores()` +
+`obtenerMiClub()` y delega, mismo patrón que `Explorador`/`Comparador`).
+La colocación en el campo ya no usa `calcularFormacion()` (esa función
+elige titulares por probabilidad, aquí los elige el usuario a mano vía el
+menú) — construye el objeto `Formacion` directamente agrupando los
+titulares por `posicion` con el mismo `LINEAS_ORDEN` que ya usaba
+`formacion.ts` (exportado para poder reutilizarlo). El campo reutiliza
+literalmente el componente `CampoTactico`, así que las medidas son
+idénticas a Equipos por construcción, no por copiar valores a mano.
+
+**Menú de acciones al hacer clic en un jugador**: modal centrado (mismo
+patrón visual que `HistorialPuntos`/`ProximosPartidos`, no un menú
+flotante posicionado) con las 4 opciones de estado **excluyendo la que ya
+tiene** (si es titular, no se le ofrece "Poner como titular") más
+"Eliminar" (borra la fila de `mi_equipo_jugadores`, no toca `jugadores`).
+El buscador de "+" (campo, banquillo, en duda, seguimiento — los 4 usan
+literalmente el mismo componente ahora) se extrajo a
+`BuscadorJugador.tsx` desde el que tenía Comparador, para que sean
+exactamente el mismo componente en vez de dos copias — sin restringir a
+los jugadores reales del usuario, busca en todo el catálogo (permite
+"fichar" a cualquiera hipotéticamente o seguir a un jugador que todavía
+no es tuyo).
+
+**`FotoJugadorSlot.tsx`, `CampoTactico.tsx` y `Banquillo.tsx` ganaron
+props opcionales** (`lineas`, `datosPorJugador`, `onClick`) sin tocar el
+comportamiento por defecto de quien no los pasa (Equipos sigue exactamente
+igual). Mi equipo usa Filtros restringido a 4 categorías (Titularidad,
+Valor, Revalorización, Dificultad del calendario, vía `excluir` de
+`MenuFiltros`, igual mecanismo que ya usaba Comparador) para decidir qué
+líneas de texto se muestran encima de cada foto — en el campo (fondo
+verde) siempre en blanco para que se lea bien, en las tarjetas blancas
+(banquillo, en duda, seguimiento) con los mismos colores que ya usa el
+resto de la web (verde/rojo para revalorización, la paleta de
+`COLOR_DIFICULTAD_CALENDARIO` para dificultad).
+
+**Delanteros ya no aparecen tan adelantados**: la línea de delanteros
+(ahora la última, tras invertir el campo en la ronda anterior) quedaba
+literalmente dentro del área pequeña porque `justify-between` pega el
+último elemento al borde exacto del contenedor y el área se dibuja con
+una altura fija (150px) independiente del tamaño real del campo. Se
+cambió el padding de `CampoTactico` de uniforme (`p-6`) a asimétrico
+(`pt-10 pb-[140px]`), verificado en directo con las coordenadas reales:
+la foto del delantero termina ahora a 8px del borde del área (antes
+quedaba dentro). Mismo componente que usa Equipos, así que el arreglo
+beneficia a ambas páginas por igual — comprobado que allí también mejora.
+
+**Datos de prueba**: se insertaron a mano en `mi_equipo_jugadores` los 14
+jugadores reales de la plantilla del usuario (11 titulares en un 4-3-3,
+3 suplentes) para poder verificar toda la función de principio a fin con
+datos reales antes de darla por buena — el usuario puede reorganizarlos
+como quiera desde el menú, esto era solo para no probar contra una
+plantilla vacía.
 
 ## Historia breve
 

@@ -2,12 +2,20 @@ import type { Formacion } from "@/lib/formacion";
 import { urlFotoJugador } from "@/lib/imagenes";
 import { FotoJugadorSlot } from "./FotoJugadorSlot";
 
-export function CampoTactico({ formacion }: { formacion: Formacion }) {
+export function CampoTactico({
+  formacion,
+  datosPorJugador,
+  onClickJugador,
+}: {
+  formacion: Formacion;
+  datosPorJugador?: Record<number, { texto: string; color?: string }[]>;
+  onClickJugador?: (id: number) => void;
+}) {
   const filas = formacion.lineas;
 
   return (
     <div
-      className="relative w-full max-w-[700px] mx-auto rounded-[36px] overflow-hidden p-6 flex flex-col justify-between gap-6"
+      className="relative w-full max-w-[700px] mx-auto rounded-[36px] overflow-hidden p-6 pt-10 pb-[140px] flex flex-col justify-between gap-6"
       style={{
         aspectRatio: "700 / 980",
         background: "linear-gradient(135deg, #5B9D70 0%, #3E8055 100%)",
@@ -46,6 +54,8 @@ export function CampoTactico({ formacion }: { formacion: Formacion }) {
               colorProbabilidad="#FFFFFF"
               fontSizeProbabilidad={14}
               colorNombre="#FFFFFF"
+              lineas={datosPorJugador?.[jugador.id]}
+              onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
             />
           </div>
         ))
@@ -62,6 +72,8 @@ export function CampoTactico({ formacion }: { formacion: Formacion }) {
                 colorProbabilidad="#FFFFFF"
                 fontSizeProbabilidad={14}
                 colorNombre="#FFFFFF"
+                lineas={datosPorJugador?.[formacion.portero.id]}
+                onClick={onClickJugador ? () => onClickJugador(formacion.portero!.id) : undefined}
               />
             )}
           </div>
@@ -79,6 +91,8 @@ export function CampoTactico({ formacion }: { formacion: Formacion }) {
                   colorProbabilidad="#FFFFFF"
                   fontSizeProbabilidad={14}
                   colorNombre="#FFFFFF"
+                  lineas={datosPorJugador?.[jugador.id]}
+                  onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
                 />
               ))}
             </div>

@@ -75,3 +75,15 @@ create table posicion_sin_oficial (
     probabilidad numeric,
     primary key (equipo, nombre)
 );
+
+create table mi_club (
+    id integer primary key default 1,
+    dinero bigint,
+    fichas integer,
+    check (id = 1)
+);
+
+create table mi_equipo_jugadores (
+    jugador_id integer primary key references jugadores(id),
+    estado text not null check (estado in ('titular', 'suplente', 'duda', 'seguimiento'))
+);

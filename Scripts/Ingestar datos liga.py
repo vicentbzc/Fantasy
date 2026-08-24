@@ -9,8 +9,9 @@ import Común
 ZONA_BARCELONA = ZoneInfo("Europe/Madrid")
 
 
-def construir_valores_liga(sesion, token, id_liga):
+def construir_valores_liga(sesion, token, id_liga, id_mi_equipo):
     valores = {}
+    mi_club = None
     try:
         standing = Común.descargar_json_autenticado(
             sesion,
@@ -18,7 +19,7 @@ def construir_valores_liga(sesion, token, id_liga):
             token,
         )
     except Común.ErrorBloqueo:
-        return valores
+        return valores, mi_club
 
     for puesto in standing:
         id_equipo = puesto["team"]["id"]
@@ -33,9 +34,16 @@ def construir_valores_liga(sesion, token, id_liga):
             continue
         for jugador in plantilla.get("players", []):
             valores[jugador["playerMaster"]["id"]] = jugador["buyoutClause"]
+        if id_mi_equipo is not None and str(id_equipo) == str(id_mi_equipo):
+            mi_club = {"Dinero": plantilla.get("teamMoney"), "Fichas": plantilla.get("playersNumber")}
         time.sleep(1)
 
-    return valores
+    return valores, mi_club
+
+
+def guardar_mi_club(mi_club, ruta_archivo=Común.ruta_datos("Datos Mi club.csv")):
+    columnas = ["Dinero", "Fichas"]
+    Común.guardar_csv(ruta_archivo, columnas, [mi_club] if mi_club else [])
 
 
 def guardar_jugadores(filas, ruta_archivo=Común.ruta_datos("Datos Jugadores.csv")):
@@ -81,6 +89,7 @@ def guardar_puntos_jornada(filas, ruta_archivo=Común.ruta_datos("Datos Puntos j
 if __name__ == "__main__":
     sesion = Común.crear_sesion()
     id_liga = Común.obtener_configuracion("LALIGA_FANTASY_LEAGUE_ID")
+    id_mi_equipo = Común.obtener_configuracion("LALIGA_FANTASY_TEAM_ID")
 
     try:
         token = Común.obtener_token_laliga_fantasy(sesion)
@@ -97,7 +106,7 @@ if __name__ == "__main__":
         except Común.ErrorBloqueo:
             catalogo = []
 
-        valores_liga = construir_valores_liga(sesion, token, id_liga)
+        valores_liga, mi_club = construir_valores_liga(sesion, token, id_liga, id_mi_equipo)
 
         filas = []
         filas_puntos = []
@@ -145,5 +154,6 @@ if __name__ == "__main__":
             guardar_jugadores(filas)
             guardar_historial(filas)
             guardar_puntos_jornada(filas_puntos)
+            guardar_mi_club(mi_club)
 
     time.sleep(1)
