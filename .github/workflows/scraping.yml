@@ -55,6 +55,7 @@ jobs:
           LALIGA_FANTASY_EMAIL: ${{ secrets.LALIGA_FANTASY_EMAIL }}
           LALIGA_FANTASY_PASSWORD: ${{ secrets.LALIGA_FANTASY_PASSWORD }}
           LALIGA_FANTASY_LEAGUE_ID: ${{ secrets.LALIGA_FANTASY_LEAGUE_ID }}
+          LALIGA_FANTASY_TEAM_ID: ${{ secrets.LALIGA_FANTASY_TEAM_ID }}
         run: python "Scripts/Ingestar datos liga.py"
 
       - name: Ingestar datos 3 (calendario y alineaciones)
