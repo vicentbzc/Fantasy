@@ -61,6 +61,7 @@ create table calendario (
     competicion text,
     jornada text,
     dia text,
+    fecha date,
     hora text,
     estadio text,
     dificultad text,
@@ -87,4 +88,10 @@ create table mi_club (
 create table mi_equipo_jugadores (
     jugador_id integer primary key references jugadores(id),
     estado text not null check (estado in ('titular', 'suplente', 'duda', 'seguimiento'))
+);
+
+create table notificaciones_estado (
+    clave text primary key,
+    valor text,
+    actualizado_en timestamptz not null default now()
 );

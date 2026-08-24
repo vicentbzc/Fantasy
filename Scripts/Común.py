@@ -239,6 +239,23 @@ def descargar_json_autenticado(sesion, url, token, timeout=20):
     return respuesta.json()
 
 
+def enviar_telegram(mensaje):
+    token = obtener_configuracion("TELEGRAM_BOT_TOKEN")
+    chat_id = obtener_configuracion("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        return False
+    try:
+        respuesta = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data={"chat_id": chat_id, "text": mensaje},
+            timeout=20,
+        )
+        respuesta.raise_for_status()
+        return True
+    except requests.RequestException:
+        return False
+
+
 def subir_a_storage(url_supabase, bucket, ruta, contenido, clave_servicio):
     respuesta = requests.put(
         f"{url_supabase}/storage/v1/object/{bucket}/{ruta}",

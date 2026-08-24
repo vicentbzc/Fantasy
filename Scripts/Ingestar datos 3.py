@@ -190,6 +190,7 @@ def _partido_a_evento(partido, nombre_corto):
         "competicion": competicion,
         "jornada": jornada,
         "fecha_texto": fecha_texto,
+        "fecha_iso": fecha_obj.isoformat(),
         "hora": formatear_hora(hora),
         "local_o_visitante": localia,
         "dificultad": dificultad,
@@ -225,6 +226,7 @@ def extraer_calendario(sesion, nombre_corto, slug):
         "Competición": unir("competicion"),
         "Jornada": unir("jornada"),
         "Día": unir("fecha_texto"),
+        "Fecha": unir("fecha_iso"),
         "Hora": unir("hora"),
         "Estadio": unir("local_o_visitante"),
         "Dificultad de los rivales": unir("dificultad"),
@@ -235,7 +237,7 @@ def extraer_calendario(sesion, nombre_corto, slug):
 def guardar_csv(filas, ruta_archivo=Común.ruta_datos("Datos 3.csv")):
     columnas = [
         "Equipo", "Siguientes rivales", "Competición", "Jornada",
-        "Día", "Hora", "Estadio", "Dificultad de los rivales",
+        "Día", "Fecha", "Hora", "Estadio", "Dificultad de los rivales",
     ]
     Común.guardar_csv(ruta_archivo, columnas, filas)
 
@@ -273,22 +275,26 @@ if __name__ == "__main__":
                 and Común.normalizar_nombre(rival_ficha) == Común.normalizar_nombre(proxima_liga["rival"])
             )
             if alineacion_es_de_liga:
+                candidatos = {}
                 for jugador in extraer_formacion(html_ficha):
-                    filas_posicion.append({
+                    candidatos[jugador["nombre"]] = {
                         "Equipo": nombre_oficial,
                         "Jugador": jugador["nombre"],
                         "Posicion X": jugador["x"],
                         "Posicion Y": jugador["y"],
                         "Probabilidad": jugador["probabilidad"],
-                    })
+                    }
                 for jugador in extraer_suplentes(html_ficha):
-                    filas_posicion.append({
-                        "Equipo": nombre_oficial,
-                        "Jugador": jugador["nombre"],
-                        "Posicion X": "",
-                        "Posicion Y": "",
-                        "Probabilidad": jugador["probabilidad"],
-                    })
+                    actual = candidatos.get(jugador["nombre"])
+                    if actual is None or jugador["probabilidad"] > actual["Probabilidad"]:
+                        candidatos[jugador["nombre"]] = {
+                            "Equipo": nombre_oficial,
+                            "Jugador": jugador["nombre"],
+                            "Posicion X": "",
+                            "Posicion Y": "",
+                            "Probabilidad": jugador["probabilidad"],
+                        }
+                filas_posicion.extend(candidatos.values())
 
             time.sleep(1)
     except KeyboardInterrupt:

@@ -1,6 +1,7 @@
 import csv
 import os
 import re
+import sys
 from datetime import datetime
 
 import psycopg2
@@ -45,6 +46,12 @@ def parsear_entero_absoluto(texto):
 
 def parsear_fecha(texto):
     return datetime.strptime(texto, "%d/%m/%Y").date()
+
+
+def parsear_fecha_iso(texto):
+    if not texto:
+        return None
+    return datetime.strptime(texto, "%Y-%m-%d").date()
 
 
 def dividir(texto):
@@ -418,6 +425,7 @@ def sincronizar_calendario(cur):
         competiciones = dividir(fila["Competición"])
         jornadas = dividir(fila["Jornada"])
         dias = dividir(fila["Día"])
+        fechas = dividir(fila.get("Fecha", ""))
         horas = dividir(fila["Hora"])
         estadios = dividir(fila["Estadio"])
         dificultades = dividir(fila["Dificultad de los rivales"])
@@ -427,7 +435,8 @@ def sincronizar_calendario(cur):
         filas_equipo = [
             (
                 equipo, i + 1, rivales[i], competiciones[i], jornadas[i],
-                dias[i], horas[i], estadios[i], dificultades[i],
+                dias[i], parsear_fecha_iso(fechas[i]) if i < len(fechas) else None,
+                horas[i], estadios[i], dificultades[i],
             )
             for i in range(len(rivales))
         ]
@@ -436,7 +445,7 @@ def sincronizar_calendario(cur):
                 cur,
                 """
                 insert into calendario (
-                    equipo, orden, rival, competicion, jornada, dia, hora,
+                    equipo, orden, rival, competicion, jornada, dia, fecha, hora,
                     estadio, dificultad
                 ) values %s
                 """,
@@ -463,6 +472,7 @@ def sincronizar_mi_club(cur):
 
 
 def main():
+    hubo_error = False
     conexion = psycopg2.connect(Común.obtener_configuracion("DATABASE_URL"))
     try:
         with conexion.cursor() as cur:
@@ -481,11 +491,15 @@ def main():
                 except Exception:
                     conexion.rollback()
                     print(f"Error sincronizando {nombre}")
+                    hubo_error = True
                 else:
                     conexion.commit()
                     print(f"{nombre}: {filas_sincronizadas} filas sincronizadas")
     finally:
         conexion.close()
+
+    if hubo_error:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

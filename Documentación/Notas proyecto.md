@@ -638,12 +638,24 @@ en que el runner de turno la tenga.
    `mi_club`. Falta que el usuario añada el secreto
    `LALIGA_FANTASY_TEAM_ID` en GitHub para que el cron real lo sincronice
    (ya funciona en local).
-9. **Consultas en vivo para datos de liga privada** (ej. cláusula de
-   jugadores de compañeros): el usuario planteó el 19/08/2026 que el
-   pipeline por lotes (cada hora) no es suficientemente rápido para esto
-   y que puede pedir una notificación/aviso — todavía no ha dado los
-   detalles de qué debe avisar ni cuándo, decisión aplazada explícitamente
-   a una conversación futura, no implementar nada de esto todavía.
+9. ~~Consultas en vivo para datos de liga privada...~~ **En marcha
+   (24/08/2026)**: se concretó como avisos por Telegram — ver
+   "Decimoséptima ronda" más abajo. Grupo A ya implementado (9 avisos).
+   Falta:
+    - Que el usuario cree el bot con @BotFather y ponga
+      `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` en `Configuración local.py`
+      y como secretos de GitHub, para probar un envío real.
+    - **Grupo B**: guardar quién es el dueño de cada jugador de la liga
+      (hoy solo se guarda la cláusula, no el manager) — hace falta para
+      el aviso de "cambio de valor de un jugador en seguimiento sin
+      cambiar de dueño".
+    - **Grupo C**: investigar si la API de LaLiga Fantasy da algo de
+      esto: fecha en que se clausuló un jugador (para calcular cuándo se
+      desbloquea la protección de 14 días), un "panel de actividad" de
+      operaciones de mercado, si un jugador sigue "en el mercado", y la
+      clasificación de la liga jornada a jornada (no solo el total de la
+      temporada) — este último hace falta también para terminar el aviso
+      de puntos DAZN, que se quedó a medias en el Grupo A.
 10. Disposición exacta de los jugadores del banquillo en `/equipos/[id]`:
     el usuario mencionó una captura de pantalla de referencia que no
     llegó adjunta al mensaje del 19/08/2026 — pendiente de que la reenvíe.
@@ -2035,6 +2047,113 @@ secreto todavía no está en GitHub, el cron de cada 15 minutos vacía la
 tabla una y otra vez contra la base de datos real, aunque en local sí
 funcione. No hace falta ningún cambio de código; hace falta que el
 usuario añada el secreto (ver "Pendiente").
+
+## Decimoséptima ronda: avisos por Telegram, Grupo A (24/08/2026)
+
+El usuario pidió 16 disparadores distintos de avisos por Telegram. Se
+dividieron por si ya teníamos los datos: **Grupo A** (esta ronda, 9
+avisos con datos que ya teníamos o a un paso de tener), Grupo B (necesita
+saber quién es el dueño de cada jugador de la liga, no implementado
+todavía), Grupo C (necesita investigar si existen endpoints de actividad
+de mercado / clasificación por jornada / fecha de compra de cláusula —
+no investigado todavía) y un ítem de "puntos DAZN de la jornada" que
+queda pendiente de Grupo C porque el mensaje pedido necesita el puesto en
+la clasificación de la jornada, que no tenemos.
+
+**`TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`**: mismo patrón que el resto
+de credenciales — en `Configuración local.py` o como secretos de GitHub
+Actions, nunca en el código. `Común.enviar_telegram(mensaje)` es la única
+función que manda mensajes; si falta cualquiera de las dos variables, o
+si la API de Telegram falla, devuelve `False` sin lanzar excepción — un
+aviso que no se pudo mandar nunca debe tumbar el pipeline, y ningún sitio
+del código marca un aviso como "ya enviado" si `enviar_telegram` devolvió
+`False` (para que se reintente solo en el siguiente ciclo).
+
+**Tabla nueva `notificaciones_estado`** (`clave` texto, `valor` texto,
+`actualizado_en`): guarda el último valor conocido de lo que sea que un
+aviso necesite comparar, para que cada aviso salte **una sola vez por
+evento** y no en cada ciclo del cron mientras la condición siga siendo
+cierta (ej. un jugador con 4 amarillas no debe avisar 96 veces al día
+mientras se quede en 4). El patrón en todas las comprobaciones de
+`Notificar Telegram.py` es el mismo: comparar contra `obtener_estado()`,
+y solo llamar a `guardar_estado()` dentro de la rama que sí dispara si
+`enviar_telegram()` devolvió `True` — las ramas que no disparan (o la
+primera vez que se ve un jugador, sin valor anterior con el que comparar)
+sí guardan el valor actual sin condición, para tener una base de
+comparación real en el siguiente ciclo.
+
+**Fecha real del próximo partido, pieza que faltaba**: `Ingestar datos
+3.py` ya calculaba una fecha real (`fecha_obj`, un `date` de Python, en
+`_partido_a_evento()`) solo para poder ordenar los partidos por fecha,
+pero solo guardaba el texto ya formateado ("Sábado 29/08", sin año) y
+tiraba el objeto fecha. Ahora también se guarda `fecha_obj.isoformat()`
+como columna nueva "Fecha" en `Datos 3.csv` (en paralelo a "Día", que se
+queda igual para no tocar nada de la web), sincronizada a una columna
+nueva `calendario.fecha date`. Para encontrar el inicio real de "la
+próxima jornada de LaLiga" (no solo el próximo partido de un equipo
+concreto): se coge la fila de `calendario` con `competicion = 'LaLiga'`
+con la fecha más próxima entre todos los equipos, se mira su `jornada`
+(ej. "Jornada 3"), y se calcula el mínimo de fecha+hora entre todas las
+filas que compartan esa misma jornada — así no importa que algún equipo
+tenga partidos aplazados con `orden` desincronizado respecto al resto.
+
+**Bug real encontrado de paso, `jugadores` llevaba tiempo sin
+sincronizar**: probando esta ronda en local, `Sincronizar` falló en la
+tabla `jugadores` con `UniqueViolation` en `posicion_sin_oficial_pkey`
+— el jugador "Sato" del Valencia salía dos veces en `Datos Posicion.csv`:
+una como titular fantasma con 0% de probabilidad (sin `data-probabilidad`
+real, un marcador ruido de incertidumbre de rotación) y otra como
+suplente real con 50%. Esto contradice el supuesto documentado en la
+Quinta ronda ("titulares y suplentes nunca comparten nombre en la misma
+ficha") — resultó ser cierto casi siempre, pero no siempre. Arreglado en
+`Ingestar datos 3.py`: al combinar `extraer_formacion()` +
+`extraer_suplentes()`, si un mismo nombre aparece en las dos listas se
+queda solo con la de mayor `probabilidad` (mismo criterio de desempate
+que ya usa el resto del archivo), en vez de guardar las dos filas sueltas.
+Como el job del workflow no fallaba (el `try/except` de `Sincronizar`
+por tabla se traga el error y sigue con las demás), este fallo llevaba
+tiempo pasando en cada ciclo sin que nada avisara — motivo de más para
+el aviso de fallos de pipeline (ver debajo).
+
+**Aviso de fallo de pipeline, dos capas**: `Sincronizar base de
+datos.py` ahora hace `sys.exit(1)` si alguna tabla falló (antes siempre
+salía con código 0 aunque una tabla fallara en silencio, como el bug de
+arriba demostró en directo) — así el paso "Sincronizar con Supabase" del
+workflow sí queda marcado como fallido de verdad. Nuevo paso final en
+`scraping.yml` con `if: failure()` que manda un aviso por Telegram con
+`curl` directo (sin depender de que Python funcione) si cualquier paso
+del job ha fallado.
+
+**Los 8 avisos que sí dependen de datos** viven en el script nuevo
+`Scripts/Notificar Telegram.py` (mismo patrón que `Sincronizar`: conecta
+a `DATABASE_URL`, una función por comprobación, cada una con su propio
+try/except para que un fallo en una no bloquee las demás), y se ejecuta
+justo después de `Sincronizar base de datos.py` en el workflow, sin
+condición de horario — igual que Sincronizar, corre en los tres
+disparos del cron:
+
+- Revalorización diaria del club (una vez al día, primera sincronización
+  después de las 8:00, sumando `diferencia_valor` de titulares+suplentes
+  — misma fórmula que la web).
+- Titularidad de cualquier jugador de `mi_equipo_jugadores` (los 4
+  estados) que baje respecto al último valor conocido — "el estado del
+  jugador" en el mensaje es `jugadores.estado` (disponibilidad/lesión,
+  confirmado con el usuario), no su categoría en Mi equipo.
+- Un jugador de `mi_equipo_jugadores` (los 4 estados) que llegue a 4
+  tarjetas amarillas acumuladas.
+- Fichas del club llegando a 24.
+- Faltan 48h para el inicio de la próxima jornada de LaLiga.
+- Faltan 2h para la jornada y la alineación titular tiene menos de 11.
+- Faltan 2h para la jornada y `mi_club.dinero` es negativo.
+- Aviso fijo cada día a las 21:00 (hora de Madrid) de que el mercado
+  cierra en 1 hora.
+
+Verificado en local, contra la base de datos real, sin las credenciales
+de Telegram puestas todavía: el script corre sin errores y no escribe
+ningún estado de "aviso enviado" (solo las bases de comparación),
+confirmando que `enviar_telegram` devuelve `False` limpiamente cuando
+faltan las credenciales. Pendiente de que el usuario cree el bot y ponga
+`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` para probar un envío real.
 
 ## Historia breve
 
