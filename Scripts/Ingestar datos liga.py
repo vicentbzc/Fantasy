@@ -35,14 +35,18 @@ def construir_valores_liga(sesion, token, id_liga, id_mi_equipo):
         for jugador in plantilla.get("players", []):
             valores[jugador["playerMaster"]["id"]] = jugador["buyoutClause"]
         if id_mi_equipo is not None and str(id_equipo) == str(id_mi_equipo):
-            mi_club = {"Dinero": plantilla.get("teamMoney"), "Fichas": plantilla.get("playersNumber")}
+            mi_club = {
+                "Dinero": plantilla.get("teamMoney"),
+                "Fichas": plantilla.get("playersNumber"),
+                "Valor equipo": plantilla.get("teamValue"),
+            }
         time.sleep(1)
 
     return valores, mi_club
 
 
 def guardar_mi_club(mi_club, ruta_archivo=Común.ruta_datos("Datos Mi club.csv")):
-    columnas = ["Dinero", "Fichas"]
+    columnas = ["Dinero", "Fichas", "Valor equipo"]
     Común.guardar_csv(ruta_archivo, columnas, [mi_club] if mi_club else [])
 
 

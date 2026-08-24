@@ -1,7 +1,7 @@
 import type { JugadorProbable } from "@/lib/db";
 import { urlFotoJugador } from "@/lib/imagenes";
 import { FotoJugadorSlot } from "./FotoJugadorSlot";
-import { BotonAgregar } from "./BotonAgregar";
+import { RanuraAgregar } from "./RanuraAgregar";
 
 export function Banquillo({
   jugadores,
@@ -10,6 +10,7 @@ export function Banquillo({
   datosPorJugador,
   onClickJugador,
   tamanoAgregar = 62,
+  hrefsPorJugador,
 }: {
   jugadores: JugadorProbable[];
   mostrarAgregar?: boolean;
@@ -17,6 +18,7 @@ export function Banquillo({
   datosPorJugador?: Record<number, { texto: string; color?: string }[]>;
   onClickJugador?: (id: number) => void;
   tamanoAgregar?: number;
+  hrefsPorJugador?: Record<number, string>;
 }) {
   return (
     <div
@@ -35,15 +37,11 @@ export function Banquillo({
             fontSizeProbabilidad={14}
             lineas={datosPorJugador?.[jugador.id]}
             onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
+            href={!jugador.esFantasma ? hrefsPorJugador?.[jugador.id] : undefined}
           />
         </div>
       ))}
-      {mostrarAgregar && (
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[14px] font-bold leading-none opacity-0">+</span>
-          <BotonAgregar size={tamanoAgregar} onClick={onAgregar} className="bg-[#F5F5F7]" />
-        </div>
-      )}
+      {mostrarAgregar && <RanuraAgregar size={tamanoAgregar} onClick={onAgregar} />}
     </div>
   );
 }

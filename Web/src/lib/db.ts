@@ -344,18 +344,18 @@ export async function obtenerHistorialPuntos(id: number): Promise<JornadaPuntos[
   }));
 }
 
-export type MiClub = { dinero: number | null; fichas: number | null };
+export type MiClub = { dinero: number | null; fichas: number | null; valorEquipo: number | null };
 
 export async function obtenerMiClub(): Promise<MiClub> {
-  const resultado = await pool.query(`select dinero, fichas from mi_club where id = 1`);
+  const resultado = await pool.query(`select dinero, fichas, valor_equipo from mi_club where id = 1`);
   const fila = resultado.rows[0];
   return {
     dinero: fila?.dinero === undefined || fila.dinero === null ? null : Number(fila.dinero),
     fichas: fila?.fichas === undefined || fila.fichas === null ? null : Number(fila.fichas),
+    valorEquipo:
+      fila?.valor_equipo === undefined || fila.valor_equipo === null ? null : Number(fila.valor_equipo),
   };
 }
-
-const MAXIMO_TITULARES = 11;
 
 export type ResultadoEstadoMiEquipo = { ok: true } | { ok: false; motivo: string };
 
@@ -371,7 +371,6 @@ export async function establecerEstadoMiEquipo(
       const jugadorResultado = await cliente.query(`select posicion from jugadores where id = $1`, [jugadorId]);
       const esPortero = jugadorResultado.rows[0]?.posicion === "Portero";
 
-      let porteroExistente: number | null = null;
       if (esPortero) {
         const porteroResultado = await cliente.query(
           `select mej.jugador_id from mi_equipo_jugadores mej
@@ -379,24 +378,12 @@ export async function establecerEstadoMiEquipo(
            where mej.estado = 'titular' and mej.jugador_id <> $1 and j.posicion = 'Portero'`,
           [jugadorId]
         );
-        porteroExistente = porteroResultado.rows[0]?.jugador_id ?? null;
-      }
-
-      // Un portero sustituyendo a otro portero titular es un intercambio neto cero:
-      // no debe contar contra el límite de titulares.
-      if (porteroExistente === null) {
-        const conteo = await cliente.query(
-          `select count(*) from mi_equipo_jugadores where estado = 'titular' and jugador_id <> $1`,
-          [jugadorId]
-        );
-        if (Number(conteo.rows[0].count) >= MAXIMO_TITULARES) {
-          await cliente.query("rollback");
-          return { ok: false, motivo: `Ya tienes ${MAXIMO_TITULARES} titulares.` };
+        const porteroExistente = porteroResultado.rows[0]?.jugador_id ?? null;
+        if (porteroExistente !== null) {
+          await cliente.query(`update mi_equipo_jugadores set estado = 'suplente' where jugador_id = $1`, [
+            porteroExistente,
+          ]);
         }
-      } else {
-        await cliente.query(`update mi_equipo_jugadores set estado = 'suplente' where jugador_id = $1`, [
-          porteroExistente,
-        ]);
       }
     }
 

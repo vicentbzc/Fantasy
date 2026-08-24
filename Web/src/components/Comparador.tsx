@@ -10,6 +10,7 @@ import { ProximosPartidos } from "./ProximosPartidos";
 import { BuscadorJugador } from "./BuscadorJugador";
 import { urlFotoJugador, urlEscudoEquipo } from "@/lib/imagenes";
 import { COLUMNAS_OPCIONALES, formatearCelda } from "@/lib/columnas";
+import { usePersistedState } from "@/lib/usePersistedState";
 
 const COLUMNAS_VISIBLES_DEFECTO: ColumnasVisibles = {};
 
@@ -40,8 +41,11 @@ function colorMejorPeor(valores: (number | null)[], i: number, menorEsMejor: boo
 }
 
 export function Comparador({ jugadores }: { jugadores: Jugador[] }) {
-  const [seleccionados, setSeleccionados] = useState<number[]>([]);
-  const [columnasVisibles, setColumnasVisibles] = useState<ColumnasVisibles>(COLUMNAS_VISIBLES_DEFECTO);
+  const [seleccionados, setSeleccionados] = usePersistedState<number[]>("fantasy.comparador.seleccionados", []);
+  const [columnasVisibles, setColumnasVisibles] = usePersistedState<ColumnasVisibles>(
+    "fantasy.comparador.columnas",
+    COLUMNAS_VISIBLES_DEFECTO
+  );
   const [abiertoAnadir, setAbiertoAnadir] = useState(false);
   const [modalPuntos, setModalPuntos] = useState<{ jugador: Jugador; soloUltimaJornada: boolean } | null>(null);
   const [modalPartidos, setModalPartidos] = useState<Jugador | null>(null);

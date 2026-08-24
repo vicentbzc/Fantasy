@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { obtenerEquipoDetalle, obtenerJugadoresEquipo } from "@/lib/db";
 import { urlEscudoEquipo } from "@/lib/imagenes";
@@ -5,8 +6,8 @@ import { formatearCuando, COLOR_DIFICULTAD } from "@/lib/formato";
 import { ImagenCuadrada } from "@/components/ImagenCuadrada";
 import { CampoTactico } from "@/components/CampoTactico";
 import { Banquillo } from "@/components/Banquillo";
-import { TarjetaProximoPartido } from "@/components/TarjetaProximoPartido";
-import { calcularFormacion } from "@/lib/formacion";
+import { ListaProximosPartidos } from "@/components/ListaProximosPartidos";
+import { calcularFormacion, hrefsJugadores } from "@/lib/formacion";
 
 export const revalidate = 300;
 
@@ -17,6 +18,7 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
 
   const jugadores = await obtenerJugadoresEquipo(equipo.nombre);
   const formacion = calcularFormacion(jugadores);
+  const hrefs = hrefsJugadores(jugadores);
 
   const subtituloCuando = formatearCuando(
     null,
@@ -45,27 +47,53 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
 
         {equipo.rivalJornadaLiga && (
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-5 gap-y-2 w-full">
-            <span className="text-[16px] font-semibold text-right">{nombreDisplay}</span>
+            <Link href={`/equipos/${equipo.id}`} className="text-[16px] font-semibold text-right hover:opacity-70">
+              {nombreDisplay}
+            </Link>
             <div className="flex items-center gap-5">
-              <ImagenCuadrada
-                src={urlEscudoEquipo(equipo.id)}
-                alt={nombreDisplay}
-                size={104}
-                radius={18}
-                bg="transparent"
-                padding={18}
-              />
+              <Link href={`/equipos/${equipo.id}`}>
+                <ImagenCuadrada
+                  src={urlEscudoEquipo(equipo.id)}
+                  alt={nombreDisplay}
+                  size={104}
+                  radius={18}
+                  bg="transparent"
+                  padding={18}
+                />
+              </Link>
               <span className="text-base font-bold text-[#6E6E73]">VS</span>
-              <ImagenCuadrada
-                src={urlEscudoEquipo(equipo.rivalJornadaLigaId)}
-                alt={rivalDisplay ?? ""}
-                size={104}
-                radius={18}
-                bg="transparent"
-                padding={18}
-              />
+              {equipo.rivalJornadaLigaId !== null ? (
+                <Link href={`/equipos/${equipo.rivalJornadaLigaId}`}>
+                  <ImagenCuadrada
+                    src={urlEscudoEquipo(equipo.rivalJornadaLigaId)}
+                    alt={rivalDisplay ?? ""}
+                    size={104}
+                    radius={18}
+                    bg="transparent"
+                    padding={18}
+                  />
+                </Link>
+              ) : (
+                <ImagenCuadrada
+                  src={urlEscudoEquipo(equipo.rivalJornadaLigaId)}
+                  alt={rivalDisplay ?? ""}
+                  size={104}
+                  radius={18}
+                  bg="transparent"
+                  padding={18}
+                />
+              )}
             </div>
-            <span className="text-[16px] font-semibold text-left">{rivalDisplay}</span>
+            {equipo.rivalJornadaLigaId !== null ? (
+              <Link
+                href={`/equipos/${equipo.rivalJornadaLigaId}`}
+                className="text-[16px] font-semibold text-left hover:opacity-70"
+              >
+                {rivalDisplay}
+              </Link>
+            ) : (
+              <span className="text-[16px] font-semibold text-left">{rivalDisplay}</span>
+            )}
           </div>
         )}
 
@@ -75,9 +103,9 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
           </p>
         )}
 
-        <CampoTactico formacion={formacion} />
+        <CampoTactico formacion={formacion} hrefsPorJugador={hrefs} />
 
-        <Banquillo jugadores={formacion.banquillo} />
+        <Banquillo jugadores={formacion.banquillo} hrefsPorJugador={hrefs} />
       </div>
 
       <div className="w-full flex flex-col items-start gap-[18px]">
@@ -85,14 +113,7 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
           Próximos partidos
         </h2>
         <div className="w-full rounded-[28px] bg-white p-[28px] flex flex-col gap-[18px]">
-          {proximosPartidos.map((partido) => (
-            <TarjetaProximoPartido
-              key={partido.orden}
-              partido={partido}
-              equipoId={equipo.id}
-              equipoNombre={nombreDisplay}
-            />
-          ))}
+          <ListaProximosPartidos partidos={proximosPartidos} equipoId={equipo.id} equipoNombre={nombreDisplay} />
         </div>
       </div>
     </div>

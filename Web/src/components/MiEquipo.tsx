@@ -5,13 +5,20 @@ import type { Jugador, MiClub, EstadoMiEquipo, JugadorProbable } from "@/lib/db"
 import { CampoTactico } from "./CampoTactico";
 import { Banquillo } from "./Banquillo";
 import { BotonAgregar } from "./BotonAgregar";
+import { RanuraAgregar } from "./RanuraAgregar";
 import { TarjetaEstadistica } from "./TarjetaEstadistica";
 import { FotoJugadorSlot } from "./FotoJugadorSlot";
 import { BuscadorJugador } from "./BuscadorJugador";
 import { ProximosPartidos } from "./ProximosPartidos";
 import { MenuFiltros, type ColumnasVisibles } from "./MenuFiltros";
 import { urlFotoJugador } from "@/lib/imagenes";
-import { formatearValor, bucketDificultadCalendario, COLOR_DIFICULTAD_CALENDARIO } from "@/lib/formato";
+import {
+  formatearValor,
+  bucketDificultadCalendario,
+  COLOR_DIFICULTAD_CALENDARIO,
+  COLOR_DIFICULTAD_CALENDARIO_CAMPO,
+  COLOR_REVALORIZACION_CAMPO,
+} from "@/lib/formato";
 import { COLUMNAS_OPCIONALES } from "@/lib/columnas";
 import { LINEAS_ORDEN, type Formacion } from "@/lib/formacion";
 import { accionEstablecerEstadoMiEquipo, accionEliminarDeMiEquipo } from "@/app/actions";
@@ -41,7 +48,8 @@ function aProbable(j: Jugador): JugadorProbable {
 function lineasParaJugador(
   j: Jugador,
   columnasVisibles: ColumnasVisibles,
-  onClickDificultad: (() => void) | undefined
+  onClickDificultad: (() => void) | undefined,
+  enCampo: boolean
 ): { texto: string; color?: string; onClick?: () => void }[] {
   const lineas: { texto: string; color?: string; onClick?: () => void }[] = [];
   if (columnasVisibles.porcentajeTitularidad) {
@@ -54,15 +62,23 @@ function lineasParaJugador(
     lineas.push({ texto: formatearValor(j.valor) });
   }
   if (columnasVisibles.diferenciaValor) {
+    const paletaRevalorizacion = enCampo
+      ? COLOR_REVALORIZACION_CAMPO
+      : { positivo: "#16A34A", negativo: "#DC2626" };
     const color =
-      j.diferenciaValor === null || j.diferenciaValor === 0 ? undefined : j.diferenciaValor > 0 ? "#16A34A" : "#DC2626";
+      j.diferenciaValor === null || j.diferenciaValor === 0
+        ? undefined
+        : j.diferenciaValor > 0
+          ? paletaRevalorizacion.positivo
+          : paletaRevalorizacion.negativo;
     lineas.push({ texto: formatearValor(j.diferenciaValor), color });
   }
   if (columnasVisibles.dificultadProximos5) {
     const bucket = bucketDificultadCalendario(j.dificultadProximos5);
+    const paletaDificultad = enCampo ? COLOR_DIFICULTAD_CALENDARIO_CAMPO : COLOR_DIFICULTAD_CALENDARIO;
     lineas.push({
       texto: bucket ?? "—",
-      color: bucket ? COLOR_DIFICULTAD_CALENDARIO[bucket] : undefined,
+      color: bucket ? paletaDificultad[bucket] : undefined,
       onClick: onClickDificultad,
     });
   }
@@ -81,9 +97,10 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
   const seguimiento = jugadores.filter((j) => j.estadoMiEquipo === "seguimiento");
   const idsAsignados = new Set(jugadores.filter((j) => j.estadoMiEquipo !== null).map((j) => j.id));
 
-  const valorEquipo = [...titulares, ...suplentes].reduce((acc, j) => acc + (j.valor ?? 0), 0);
   const revalorizacion = [...titulares, ...suplentes].reduce((acc, j) => acc + (j.diferenciaValor ?? 0), 0);
-  const valorClub = valorEquipo + (miClub.dinero ?? 0);
+  const valorEquipo = miClub.valorEquipo;
+  const valorClub =
+    miClub.valorEquipo !== null || miClub.dinero !== null ? (miClub.valorEquipo ?? 0) + (miClub.dinero ?? 0) : null;
   const colorRevalorizacion = revalorizacion > 0 ? "#16A34A" : revalorizacion < 0 ? "#DC2626" : undefined;
 
   const porteroTitular = titulares.find((j) => j.posicion === "Portero") ?? null;
@@ -98,11 +115,12 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
     banquillo: suplentes.map(aProbable),
   };
 
-  function lineasDe(j: Jugador) {
-    return lineasParaJugador(j, columnasVisibles, j.equipoId !== null ? () => setModalPartidos(j) : undefined);
+  function lineasDe(j: Jugador, enCampo: boolean) {
+    return lineasParaJugador(j, columnasVisibles, j.equipoId !== null ? () => setModalPartidos(j) : undefined, enCampo);
   }
 
-  const datosPorJugador = Object.fromEntries(jugadores.map((j) => [j.id, lineasDe(j)]));
+  const datosPorJugador = Object.fromEntries(jugadores.map((j) => [j.id, lineasDe(j, false)]));
+  const datosPorJugadorCampo = Object.fromEntries(jugadores.map((j) => [j.id, lineasDe(j, true)]));
 
   function abrirMenu(id: number) {
     const j = jugadores.find((x) => x.id === id);
@@ -133,7 +151,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
       </div>
 
       <div className="relative w-full">
-        <CampoTactico formacion={formacion} datosPorJugador={datosPorJugador} onClickJugador={abrirMenu} />
+        <CampoTactico formacion={formacion} datosPorJugador={datosPorJugadorCampo} onClickJugador={abrirMenu} />
         <div className="absolute top-4 right-4">
           <MenuFiltros columnas={columnasVisibles} onChangeColumnas={setColumnasVisibles} excluir={EXCLUIR_FILTROS} />
         </div>
@@ -152,7 +170,6 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
         onAgregar={() => setBuscador("suplente")}
         datosPorJugador={datosPorJugador}
         onClickJugador={abrirMenu}
-        tamanoAgregar={TAMANO_BOTON_AGREGAR}
       />
 
       <div className="w-full flex flex-col items-start gap-[18px]">
@@ -172,10 +189,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
               onClick={() => abrirMenu(j.id)}
             />
           ))}
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-[14px] font-bold leading-none opacity-0">+</span>
-            <BotonAgregar size={TAMANO_BOTON_AGREGAR} onClick={() => setBuscador("duda")} className="bg-[#F5F5F7]" />
-          </div>
+          <RanuraAgregar size={62} onClick={() => setBuscador("duda")} />
         </div>
       </div>
 
@@ -196,14 +210,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
               onClick={() => abrirMenu(j.id)}
             />
           ))}
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-[14px] font-bold leading-none opacity-0">+</span>
-            <BotonAgregar
-              size={TAMANO_BOTON_AGREGAR}
-              onClick={() => setBuscador("seguimiento")}
-              className="bg-[#F5F5F7]"
-            />
-          </div>
+          <RanuraAgregar size={62} onClick={() => setBuscador("seguimiento")} />
         </div>
       </div>
 

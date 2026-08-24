@@ -6,10 +6,12 @@ export function CampoTactico({
   formacion,
   datosPorJugador,
   onClickJugador,
+  hrefsPorJugador,
 }: {
   formacion: Formacion;
   datosPorJugador?: Record<number, { texto: string; color?: string }[]>;
   onClickJugador?: (id: number) => void;
+  hrefsPorJugador?: Record<number, string>;
 }) {
   const filas = formacion.lineas;
 
@@ -56,6 +58,7 @@ export function CampoTactico({
               colorNombre="#FFFFFF"
               lineas={datosPorJugador?.[jugador.id]}
               onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
+              href={!jugador.esFantasma ? hrefsPorJugador?.[jugador.id] : undefined}
             />
           </div>
         ))
@@ -74,6 +77,7 @@ export function CampoTactico({
                 colorNombre="#FFFFFF"
                 lineas={datosPorJugador?.[formacion.portero.id]}
                 onClick={onClickJugador ? () => onClickJugador(formacion.portero!.id) : undefined}
+                href={hrefsPorJugador?.[formacion.portero.id]}
               />
             )}
           </div>
@@ -93,6 +97,7 @@ export function CampoTactico({
                   colorNombre="#FFFFFF"
                   lineas={datosPorJugador?.[jugador.id]}
                   onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
+                  href={hrefsPorJugador?.[jugador.id]}
                 />
               ))}
             </div>

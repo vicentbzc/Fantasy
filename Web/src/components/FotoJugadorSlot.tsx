@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import { SIN_FOTO } from "@/lib/imagenes";
 
@@ -16,6 +17,7 @@ export function FotoJugadorSlot({
   fontSizeNombre = 11,
   lineas,
   onClick,
+  href,
 }: {
   src: string | null;
   alt: string;
@@ -29,16 +31,14 @@ export function FotoJugadorSlot({
   fontSizeNombre?: number;
   lineas?: { texto: string; color?: string; onClick?: () => void }[];
   onClick?: () => void;
+  href?: string;
 }) {
   const [error, setError] = useState(false);
   const mostrarSinFoto = !src || error;
+  const claseContenedor = `flex flex-col items-center gap-1 ${onClick || href ? "cursor-pointer" : ""}`;
 
-  return (
-    <div
-      className={`flex flex-col items-center gap-1 ${onClick ? "cursor-pointer" : ""}`}
-      style={{ width: size }}
-      onClick={onClick}
-    >
+  const contenido = (
+    <>
       {lineas ? (
         <div className="flex flex-col items-center leading-none">
           {lineas.map((linea, i) => (
@@ -88,6 +88,20 @@ export function FotoJugadorSlot({
       >
         {alt}
       </span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={claseContenedor} style={{ width: size }}>
+        {contenido}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={claseContenedor} style={{ width: size }} onClick={onClick}>
+      {contenido}
     </div>
   );
 }

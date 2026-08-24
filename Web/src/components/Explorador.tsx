@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Jugador } from "@/lib/db";
 import { ORDEN_EQUIPOS } from "@/lib/equipos";
 import { Avatar } from "./Avatar";
@@ -13,6 +14,7 @@ import { COLUMNAS_OPCIONALES, CLAVES_SUMABLES, formatearCelda } from "@/lib/colu
 import { normalizarTexto } from "@/lib/texto";
 import { COLOR_DIFICULTAD_CALENDARIO } from "@/lib/formato";
 import { ProximosPartidos } from "./ProximosPartidos";
+import { usePersistedState } from "@/lib/usePersistedState";
 
 const POSICIONES = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 const CLAVES_EXCLUIDAS_TOTALES = new Set<keyof Jugador>([
@@ -55,19 +57,36 @@ function compararPorClave(a: Jugador, b: Jugador, clave: ClaveOrdenable, direcci
 }
 
 export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
-  const [busqueda, setBusqueda] = useState("");
-  const [posicionesSel, setPosicionesSel] = useState<string[]>([]);
-  const [equiposSel, setEquiposSel] = useState<string[]>([]);
-  const [columnasVisibles, setColumnasVisibles] = useState<ColumnasVisibles>({});
-  const [orden, setOrden] = useState<{ clave: ClaveOrdenable; direccion: "asc" | "desc" }>({
-    clave: "nombre",
-    direccion: "asc",
-  });
-  const [seleccionados, setSeleccionados] = useState<number[]>([]);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [busqueda, setBusqueda] = usePersistedState("fantasy.jugadores.busqueda", "");
+  const [posicionesSel, setPosicionesSel] = usePersistedState<string[]>("fantasy.jugadores.posiciones", []);
+  const [equiposSel, setEquiposSel] = usePersistedState<string[]>("fantasy.jugadores.equipos", []);
+  const [columnasVisibles, setColumnasVisibles] = usePersistedState<ColumnasVisibles>(
+    "fantasy.jugadores.columnas",
+    {}
+  );
+  const [orden, setOrden] = usePersistedState<{ clave: ClaveOrdenable; direccion: "asc" | "desc" }>(
+    "fantasy.jugadores.orden",
+    { clave: "nombre", direccion: "asc" }
+  );
+  const [seleccionados, setSeleccionados] = usePersistedState<number[]>("fantasy.jugadores.seleccionados", []);
   const [modalValor, setModalValor] = useState<Jugador | null>(null);
   const [modalPuntos, setModalPuntos] = useState<Jugador | null>(null);
   const [modalUltimaJornada, setModalUltimaJornada] = useState<Jugador | null>(null);
   const [modalPartidos, setModalPartidos] = useState<Jugador | null>(null);
+
+  useEffect(() => {
+    const idParam = searchParams.get("seleccionado");
+    if (!idParam) return;
+    const id = Number(idParam);
+    if (!Number.isFinite(id)) return;
+    setBusqueda("");
+    setPosicionesSel([]);
+    setEquiposSel([]);
+    setSeleccionados([id]);
+    router.replace("/jugadores", { scroll: false });
+  }, [searchParams, router, setBusqueda, setPosicionesSel, setEquiposSel, setSeleccionados]);
 
   const equipos = useMemo(
     () =>

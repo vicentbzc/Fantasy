@@ -80,6 +80,7 @@ create table mi_club (
     id integer primary key default 1,
     dinero bigint,
     fichas integer,
+    valor_equipo bigint,
     check (id = 1)
 );
 

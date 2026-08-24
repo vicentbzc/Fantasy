@@ -50,6 +50,16 @@ export const COLOR_DIFICULTAD_CALENDARIO: Record<string, string> = {
   "Muy difícil": COLOR_DIFICULTAD["Muy alta"],
 };
 
+export const COLOR_DIFICULTAD_CALENDARIO_CAMPO: Record<string, string> = {
+  "Muy fácil": "#CFFFDF",
+  Fácil: "#CFE8FF",
+  Normal: "#FFF2A8",
+  Difícil: "#FFD8A8",
+  "Muy difícil": "#FFC9C9",
+};
+
+export const COLOR_REVALORIZACION_CAMPO = { positivo: "#CFFFDF", negativo: "#FFC9C9" };
+
 export function formatearCuando(
   prefijo: string | null,
   dia: string | null,

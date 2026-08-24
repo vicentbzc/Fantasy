@@ -1816,11 +1816,225 @@ guardando esencialmente el mismo dato salvo para los pocos jugadores con
 la cláusula subida a mano, ver Séptima ronda), no ha hecho falta ninguna
 tabla ni pipeline nuevo.
 
-Pendiente de aclarar con el usuario (no se ha podido confirmar en
-directo): si el `teamMoney` de la API ya descuenta o no una puja activa
-en curso — no había ninguna puja pendiente al comprobarlo. El usuario
-pidió expresamente comparar las 3 tarjetas de dinero/valor contra su
-app real; queda a la espera de que lo haga y confirme si cuadra.
+~~Pendiente de aclarar con el usuario...~~ **Resuelto (24/08/2026, ver
+"Decimoquinta ronda" más abajo)**: `GET /leagues/{id}/teams/{teamId}` no
+tiene ningún campo aparte para dinero comprometido en una puja — el único
+dato de dinero que devuelve es `teamMoney`, confirmado con un volcado en
+directo de la respuesta completa (`loanedPlayers`, `teamMoney`,
+`playersNumber`, `id`, `managerId`, `startingWeek`, `banned`,
+`teamValue`, `teamPoints`, `position`, `manager`, nada más). Como el
+usuario pidió explícitamente usar "el dinero que tengo sin tener en
+cuenta la puja", y `teamMoney` es el único número que existe, ya es
+exactamente ese dato — no hizo falta ningún cambio de código en `Valor
+de mi club`.
+
+## Decimoquinta ronda: navegación cruzada entre páginas, persistencia de filtros, y más arreglos de Mi equipo (24/08/2026)
+
+**Persistencia de selecciones y filtros** (`Jugadores` y `Comparador`):
+petición del usuario de que buscador, filtros de equipo/posición,
+columnas visibles, orden y jugadores seleccionados/comparados
+sobrevivan a navegar a otra página, recargar la web, o cerrarla y volver
+otro día — antes todo ese estado vivía en `useState` normal, se perdía
+en cuanto el componente se desmontaba. Nuevo hook
+`Web/src/lib/usePersistedState.ts`, un `[valor, setValor]` con la misma
+forma que `useState` pero respaldado por `localStorage` bajo una clave
+por campo (`fantasy.jugadores.busqueda`, `fantasy.comparador.columnas`,
+etc.). Construido con `useSyncExternalStore` en vez del patrón obvio
+`useState` + `useEffect` para leer `localStorage` al montar — el ESLint
+de este proyecto (`eslint-config-next` 16, reglas del React Compiler)
+rechaza como error tanto "setState síncrono dentro de un efecto" como
+"leer/escribir un ref durante el render", así que el patrón clásico de
+"leer localStorage en un `useEffect` y volcarlo a `useState`" no compila
+limpio aquí; `useSyncExternalStore` sí es la vía sancionada por React
+para sincronizar con un almacén externo sin esos problemas, con
+`getServerSnapshot` devolviendo `null` para que el render en servidor
+(las páginas de `/jugadores` y `/comparador` son estáticas,
+`revalidate = 300`) no reviente ni desajuste la hidratación. `setValor`
+escribe a `localStorage` y notifica a un pequeño registro interno de
+"escuchas" por clave para que el propio hook se entere del cambio y
+re-renderice.
+
+**Selección de jugador desde Equipos → Jugadores sin filtros**: cada
+foto de jugador de `/equipos/[id]` (alineación real, banquillo, y dentro
+del nuevo modal de partido, ver abajo) es ahora un enlace a
+`/jugadores?seleccionado={id}` (nuevo prop `href` en
+`FotoJugadorSlot.tsx`, que envuelve el slot entero en un `next/link` en
+vez de un `div` con `onClick` cuando se le pasa `href` — evita el
+problema de pasar una función de un Server Component a un Client
+Component, ya que `CampoTactico`/`Banquillo` no tienen "use client" y se
+usan tanto desde `/equipos/[id]` — página de servidor — como desde
+`MiEquipo.tsx` — cliente —, así que solo strings serializables viajan
+como prop, nunca una función). `Explorador.tsx` lee ese `?seleccionado=`
+con `useSearchParams()` en un `useEffect`, limpia búsqueda y filtros de
+equipo/posición, fija la selección a ese único jugador, y usa
+`router.replace("/jugadores")` para quitar el parámetro de la URL sin
+dejarlo pegado tras la primera carga. `useSearchParams()` obliga a
+envolver `Explorador` en un `<Suspense>` en `jugadores/page.tsx` (la
+página es estática) según la documentación de Next 16, si no el build de
+producción falla con "Missing Suspense boundary".
+
+**Jugadores "fantasma" nunca enlazan**: los banquillos sintéticos de
+`posicion_sin_oficial` usan ids negativos sintéticos (`-(i+1)`, ver
+"Tres catálogos distintos") que no existen en la tabla `jugadores` — el
+nuevo `hrefsJugadores()` de `lib/formacion.ts` los excluye explícitamente
+al construir el mapa de `id → href`, así que esas fotos siguen sin ser
+clicables (no hay a dónde llevar).
+
+**Modal de partido al hacer clic en la lista de "Próximos partidos"**:
+nuevo componente `ModalPartido.tsx` + server action
+`accionDetallePartido(equipoId, orden)` en `actions.ts` (reutiliza
+`obtenerEquipoDetalle` + `obtenerJugadoresEquipo` + `calcularFormacion`,
+nada de tablas ni queries nuevas). Al pulsar cualquier tarjeta de la
+lista de partidos (`ListaProximosPartidos.tsx`, nuevo wrapper cliente
+para la lista de `/equipos/[id]`) se abre el modal con la cabecera VS de
+ese partido concreto, el campo táctico + banquillo, y la misma lista de
+próximos partidos **excluyendo el que se pulsó**; pulsar otra tarjeta
+dentro del propio modal cambia de partido sin cerrar y reabrir (estado
+`ordenActual` interno, no una pila de modales). Importante: la
+alineación que se muestra es siempre la **misma** probable alineación
+actual del equipo (`calcularFormacion` sobre `jugadores`/
+`posicion_sin_oficial`) — futbolfantasy.com solo publica un snapshot de
+alineación probable por equipo (la del próximo partido), no una por cada
+partido futuro de la lista, así que no existe (ni puede existir con los
+datos actuales) una alineación distinta para un partido de dentro de
+varias jornadas; se acepta mostrar siempre esa misma alineación porque es
+la única información real disponible, en vez de inventar nada.
+
+**Clic en cualquier escudo/nombre de equipo lleva a su ficha**: dentro
+de `TarjetaProximoPartido.tsx` (usado en la lista de próximos partidos y
+en el modal nuevo) y en la cabecera VS de `/equipos/[id]`, cada bloque de
+equipo (nombre + escudo) es ahora un `next/link` a `/equipos/{id}`, con
+`stopPropagation` en el de dentro de la tarjeta para que no dispare
+también el clic de "abrir modal de este partido" de la tarjeta que lo
+contiene. Solo enlaza si el equipo tiene `id` conocido (el rival puede
+no estar en la tabla `equipos` todavía).
+
+**Mi equipo — "Valor de mi equipo" pasa a ser `valorSinClausula`**:
+hasta ahora sumaba `valor` (que en la consulta de `obtenerJugadores()` es
+en realidad `valor_liga`, la cláusula) — el usuario aclaró que quiere la
+suma del valor oficial del juego (`marketValue`, igual en cualquier
+liga), no el de su liga concreta. Cambiado en `MiEquipo.tsx`
+(`valorEquipo` sobre `j.valorSinClausula`); `valorClub` (que es
+`valorEquipo + dinero`) hereda el cambio automáticamente. Verificado en
+directo contra la plantilla real de prueba: la suma coincidió
+exactamente con el campo `teamValue` que devuelve la propia API de
+LaLiga Fantasy para el club (194.190.648 en ambos), confirmando que la
+fórmula nueva es la correcta.
+
+**Colores de Revalorización/Dificultad sobre el campo verde,
+diferenciados de las tarjetas blancas**: el verde de "positivo"
+(`#16A34A`) y el verde de "Muy baja/Fácil" dificultad casi se fundían
+con el verde del césped (`#5B9D70`–`#3E8055`). Nuevas paletas pastel
+`COLOR_DIFICULTAD_CALENDARIO_CAMPO` y `COLOR_REVALORIZACION_CAMPO` en
+`lib/formato.ts` (mismo mapeo de categorías, tonos mucho más claros:
+`#CFFFDF`, `#CFE8FF`, `#FFF2A8`, `#FFD8A8`, `#FFC9C9`), usadas solo
+dentro de `CampoTactico` (nuevo parámetro `enCampo` en
+`lineasParaJugador()` de `MiEquipo.tsx`, que ahora calcula dos mapas de
+`datosPorJugador` — uno para el campo, otro para banquillo/en duda/
+seguimiento, que siguen con la paleta saturada de siempre porque ahí sí
+contrasta bien contra blanco). Verificado en directo con
+`getComputedStyle`: un jugador titular con revalorización negativa pintó
+`rgb(255, 201, 201)` sobre el campo, y un suplente con revalorización
+positiva en la tarjeta blanca del banquillo pintó `rgb(22, 163, 74)` — la
+paleta correcta en cada sitio.
+
+**Sin límite de titulares**: se quitó la comprobación de
+`MAXIMO_TITULARES` (11) en `establecerEstadoMiEquipo()` — el usuario
+quiere poder poner más de 11 titulares. Se mantiene intacto el
+intercambio automático de portero (poner un segundo portero titular pasa
+al anterior a suplente, sin pasar por el límite porque ya no existe
+ningún límite). Probado en directo por el propio usuario mientras se
+trabajaba en esta sesión: puso a 3 suplentes más como titulares (13 en
+total) sin que la web lo bloqueara.
+
+**Botones "+" de banquillo/en duda/seguimiento, arreglo real de tamaño y
+centrado**: el intento de la Decimocuarta ronda arregló el color pero no
+el tamaño (52px, cuando las fotos de al lado son de 62px) ni contaba con
+que el nombre del jugador ocupa una tercera línea debajo de la foto que
+el hueco del botón "+" no reservaba — con `align-items: stretch` por
+defecto del contenedor flex, el botón quedaba descentrado verticalmente
+en cuanto había más de una fila de datos opcionales encima de las fotos.
+Nuevo componente `RanuraAgregar.tsx`: mismo alto que una `FotoJugadorSlot`
+real — un bloque de líneas invisibles arriba (tantas como columnas
+opcionales estén activas, `numLineasActivas` contado desde
+`columnasVisibles`), el botón "+" a 62px, y una línea invisible más abajo
+del mismo tamaño que el nombre — usado en `Banquillo.tsx` y en las
+secciones "En duda"/"Seguimiento" de `MiEquipo.tsx`. Verificado en
+directo con `getBoundingClientRect()`: la fila de fotos del banquillo y
+el botón "+" comparten el mismo `top` exacto, con 0 filtros activos y
+también con 1 activo (confirma que el cálculo dinámico de líneas
+funciona, no solo el caso por defecto).
+
+**Verificación de esta ronda**: el navegador integrado no tuvo panel
+visible en esta sesión (capturas y clics simulados con coordenadas
+fallaron: "the Browser pane is not displayed"), así que la verificación
+se hizo leyendo el árbol de accesibilidad, disparando eventos DOM reales
+(`pointerdown`/`mousedown`/`pointerup`/`mouseup`/`click`, que sí
+llegaban a React) y comparando estilos computados/posiciones en vez de
+capturas de pantalla — más las pruebas del propio usuario en su pestaña
+real mientras se trabajaba (el servidor de desarrollo recarga solo con
+Turbopack). Sin errores de consola ni del servidor en ninguna página
+tocada (`/jugadores`, `/comparador`, `/equipos`, `/equipos/[id]`,
+`/mi-equipo`).
+
+## Decimosexta ronda: arreglos reales de la ronda anterior (24/08/2026, mismo día)
+
+El usuario probó en directo los cambios de la Decimoquinta ronda y encontró que dos de los arreglos no eran del todo correctos:
+
+**Nombre de equipo separado del escudo en "Próximos partidos", causa real**:
+`TarjetaProximoPartido.tsx` envolvía el nombre en `next/link` (Decimoquinta
+ronda) pero la clase `text-right`/`text-left` se quedó en un `<span>`
+**dentro** del enlace en vez de en el propio enlace — un `<a>` dentro de
+una celda de grid sí se estira para ocupar toda la columna (`justify-self:
+stretch` por defecto), pero el `text-align` de un `<span>` interno no
+alinea nada dentro de esa celda estirada, solo dentro de su propia caja
+diminuta ajustada al texto. El resultado visual era el mismo que si no
+hubiera alineación: el texto pegado al lado contrario del escudo con todo
+el ancho de la columna vacío en medio. Arreglado moviendo la clase de
+alineación al propio `<Link>` (o al `<span>` de respaldo cuando no hay
+`id`, ver `ConEnlaceAEquipo` en el mismo archivo) — el mismo patrón que ya
+usaba correctamente la cabecera VS de `/equipos/[id]` y `ModalPartido.tsx`
+(ahí el `className` sí iba directo en el `Link`, por eso esos dos sitios
+nunca tuvieron el problema). Verificado en directo con
+`getBoundingClientRect()`: el hueco entre el borde derecho del nombre y
+el borde izquierdo del escudo pasó a ser de 8px exactos (el `gap-2` del
+grid), antes mucho mayor.
+
+**Botones "+" de banquillo/en duda/seguimiento, esta vez con el tamaño
+real, no solo el hueco**: el intento anterior mantenía el botón visible a
+62px (el tamaño de la foto) rodeado de líneas invisibles calculadas a
+mano (`numLineasActivas`) para simular el alto de una `FotoJugadorSlot`
+completa — frágil, porque el nombre real de un jugador puede ocupar más
+de una línea (el `span` del nombre en `FotoJugadorSlot.tsx` no tiene
+`whitespace-nowrap`, así que nombres largos envuelven) y el cálculo a
+mano nunca lo tenía en cuenta. `RanuraAgregar.tsx` reescrito por completo:
+ya no intenta adivinar cuántas líneas hacen falta — es un único `<button>`
+que ocupa toda su celda del grid/flex (con `align-items: stretch`, el
+valor por defecto de ambos contenedores, ya se encarga el navegador de
+estirarlo a la altura real de la fila, la misma que ya calcula para las
+fotos de al lado, sea cual sea su nombre o cuántas líneas de filtros
+tengan activas) con el "+" centrado dentro con flexbox. Lleva un
+`minHeight` de respaldo (tamaño de foto + 22px, la altura típica de una
+tarjeta con nombre de una sola línea) solo para el caso de una sección
+completamente vacía, donde no hay ninguna foto al lado de la que
+heredar altura. Verificado en directo con `getBoundingClientRect()` en
+tres escenarios reales: banquillo con 1 suplente y 0 filtros (foto y
+botón con `height: 84` idénticos), y el mismo banquillo con 2 filtros de
+texto activados (`height: 118.75` en ambos, sube junto con la foto sin
+tocar el componente).
+
+**Las otras dos cosas que el usuario reportó como mal no eran bugs de
+código**: "Valor de mi club" sin sumar el dinero y "Fichas de mi equipo"
+en `—` — confirmado con una consulta directa a la base de datos real
+(`select * from mi_club`) que la tabla está **vacía**, no que la web lea
+mal un dato que sí existe. Encaja exactamente con el pendiente ya
+documentado: `sincronizar_mi_club()` borra la tabla entera en cada
+sincronización y solo la rellena si `Datos Mi club.csv` trae una fila
+(que depende de que `LALIGA_FANTASY_TEAM_ID` esté configurado) — como ese
+secreto todavía no está en GitHub, el cron de cada 15 minutos vacía la
+tabla una y otra vez contra la base de datos real, aunque en local sí
+funcione. No hace falta ningún cambio de código; hace falta que el
+usuario añada el secreto (ver "Pendiente").
 
 ## Historia breve
 

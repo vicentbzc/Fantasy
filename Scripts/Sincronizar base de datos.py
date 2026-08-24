@@ -456,8 +456,8 @@ def sincronizar_mi_club(cur):
 
     fila = filas[0]
     cur.execute(
-        "insert into mi_club (id, dinero, fichas) values (1, %s, %s)",
-        (parsear_entero(fila["Dinero"]), parsear_entero(fila["Fichas"])),
+        "insert into mi_club (id, dinero, fichas, valor_equipo) values (1, %s, %s, %s)",
+        (parsear_entero(fila["Dinero"]), parsear_entero(fila["Fichas"]), parsear_entero(fila.get("Valor equipo"))),
     )
     return 1
 

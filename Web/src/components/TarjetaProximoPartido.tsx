@@ -1,7 +1,28 @@
+"use client";
+
+import type { ReactNode } from "react";
+import Link from "next/link";
 import { ImagenCuadrada } from "./ImagenCuadrada";
 import { urlEscudoEquipo, urlLogoCompeticion } from "@/lib/imagenes";
 import { formatearCuando, COLOR_DIFICULTAD } from "@/lib/formato";
 import type { Partido } from "@/lib/db";
+
+function ConEnlaceAEquipo({
+  id,
+  className,
+  children,
+}: {
+  id: number | null;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (id === null) return <span className={className}>{children}</span>;
+  return (
+    <Link href={`/equipos/${id}`} onClick={(e) => e.stopPropagation()} className={`hover:opacity-70 ${className ?? ""}`}>
+      {children}
+    </Link>
+  );
+}
 
 export function TarjetaProximoPartido({
   partido,
@@ -26,20 +47,28 @@ export function TarjetaProximoPartido({
       <p className="text-xs font-medium text-[#6E6E73]">{cuando || "Por confirmar"}</p>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 w-full">
-        <span className="text-xs font-semibold text-[#1D1D1F] text-right">{local.nombre}</span>
+        <ConEnlaceAEquipo id={local.id} className="text-xs font-semibold text-[#1D1D1F] text-right">
+          {local.nombre}
+        </ConEnlaceAEquipo>
         <div className="flex items-center gap-2">
-          <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={64} radius={12} bg="transparent" padding={10} />
+          <ConEnlaceAEquipo id={local.id}>
+            <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={64} radius={12} bg="transparent" padding={10} />
+          </ConEnlaceAEquipo>
           <span className="text-xs font-bold text-[#6E6E73]">VS</span>
-          <ImagenCuadrada
-            src={urlEscudoEquipo(visitante.id)}
-            alt={visitante.nombre}
-            size={64}
-            radius={12}
-            bg="transparent"
-            padding={10}
-          />
+          <ConEnlaceAEquipo id={visitante.id}>
+            <ImagenCuadrada
+              src={urlEscudoEquipo(visitante.id)}
+              alt={visitante.nombre}
+              size={64}
+              radius={12}
+              bg="transparent"
+              padding={10}
+            />
+          </ConEnlaceAEquipo>
         </div>
-        <span className="text-xs font-semibold text-[#1D1D1F] text-left">{visitante.nombre}</span>
+        <ConEnlaceAEquipo id={visitante.id} className="text-xs font-semibold text-[#1D1D1F] text-left">
+          {visitante.nombre}
+        </ConEnlaceAEquipo>
       </div>
 
       {logoCompeticion && (
