@@ -166,13 +166,13 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   }, [jugadores, equiposSel, seleccionados]);
 
   return (
-    <div className="flex flex-col gap-6 px-6 pb-16 max-w-[1104px] mx-auto w-full pt-8">
+    <div className="flex flex-col gap-6 px-6 sm:px-12 pb-16 max-w-[1576px] mx-auto w-full pt-8">
       <div className="flex flex-wrap gap-3">
         <input
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar a un jugador"
-          className="h-12 bg-white rounded-[14px] px-4 text-sm flex-1 min-w-[200px] transition-colors duration-200 hover:bg-[#FAFAFC]"
+          className="h-12 bg-white rounded-[14px] px-4 text-sm w-64 transition-colors duration-200 hover:bg-[#FAFAFC]"
         />
         <MenuMultiSeleccion
           etiqueta="Equipos"

@@ -1,5 +1,5 @@
 import type { Jugador } from "./db";
-import { formatearEstado, bucketDificultadCalendario } from "./formato";
+import { formatearEstado, bucketDificultadCalendario, formatearNumeroEs } from "./formato";
 
 export type ColumnaOpcional = {
   clave: keyof Jugador;
@@ -87,7 +87,7 @@ export const CLAVES_SUMABLES = new Set<keyof Jugador>([
 
 export function formatearNumero(valor: number | null, decimales = 0): string {
   if (valor === null) return "—";
-  return valor.toLocaleString("es-ES", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
+  return formatearNumeroEs(valor, decimales);
 }
 
 export function formatearCelda(columna: ColumnaOpcional, valor: unknown): string {

@@ -1,11 +1,14 @@
-export function formatearValor(valor: number | null): string {
-  if (valor === null) return "—";
-  return valor.toLocaleString("es-ES");
+export function formatearNumeroEs(valor: number, decimales = 0): string {
+  const negativo = valor < 0;
+  const [parteEntera, parteDecimal] = Math.abs(valor).toFixed(decimales).split(".");
+  const parteEnteraAgrupada = parteEntera.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const resultado = parteDecimal ? `${parteEnteraAgrupada},${parteDecimal}` : parteEnteraAgrupada;
+  return negativo ? `-${resultado}` : resultado;
 }
 
-export function formatearPorcentaje(valor: number | null): string {
+export function formatearValor(valor: number | null): string {
   if (valor === null) return "—";
-  return `${valor.toLocaleString("es-ES")}%`;
+  return formatearNumeroEs(valor);
 }
 
 export function formatearEstado(estado: string | null): string {

@@ -138,75 +138,79 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
   }
 
   return (
-    <div className="max-w-[700px] mx-auto w-full px-6 pt-14 pb-22 flex flex-col items-center gap-14 text-center">
-      <div className="grid grid-cols-2 gap-3 w-full">
-        <TarjetaEstadistica etiqueta="Valor de mi club" valor={formatearValor(valorClub)} />
-        <TarjetaEstadistica etiqueta="Valor de mi equipo" valor={formatearValor(valorEquipo)} />
-        <TarjetaEstadistica etiqueta="Revalorización" valor={formatearValor(revalorizacion)} color={colorRevalorizacion} />
-        <TarjetaEstadistica etiqueta="Fichas de mi equipo" valor={miClub.fichas === null ? "—" : String(miClub.fichas)} />
-      </div>
-
-      <div className="relative w-full">
-        <CampoTactico formacion={formacion} datosPorJugador={datosPorJugadorCampo} onClickJugador={abrirMenu} />
-        <div className="absolute top-4 right-4">
-          <MenuFiltros columnas={columnasVisibles} onChangeColumnas={setColumnasVisibles} excluir={EXCLUIR_FILTROS} />
-        </div>
-        <div className="absolute bottom-4 left-4">
-          <BotonAgregar
-            size={TAMANO_BOTON_AGREGAR}
-            onClick={() => setBuscador("titular")}
-            className="bg-[#F5F5F7]"
-          />
-        </div>
-      </div>
-
-      <Banquillo
-        jugadores={formacion.banquillo}
-        mostrarAgregar
-        onAgregar={() => setBuscador("suplente")}
-        datosPorJugador={datosPorJugador}
-        onClickJugador={abrirMenu}
-      />
-
-      <div className="w-full flex flex-col items-start gap-[18px]">
-        <h2 className="text-[20px] font-bold">En duda</h2>
-        <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
-          {enDuda.map((j) => (
-            <FotoJugadorSlot
-              key={j.id}
-              src={urlFotoJugador(j.id)}
-              alt={j.nombre}
-              size={62}
-              radius={12}
-              probabilidad={j.porcentajeTitularidad}
-              colorProbabilidad="#6E6E73"
-              fontSizeProbabilidad={14}
-              lineas={datosPorJugador[j.id]}
-              onClick={() => abrirMenu(j.id)}
+    <div className="max-w-[1576px] mx-auto w-full px-6 sm:px-12 pt-14 pb-22 flex flex-col lg:flex-row items-center lg:items-start gap-14 lg:gap-20 text-center">
+      <div className="flex flex-col items-center gap-14 w-full lg:w-[700px] lg:shrink-0">
+        <div className="relative w-full">
+          <CampoTactico formacion={formacion} datosPorJugador={datosPorJugadorCampo} onClickJugador={abrirMenu} />
+          <div className="absolute top-4 right-4">
+            <MenuFiltros columnas={columnasVisibles} onChangeColumnas={setColumnasVisibles} excluir={EXCLUIR_FILTROS} />
+          </div>
+          <div className="absolute bottom-4 left-4">
+            <BotonAgregar
+              size={TAMANO_BOTON_AGREGAR}
+              onClick={() => setBuscador("titular")}
+              className="bg-[#F5F5F7]"
             />
-          ))}
-          <RanuraAgregar size={62} onClick={() => setBuscador("duda")} />
+          </div>
         </div>
+
+        <Banquillo
+          jugadores={formacion.banquillo}
+          mostrarAgregar
+          onAgregar={() => setBuscador("suplente")}
+          datosPorJugador={datosPorJugador}
+          onClickJugador={abrirMenu}
+        />
       </div>
 
-      <div className="w-full flex flex-col items-start gap-[18px]">
-        <h2 className="text-[20px] font-bold">Seguimiento</h2>
-        <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
-          {seguimiento.map((j) => (
-            <FotoJugadorSlot
-              key={j.id}
-              src={urlFotoJugador(j.id)}
-              alt={j.nombre}
-              size={62}
-              radius={12}
-              probabilidad={j.porcentajeTitularidad}
-              colorProbabilidad="#6E6E73"
-              fontSizeProbabilidad={14}
-              lineas={datosPorJugador[j.id]}
-              onClick={() => abrirMenu(j.id)}
-            />
-          ))}
-          <RanuraAgregar size={62} onClick={() => setBuscador("seguimiento")} />
+      <div className="w-full lg:w-[700px] lg:shrink-0 flex flex-col gap-14">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
+          <TarjetaEstadistica etiqueta="Valor de mi club" valor={formatearValor(valorClub)} />
+          <TarjetaEstadistica etiqueta="Valor de mi equipo" valor={formatearValor(valorEquipo)} />
+          <TarjetaEstadistica etiqueta="Revalorización" valor={formatearValor(revalorizacion)} color={colorRevalorizacion} />
+          <TarjetaEstadistica etiqueta="Fichas de mi equipo" valor={miClub.fichas === null ? "—" : String(miClub.fichas)} />
+        </div>
+
+        <div className="w-full flex flex-col items-start gap-[18px]">
+          <h2 className="text-[20px] font-bold">En duda</h2>
+          <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
+            {enDuda.map((j) => (
+              <FotoJugadorSlot
+                key={j.id}
+                src={urlFotoJugador(j.id)}
+                alt={j.nombre}
+                size={62}
+                radius={12}
+                probabilidad={j.porcentajeTitularidad}
+                colorProbabilidad="#6E6E73"
+                fontSizeProbabilidad={14}
+                lineas={datosPorJugador[j.id]}
+                onClick={() => abrirMenu(j.id)}
+              />
+            ))}
+            <RanuraAgregar size={62} onClick={() => setBuscador("duda")} />
+          </div>
+        </div>
+
+        <div className="w-full flex flex-col items-start gap-[18px]">
+          <h2 className="text-[20px] font-bold">Seguimiento</h2>
+          <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
+            {seguimiento.map((j) => (
+              <FotoJugadorSlot
+                key={j.id}
+                src={urlFotoJugador(j.id)}
+                alt={j.nombre}
+                size={62}
+                radius={12}
+                probabilidad={j.porcentajeTitularidad}
+                colorProbabilidad="#6E6E73"
+                fontSizeProbabilidad={14}
+                lineas={datosPorJugador[j.id]}
+                onClick={() => abrirMenu(j.id)}
+              />
+            ))}
+            <RanuraAgregar size={62} onClick={() => setBuscador("seguimiento")} />
+          </div>
         </div>
       </div>
 

@@ -85,6 +85,44 @@ function GraficaLinea({ datos }: { datos: PuntoHistorialValor[] }) {
         <span className="text-neutral-500">Mínimo: {formatearValor(min)}</span>
         <span className="text-neutral-500">Máximo: {formatearValor(max)}</span>
       </div>
+      <RevalorizacionDiaria datos={datos} />
+    </div>
+  );
+}
+
+function formatearFechaLarga(fecha: string): string {
+  const [, mes, dia] = fecha.split("-");
+  return `${dia}/${mes}`;
+}
+
+function RevalorizacionDiaria({ datos }: { datos: PuntoHistorialValor[] }) {
+  const filas = datos
+    .slice(1)
+    .map((dato, i) => ({
+      fecha: dato.fecha,
+      diferencia: dato.valor - datos[i].valor,
+    }))
+    .reverse();
+
+  if (filas.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      <h4 className="text-sm font-medium mb-2">Revalorización por día</h4>
+      <ul className="flex flex-col gap-1 max-h-40 overflow-y-auto text-sm">
+        {filas.map((fila) => (
+          <li key={fila.fecha} className="flex items-center justify-between gap-2">
+            <span className="text-neutral-500">{formatearFechaLarga(fila.fecha)}</span>
+            <span
+              className="tabular-nums"
+              style={{ color: fila.diferencia > 0 ? "#16A34A" : fila.diferencia < 0 ? "#FE4B44" : undefined }}
+            >
+              {fila.diferencia > 0 ? "+" : ""}
+              {formatearValor(fila.diferencia)}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

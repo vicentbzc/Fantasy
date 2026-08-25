@@ -4,7 +4,6 @@ const ENLACES = [
   { href: "/", etiqueta: "Inicio" },
   { href: "/equipos", etiqueta: "Equipos" },
   { href: "/jugadores", etiqueta: "Jugadores" },
-  { href: "/comparador", etiqueta: "Comparador" },
   { href: "/mi-equipo", etiqueta: "Mi equipo" },
 ];
 

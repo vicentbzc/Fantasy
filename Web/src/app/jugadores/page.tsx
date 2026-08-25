@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { obtenerJugadores } from "@/lib/db";
 import { Explorador } from "@/components/Explorador";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export default async function Jugadores() {
   const jugadores = await obtenerJugadores();

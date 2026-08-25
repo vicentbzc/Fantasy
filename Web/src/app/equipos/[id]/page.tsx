@@ -32,8 +32,8 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
   const proximosPartidos = equipo.partidos.filter((partido) => partido.orden !== equipo.jornadaLigaOrden);
 
   return (
-    <div className="max-w-[700px] mx-auto w-full px-6 pt-14 pb-22 flex flex-col items-center gap-14 text-center">
-      <div className="flex flex-col items-center gap-6 w-full">
+    <div className="max-w-[1576px] mx-auto w-full px-6 sm:px-12 pt-14 pb-22 flex flex-col lg:flex-row items-center lg:items-start gap-14 lg:gap-20">
+      <div className="flex flex-col items-center gap-6 w-full lg:w-[700px] lg:shrink-0 text-center">
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-[32px] font-bold" style={{ letterSpacing: "-1px" }}>
             Posible alineación{equipo.jornadaLiga ? ` de la jornada ${equipo.jornadaLiga}` : ""}
@@ -108,7 +108,7 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
         <Banquillo jugadores={formacion.banquillo} hrefsPorJugador={hrefs} />
       </div>
 
-      <div className="w-full flex flex-col items-start gap-[18px]">
+      <div className="w-full lg:w-[700px] lg:shrink-0 flex flex-col items-start gap-[18px]">
         <h2 className="text-[32px] font-bold" style={{ letterSpacing: "-1px" }}>
           Próximos partidos
         </h2>

@@ -9,13 +9,17 @@ function formatearLineaDesglose(linea: DetalleEstadistica): string {
   return `${linea.cantidad} ${linea.estadistica}`;
 }
 
+function formatearPuntos(puntos: number): string {
+  return `${puntos} ${Math.abs(puntos) === 1 ? "punto" : "puntos"}`;
+}
+
 function Desglose({ desglose }: { desglose: DetalleEstadistica[] }) {
   return (
     <ul className="mt-2 text-xs text-neutral-500 flex flex-col gap-1">
       {desglose.map((linea, i) => (
         <li key={i} className="flex items-center justify-between gap-2">
           <span>{formatearLineaDesglose(linea)}</span>
-          <span className="tabular-nums shrink-0">{linea.puntos} puntos</span>
+          <span className="tabular-nums shrink-0">{formatearPuntos(linea.puntos)}</span>
         </li>
       ))}
     </ul>
@@ -73,7 +77,7 @@ export function HistorialPuntos({
                 <div key={jornada.jornada} className="rounded-xl bg-neutral-50 p-3">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Jornada {jornada.jornada}</span>
-                    <span className="text-sm font-semibold tabular-nums">{jornada.puntos} puntos</span>
+                    <span className="text-sm font-semibold tabular-nums">{formatearPuntos(jornada.puntos)}</span>
                   </div>
                   {jornada.desglose.length > 0 && <Desglose desglose={jornada.desglose} />}
                 </div>
@@ -90,7 +94,7 @@ export function HistorialPuntos({
                     >
                       <span className="font-medium text-sm">Jornada {jornada.jornada}</span>
                       <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold tabular-nums">{jornada.puntos} puntos</span>
+                        <span className="text-sm font-semibold tabular-nums">{formatearPuntos(jornada.puntos)}</span>
                         {jornada.desglose.length > 0 && (
                           <span className="text-neutral-400 text-xs">{abierta ? "▾" : "▸"}</span>
                         )}

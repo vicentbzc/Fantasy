@@ -9,8 +9,8 @@ export default async function Equipos() {
   const equipos = await obtenerEquipos();
 
   return (
-    <div className="max-w-[1200px] mx-auto w-full px-6 sm:px-12 pb-16 pt-12">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-7">
+    <div className="max-w-[1483px] mx-auto w-full px-6 sm:px-12 pb-16 pt-12">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-[repeat(5,255px)] lg:justify-center gap-7">
         {equipos.map((equipo) =>
           equipo.id !== null ? (
             <Link key={equipo.nombre} href={`/equipos/${equipo.id}`}>
