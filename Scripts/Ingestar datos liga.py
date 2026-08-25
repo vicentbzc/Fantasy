@@ -48,6 +48,7 @@ def construir_propiedad_liga(sesion, token, id_liga, id_mi_equipo):
                 "Dinero": plantilla.get("teamMoney"),
                 "Fichas": plantilla.get("playersNumber"),
                 "Valor equipo": plantilla.get("teamValue"),
+                "Manager": manager.get("managerName", ""),
             }
         time.sleep(1)
 
@@ -76,7 +77,7 @@ def guardar_managers(managers, ruta_archivo=Común.ruta_datos("Datos Managers.cs
 
 
 def guardar_mi_club(mi_club, ruta_archivo=Común.ruta_datos("Datos Mi club.csv")):
-    columnas = ["Dinero", "Fichas", "Valor equipo"]
+    columnas = ["Dinero", "Fichas", "Valor equipo", "Manager"]
     Común.guardar_csv(ruta_archivo, columnas, [mi_club] if mi_club else [])
 
 

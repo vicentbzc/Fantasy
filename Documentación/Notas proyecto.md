@@ -2451,6 +2451,205 @@ menos de 11 tras el cambio. `extraer_suplentes()` no tenía este problema
 (comprobado: el widget intruso nunca marca a nadie como `suplente`, solo
 como `titular`), así que no hizo falta tocarlo.
 
+## Decimonovena ronda: Revalorización en vivo cada 5 min, aviso de retraso de ingesta, mensaje de revalorización con la plantilla real completa (25/08/2026)
+
+**Bug de fondo encontrado revisando el código con el usuario**: `diferencia_valor`
+("Revalorización") nunca se calculó con `historial_valor` pese a lo que
+decían las notas hasta ahora — en realidad venía directamente de la
+columna `Diferencia` que futbolfantasy.com ya trae en su propia tabla de
+mercado (`Ingestar datos 1.py`, vía `Común._leer_fila_mercado()`,
+`data-diferencia1`). Aunque ese scrape corre cada 5 min como el resto,
+no había garantía de que el número que trae futbolfantasy.com cambie con
+esa frecuencia — dependía enteramente de cuándo decida actualizarlo su
+propia web, fuera de nuestro control. El usuario pidió que este dato
+"se coja cada 5 minutos" de verdad, así que se cambió a calcularlo
+nosotros mismos:
+
+- `sincronizar_jugadores()` ya no lee `Diferencia`/`Diferencia
+  porcentaje` del scrape de futbolfantasy.com (se sigue leyendo
+  `Tendencia` para `tendencia_dias`, eso no cambió).
+- Nueva `calcular_revalorizacion()` en `Sincronizar`, un paso más del
+  pipeline que corre en cada sincronización (cada 5 min): compara el
+  `valor_liga` **actual y en vivo** de cada jugador contra el último
+  snapshot de `historial_valor` de un día **anterior** a hoy (la
+  fotografía de "ayer", que sigue tomándose una sola vez al día, sin
+  cambios ahí). Como el lado "actual" es siempre el valor recién
+  sincronizado, el número de Revalorización ahora sí cambia cada 5
+  minutos, en cuanto cambia el valor oficial del jugador — verificado en
+  directo (Pepe: `valor_liga` 83.250.805, `diferencia_valor` +22.017.908,
+  +35,96%, coherente con que tiene la cláusula subida a mano).
+- La web ya lo refleja al momento sin cambios: `/mi-equipo` no tiene
+  `revalidate` (se renderiza contra la base de datos en cada carga), así
+  que en cuanto el dato cambia en Postgres se ve en la siguiente vez que
+  se entra a la página — cumple el escenario que pidió el usuario
+  (cambia a las 00:20, se ve actualizado entrando a las 00:25).
+  `/jugadores` y `/comparador` sí tienen `revalidate = 300` (caché de 5
+  min, decisión de rendimiento de antes) — pueden tardar hasta 5 min
+  extra en reflejarlo ahí; no se tocó porque no se pidió explícitamente,
+  pero queda anotado por si el usuario también lo quiere sin caché.
+
+**Aviso de Telegram si algún dato de 5 min se retrasa más de 15 min**
+(`revisar_retraso_ingesta()`): en vez de depender de que alguien esté
+vigilando el pipeline a mano, ahora el propio sistema avisa solo. Como
+`Ingestar datos liga.py`/`1.py`/`estado.py` no tocan Postgres (solo CSV),
+y `Sincronizar` corre en los tres disparos del cron (5, 15 y 5h) —
+comparar solo la hora de `jugadores.actualizado_en` no serviría, porque
+esa columna se actualiza en cualquier disparo aunque el CSV de 5 min no
+se haya vuelto a generar. Se resolvió con una huella (`sha256`) de cada
+uno de los 3 CSV de 5 min (`Datos Jugadores.csv`, `Datos
+Titularidad.csv`, `Datos Estado.csv`) guardada en
+`notificaciones_estado`: si la huella cambia respecto al ciclo anterior,
+es que el script sí trajo datos nuevos de verdad, y se anota la hora.
+`revisar_retraso_ingesta()` compara esa hora contra ahora; si pasan más
+de 20 min (5 esperados + 15 de margen, el número exacto que pidió el
+usuario) sin huella nueva, avisa una sola vez por episodio de retraso
+("Ingestar datos liga.py (Valor, Valor en la liga, Puntos) lleva 23
+minutos sin traer datos nuevos..."), y dispara el reset del aviso en
+cuanto vuelve a haber huella nueva.
+
+**Mensaje de revalorización diaria, texto y alcance nuevos**: "Buenos
+días, tu club hoy se ha revalorizado X de euros" → "Tu equipo hoy se ha
+revalorizado X euros." Y deja de sumar solo `mi_equipo_jugadores` en
+estado titular/suplente (el subconjunto que el usuario gestiona a mano
+en la web) — ahora suma **toda la plantilla real** de la app oficial de
+LaLiga Fantasy, identificada por `jugadores.dueno` (que ya se sincroniza
+cada 5 min) comparado contra el nombre de mánager del propio usuario.
+Ese nombre no estaba guardado en ningún sitio — se añadió captura en
+`Ingestar datos liga.py` (mismo punto donde ya se construye `mi_club`,
+sin petición extra) y una columna nueva `mi_club.manager`.
+
+**Pendiente de que el usuario ejecute en Supabase**:
+```sql
+alter table mi_club add column manager text;
+```
+Hasta entonces, `sincronizar_mi_club()` falla (columna inexistente) sin
+afectar al resto del pipeline (ya probado en directo: todas las demás
+tablas, incluidas `revalorizacion` y `frescura_ingesta`, sincronizan
+bien) — y el aviso de revalorización diaria no podrá mandarse (necesita
+`mi_club.manager` para saber qué `dueno` sumar) hasta que se aplique.
+
+## Vigésima ronda: `/jugadores` en directo, bug real de duplicados en el aviso de actividad de mercado (25/08/2026)
+
+**`/jugadores` deja de tener caché de 5 min**: `export const revalidate = 300`
+sustituido por `export const dynamic = "force-dynamic"` — ahora se
+renderiza contra la base de datos en cada petición, igual que `/mi-equipo`.
+Verificado en directo pidiendo el HTML crudo dos veces: `Cache-Control:
+no-cache, must-revalidate` en la respuesta, y el valor de Revalorización
+de un jugador de prueba (Pepe, `diferenciaValor: 22017908`) coincidiendo
+exacto con la base de datos en ese mismo instante. `/comparador` y
+`/equipos` se quedan con su caché de 5 min tal cual estaban (no se pidió
+tocarlas).
+
+**Bug real de duplicados en `revisar_actividad_mercado()`, encontrado y
+arreglado**: el usuario reportó recibir el mismo aviso de actividad
+repetido 4 veces la misma madrugada. Causa real, confirmada contra la
+base de datos: existe un `activityTypeId` = **6** sin identificar hasta
+ahora (ni fichaje, ni venta, ni compra directa) que representa el reparto
+de "ganancia de la jornada" — un lote de 9 filas (una por cada mánager de
+la liga, el usuario incluido) que la API de LaLiga Fantasy graba **todas
+con el mismo `fecha` exacto** (mismo segundo). La consulta ordenaba por
+`am.fecha`, y Postgres no garantiza un orden estable entre filas con
+fecha idéntica — en ejecuciones distintas del cron, ese lote podía
+devolverse en un orden distinto cada vez, lo que hacía que el marcador
+`actividad_mercado_ultimo_id` (que se guarda como el último `id`
+procesado) retrocediera por debajo de un `id` ya avisado, y ese aviso se
+reenviaba en el siguiente ciclo. Arreglado ordenando por `am.id` en su
+lugar (determinista, sin empates posibles). Tipo `6` ("ganancia de la
+jornada") además se añade a `TIPOS_ACTIVIDAD_EXCLUIDOS` — el usuario
+confirmó que no quiere recibir avisos de este tipo (ni el suyo propio ni
+el de otros mánagers), así que se descarta sin enviar nada, avanzando
+igualmente el marcador para no quedarse atascado reintentándolo. La
+plantilla de mensaje "literal como en la app" que dio el usuario ("En la
+jornada 2, victordevera0 ha ganado 3.700.000€.") sirvió para confirmar
+qué tipo de evento era exactamente — no se implementa porque el tipo
+entero queda excluido.
+
+## Vigesimoprimera ronda: bug de formato de números, limpieza de Comparador, revalorización por día, y rediseño de anchos en Equipos/Jugadores/Mi equipo (26/08/2026)
+
+**Bug real de formato encontrado y arreglado, afectaba a toda la web**:
+`toLocaleString('es-ES')` en el entorno donde corre esta web no añade el
+punto de los miles justo para números de 4 cifras (1000-9999) — `9583`
+sale como `"9583"` en vez de `"9.583"`, pero con 5+ cifras sí funciona
+bien (`22017908` → `"22.017.908"`). Confirmado con Node directamente.
+Sustituido por una función propia (`formatearNumeroEs` en
+`lib/formato.ts`, usada también desde `lib/columnas.ts`) que hace el
+agrupado de miles a mano con regex, sin depender de `Intl`/`toLocaleString`
+para nada. Afecta a todos los números de la web (Valor, Revalorización,
+Puntos, etc.), no solo a un sitio.
+
+**Otros arreglos pequeños de esta ronda**:
+- "1 puntos" → "1 punto" en el desglose de puntos por jornada
+  (`HistorialPuntos.tsx`), tanto en cada línea de estadística como en el
+  total de la jornada.
+- **Comparador eliminado por completo** (página, componente, enlace del
+  menú) — el usuario decidió que ya no hace falta porque en Jugadores ya
+  se puede comparar bien con la selección múltiple.
+- **`/jugadores` ya no tiene caché de 5 min** (`revalidate = 300` →
+  `dynamic = "force-dynamic"`), igual que `/mi-equipo` — se renderiza
+  contra la base de datos en cada petición, para que la Revalorización en
+  vivo (ver ronda anterior) se vea al momento sin esperar el ISR.
+- **Nueva lista "Revalorización por día"** dentro del modal de la gráfica
+  de Valor (`GraficaValor.tsx`): debajo de la gráfica y de Mínimo/Máximo,
+  un desglose día a día calculado en el propio navegador a partir del
+  mismo array de `historial_valor` que ya usa la gráfica (mismo rango,
+  el último mes) — sin llamada nueva al servidor.
+
+**Telegram, ajustes del usuario tras probarlo en real**:
+- El aviso de "actividad de mercado" mandaba **duplicados** (el mismo
+  aviso 4 veces) — causa real: un tipo de evento (`activityTypeId = 6`,
+  "ganancia de la jornada", sin jugador) llega en lotes donde varias
+  filas comparten el mismo `fecha` exacto (un mismo segundo, una fila por
+  cada mánager de la liga); `order by am.fecha` no tiene desempate
+  determinista entre esas filas, así que el marcador de "último
+  procesado" podía retroceder entre ejecuciones y reenviar avisos ya
+  mandados. Arreglado ordenando por `am.id` en su lugar. Tipo `6`
+  excluido del todo (el usuario no quiere avisos de "gananciales de
+  jornada" de nadie, ni los suyos).
+- El usuario decidió excluir **también** los tipos `31` (fichaje del
+  mercado) y `33` (venta al mercado) — de este aviso solo queda activo
+  el de compra directa entre mánagers (`activityTypeId = 1`).
+- Cualquier operación donde el usuario mismo ("Vicent") sea comprador o
+  vendedor tampoco genera aviso ("ya sé lo que hago").
+
+**Rediseño de anchos/márgenes en Equipos, Jugadores y Mi equipo (pantalla
+de escritorio)**: el usuario pidió aprovechar mejor una pantalla normal
+de ordenador. Cambios, todos con clases `lg:` (por encima de ~1024px de
+ancho) para no tocar el comportamiento en pantallas pequeñas:
+- **Equipos** (rejilla de escudos): mantiene el tamaño exacto de cada
+  recuadro de antes (255px), ahora en 5 columnas × 4 filas en vez de
+  4×5 — el contenedor se ensanchó (`max-w-[1483px]`) en vez de encoger
+  las tarjetas, usando columnas de ancho fijo (`grid-cols-[repeat(5,255px)]`)
+  para que el tamaño no dependa del ancho del contenedor.
+- **Ficha de equipo** (`/equipos/[id]`): campo+banquillo a la izquierda,
+  "Próximos partidos" a la derecha, **los dos con el mismo ancho, 700px**
+  (antes "Próximos partidos" ocupaba lo que sobraba), separados 80px
+  (`lg:gap-20`, antes 32px). Márgenes laterales de 48px (`px-6 sm:px-12`,
+  antes solo 24px) — mismo valor de margen que ya usaba la rejilla de
+  Equipos, ahora consistente entre las dos.
+- **Mi equipo**: mismo esquema que la ficha de equipo — campo+banquillo a
+  la izquierda (700px), a la derecha (también 700px) las 4 tarjetas de
+  estadísticas **en una sola fila** (antes 2×2) con "En duda"/"Seguimiento"
+  debajo, separación de 80px entre los dos grupos.
+- **Jugadores**: el ancho total pasa a **1576px** (antes 1104px) — el
+  mismo ancho combinado que la ficha de equipo (700 + 80 de hueco + 700).
+  La barra de "Buscar a un jugador" dejó de estirarse con el espacio
+  extra (`flex-1` → `w-64` fijo); los botones de Equipos/Posiciones/
+  Filtros no se tocaron.
+- Todas las páginas afectadas comparten ahora el mismo margen lateral
+  (48px) como criterio explícito, y el criterio "campo = próximos
+  partidos = 700px" es la referencia para futuras páginas similares.
+  `/` (Inicio) se dejó intacta a propósito, según pidió el usuario.
+
+**Verificación de que nada de esto rompe el móvil**: como todos los
+cambios de ancho van con el prefijo `lg:`, por debajo de ese punto de
+corte cae al diseño de una sola columna que ya existía (pensado para
+móvil desde el Paso 8). Comprobado a 375px de ancho en las 4 páginas:
+`document.documentElement.scrollWidth` coincide exacto con el ancho de
+pantalla en las cuatro (sin desbordamiento horizontal), y capturado en
+directo que la ficha de equipo cae a una columna centrada con el campo
+reducido a su ancho. La tabla de Jugadores ya tenía scroll horizontal
+propio (`overflow-x-auto`) desde antes de esta ronda.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

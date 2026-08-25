@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import os
 import re
 import sys
@@ -203,8 +204,6 @@ def sincronizar_jugadores(cur):
             parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Posicion X")),
             parsear_numero(coincidencias_posicion.get(jugador["ID"], {}).get("Posicion Y")),
             parsear_entero(minutos_por_id.get(jugador["ID"])),
-            parsear_entero(coincidencias_mercado.get(jugador["ID"], {}).get("Diferencia")),
-            parsear_numero(coincidencias_mercado.get(jugador["ID"], {}).get("Diferencia porcentaje")),
             parsear_entero_absoluto(coincidencias_mercado.get(jugador["ID"], {}).get("Tendencia")),
             jugador.get("Dueño") or None,
             parsear_fecha_hora_iso(jugador.get("Protegido hasta")),
@@ -221,8 +220,7 @@ def sincronizar_jugadores(cur):
         """
         insert into jugadores (
             id, nombre, equipo, posicion, porcentaje_titularidad, valor, valor_liga, estado,
-            posicion_x, posicion_y, minutos_jugados, diferencia_valor, porcentaje_diferencia,
-            tendencia_dias, dueno, protegido_hasta, en_mercado
+            posicion_x, posicion_y, minutos_jugados, tendencia_dias, dueno, protegido_hasta, en_mercado
         ) values %s
         on conflict (id) do update set
             nombre = excluded.nombre,
@@ -235,8 +233,6 @@ def sincronizar_jugadores(cur):
             posicion_x = excluded.posicion_x,
             posicion_y = excluded.posicion_y,
             minutos_jugados = excluded.minutos_jugados,
-            diferencia_valor = excluded.diferencia_valor,
-            porcentaje_diferencia = excluded.porcentaje_diferencia,
             tendencia_dias = excluded.tendencia_dias,
             dueno = excluded.dueno,
             protegido_hasta = excluded.protegido_hasta,
@@ -319,6 +315,44 @@ def clasificar_aceleracion(velocidad_hoy, velocidad_ayer):
     if cambio < -UMBRAL_ACELERACION_NORMAL:
         return "Desacelera"
     return "Estable"
+
+
+def calcular_revalorizacion(cur):
+    cur.execute("""
+        select distinct on (id) id, valor
+        from historial_valor
+        where fecha < current_date
+        order by id, fecha desc
+    """)
+    baseline_por_jugador = dict(cur.fetchall())
+
+    cur.execute("select id, valor_liga from jugadores")
+    actuales = cur.fetchall()
+
+    actualizaciones = []
+    for id_jugador, valor_actual in actuales:
+        baseline = baseline_por_jugador.get(id_jugador)
+        if baseline is None or valor_actual is None or not baseline:
+            continue
+        diferencia = valor_actual - baseline
+        porcentaje = round(diferencia / baseline * 100, 2)
+        actualizaciones.append((id_jugador, diferencia, porcentaje))
+
+    if not actualizaciones:
+        return 0
+
+    execute_values(
+        cur,
+        """
+        update jugadores as j set
+            diferencia_valor = datos.diferencia_valor,
+            porcentaje_diferencia = datos.porcentaje_diferencia
+        from (values %s) as datos (id, diferencia_valor, porcentaje_diferencia)
+        where j.id = datos.id
+        """,
+        actualizaciones,
+    )
+    return len(actualizaciones)
 
 
 def calcular_tendencias(cur):
@@ -567,10 +601,50 @@ def sincronizar_mi_club(cur):
 
     fila = filas[0]
     cur.execute(
-        "insert into mi_club (id, dinero, fichas, valor_equipo) values (1, %s, %s, %s)",
-        (parsear_entero(fila["Dinero"]), parsear_entero(fila["Fichas"]), parsear_entero(fila.get("Valor equipo"))),
+        "insert into mi_club (id, dinero, fichas, valor_equipo, manager) values (1, %s, %s, %s, %s)",
+        (
+            parsear_entero(fila["Dinero"]),
+            parsear_entero(fila["Fichas"]),
+            parsear_entero(fila.get("Valor equipo")),
+            fila.get("Manager") or None,
+        ),
     )
     return 1
+
+
+ARCHIVOS_CADA_5_MIN = ["Datos Jugadores.csv", "Datos Titularidad.csv", "Datos Estado.csv"]
+
+
+def sincronizar_frescura_ingesta(cur):
+    total = 0
+    for nombre_archivo in ARCHIVOS_CADA_5_MIN:
+        ruta = Común.ruta_datos(nombre_archivo)
+        if not os.path.isfile(ruta):
+            continue
+        with open(ruta, "rb") as f:
+            huella = hashlib.sha256(f.read()).hexdigest()
+
+        clave_huella = f"huella_ingesta:{nombre_archivo}"
+        cur.execute("select valor from notificaciones_estado where clave = %s", (clave_huella,))
+        fila = cur.fetchone()
+        huella_anterior = fila[0] if fila else None
+
+        if huella_anterior != huella:
+            guardar_estado(cur, clave_huella, huella)
+            guardar_estado(cur, f"fresco_ingesta:{nombre_archivo}", "fresco")
+            total += 1
+    return total
+
+
+def guardar_estado(cur, clave, valor):
+    cur.execute(
+        """
+        insert into notificaciones_estado (clave, valor, actualizado_en)
+        values (%s, %s, now())
+        on conflict (clave) do update set valor = excluded.valor, actualizado_en = now()
+        """,
+        (clave, valor),
+    )
 
 
 def main():
@@ -582,7 +656,9 @@ def main():
                 ("equipos", sincronizar_equipos),
                 ("jugadores", sincronizar_jugadores),
                 ("historial_valor", sincronizar_historial),
+                ("revalorizacion", calcular_revalorizacion),
                 ("tendencias", calcular_tendencias),
+                ("frescura_ingesta", sincronizar_frescura_ingesta),
                 ("puntos_jornada", sincronizar_puntos),
                 ("puntos_jornada_detalle", sincronizar_detalle),
                 ("calendario", sincronizar_calendario),

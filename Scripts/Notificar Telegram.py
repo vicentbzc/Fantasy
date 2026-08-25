@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from datetime import time as Hora
 from zoneinfo import ZoneInfo
 
@@ -63,18 +63,54 @@ def revisar_revalorizacion_diaria(cur):
     if obtener_estado(cur, "revalorizacion_diaria") == hoy:
         return
 
+    cur.execute("select manager from mi_club where id = 1")
+    fila = cur.fetchone()
+    if not fila or not fila[0]:
+        return
+    mi_manager = fila[0]
+
     cur.execute(
-        """
-        select coalesce(sum(j.diferencia_valor), 0)
-        from mi_equipo_jugadores mej
-        join jugadores j on j.id = mej.jugador_id
-        where mej.estado in ('titular', 'suplente')
-        """
+        "select coalesce(sum(diferencia_valor), 0) from jugadores where dueno = %s",
+        (mi_manager,),
     )
     total = cur.fetchone()[0] or 0
-    mensaje = f"Buenos días, tu club hoy se ha revalorizado {Común.formatear_miles(total)} de euros."
+    mensaje = f"Tu equipo hoy se ha revalorizado {Común.formatear_miles(total)} euros."
     if Común.enviar_telegram(mensaje):
         guardar_estado(cur, "revalorizacion_diaria", hoy)
+
+
+UMBRAL_RETRASO_MINUTOS = 20
+
+NOMBRES_ARCHIVOS_5_MIN = {
+    "Datos Jugadores.csv": "Ingestar datos liga.py (Valor, Valor en la liga, Puntos)",
+    "Datos Titularidad.csv": "Ingestar datos 1.py (Titularidad)",
+    "Datos Estado.csv": "Ingestar datos estado.py (Estado)",
+}
+
+
+def revisar_retraso_ingesta(cur):
+    ahora = datetime.now(timezone.utc)
+    for nombre_archivo, nombre_legible in NOMBRES_ARCHIVOS_5_MIN.items():
+        cur.execute(
+            "select actualizado_en from notificaciones_estado where clave = %s",
+            (f"fresco_ingesta:{nombre_archivo}",),
+        )
+        fila = cur.fetchone()
+        if not fila:
+            continue
+
+        minutos = (ahora - fila[0]).total_seconds() / 60
+        clave_aviso = f"retraso_ingesta:{nombre_archivo}"
+        if minutos > UMBRAL_RETRASO_MINUTOS:
+            if obtener_estado(cur, clave_aviso) != "avisado":
+                mensaje = (
+                    f"{nombre_legible} lleva {int(minutos)} minutos sin traer datos nuevos "
+                    f"(se esperaba cada 5 min)."
+                )
+                if Común.enviar_telegram(mensaje):
+                    guardar_estado(cur, clave_aviso, "avisado")
+        else:
+            guardar_estado(cur, clave_aviso, "ok")
 
 
 def revisar_titularidad(cur):
@@ -282,10 +318,10 @@ def revisar_puntos_dazn_jornada(cur):
 
 
 MAPA_TIPO_ACTIVIDAD = {
-    31: "{usuario} ha fichado a {jugador} del mercado por {importe}.",
-    33: "{usuario} ha vendido a {jugador} al mercado por {importe}.",
     1: "{usuario} le ha comprado {jugador} a {destino} por {importe}.",
 }
+
+TIPOS_ACTIVIDAD_EXCLUIDOS = {6, 31, 33}
 
 
 def revisar_actividad_mercado(cur):
@@ -307,12 +343,16 @@ def revisar_actividad_mercado(cur):
         left join managers m1 on m1.id = am.usuario_id
         left join managers m2 on m2.id = am.usuario_destino_id
         where am.id > %s
-        order by am.fecha
+        order by am.id
         """,
         (ultimo_id,),
     )
 
     for id_actividad, tipo, importe, jugador, usuario, destino in cur.fetchall():
+        if tipo in TIPOS_ACTIVIDAD_EXCLUIDOS or "Vicent" in (usuario or "") or "Vicent" in (destino or ""):
+            guardar_estado(cur, clave, str(id_actividad))
+            continue
+
         importe_texto = Común.formatear_miles(importe) if importe is not None else "—"
         plantilla = MAPA_TIPO_ACTIVIDAD.get(tipo)
         if plantilla:
@@ -345,6 +385,7 @@ def main():
         with conexion.cursor() as cur:
             for funcion in [
                 revisar_revalorizacion_diaria,
+                revisar_retraso_ingesta,
                 revisar_titularidad,
                 revisar_seguimiento_sin_cambio_dueno,
                 revisar_tarjetas_amarillas,

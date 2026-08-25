@@ -85,6 +85,7 @@ create table mi_club (
     dinero bigint,
     fichas integer,
     valor_equipo bigint,
+    manager text,
     check (id = 1)
 );
 
