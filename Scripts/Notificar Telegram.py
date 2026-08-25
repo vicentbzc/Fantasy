@@ -102,6 +102,35 @@ def revisar_titularidad(cur):
             guardar_estado(cur, clave, str(actual))
 
 
+def revisar_seguimiento_sin_cambio_dueno(cur):
+    cur.execute(
+        """
+        select j.id, j.nombre, j.diferencia_valor, j.dueno
+        from mi_equipo_jugadores mej
+        join jugadores j on j.id = mej.jugador_id
+        where mej.estado = 'seguimiento'
+        """
+    )
+    for jugador_id, nombre, diferencia, dueno in cur.fetchall():
+        clave_dueno = f"seguimiento_dueno:{jugador_id}"
+        dueno_anterior = obtener_estado(cur, clave_dueno)
+        dueno_actual = dueno or ""
+        mismo_dueno = dueno_anterior is not None and dueno_anterior == dueno_actual
+
+        if mismo_dueno and diferencia not in (None, 0):
+            clave_valor = f"seguimiento_valor:{jugador_id}"
+            marca = f"{dueno_actual}:{diferencia}"
+            if obtener_estado(cur, clave_valor) != marca:
+                mensaje = (
+                    f"El jugador {nombre}, que tienes en seguimiento, ha cambiado de valor "
+                    f"({Común.formatear_miles(diferencia)}) sin cambiar de dueño."
+                )
+                if Común.enviar_telegram(mensaje):
+                    guardar_estado(cur, clave_valor, marca)
+
+        guardar_estado(cur, clave_dueno, dueno_actual)
+
+
 def revisar_tarjetas_amarillas(cur):
     cur.execute(
         """
@@ -143,19 +172,26 @@ def revisar_fichas(cur):
         guardar_estado(cur, clave, str(fichas))
 
 
+def numero_jornada(texto):
+    coincidencia = re.search(r"\d+", texto or "")
+    return int(coincidencia.group()) if coincidencia else 0
+
+
 def obtener_proxima_jornada(cur):
     cur.execute(
         """
-        select jornada from calendario
+        select distinct on (equipo) equipo, jornada
+        from calendario
         where competicion = 'LaLiga' and fecha is not null
-        order by fecha, hora
-        limit 1
+        order by equipo, orden
         """
     )
-    fila = cur.fetchone()
-    if not fila:
+    conteo = {}
+    for _equipo, jornada in cur.fetchall():
+        conteo[jornada] = conteo.get(jornada, 0) + 1
+    if not conteo:
         return None
-    jornada = fila[0]
+    jornada = max(conteo, key=lambda j: (conteo[j], -numero_jornada(j)))
 
     cur.execute(
         """
@@ -209,6 +245,88 @@ def revisar_inicio_jornada(cur):
                     guardar_estado(cur, clave_saldo, "enviado")
 
 
+def revisar_puntos_dazn_jornada(cur):
+    id_mi_equipo = Común.obtener_configuracion("LALIGA_FANTASY_TEAM_ID")
+    if not id_mi_equipo:
+        return
+
+    cur.execute("select max(jornada) from clasificacion_jornada")
+    fila = cur.fetchone()
+    jornada = fila[0] if fila else None
+    if jornada is None:
+        return
+
+    clave = f"puntos_dazn_jornada:{jornada}"
+    if obtener_estado(cur, clave) is not None:
+        return
+
+    cur.execute("select 1 from calendario where jornada = %s limit 1", (f"Jornada {jornada}",))
+    if cur.fetchone() is not None:
+        return
+
+    cur.execute(
+        "select posicion, puntos from clasificacion_jornada where jornada = %s and equipo_id = %s",
+        (jornada, str(id_mi_equipo)),
+    )
+    fila = cur.fetchone()
+    if not fila:
+        return
+    posicion, puntos = fila
+
+    mensaje = (
+        f"Terminaste la jornada {jornada} en la posición {posicion} de la clasificación, "
+        f"con {puntos} puntos."
+    )
+    if Común.enviar_telegram(mensaje):
+        guardar_estado(cur, clave, "enviado")
+
+
+MAPA_TIPO_ACTIVIDAD = {
+    31: "{usuario} ha fichado a {jugador} del mercado por {importe}.",
+    33: "{usuario} ha vendido a {jugador} al mercado por {importe}.",
+    1: "{usuario} le ha comprado {jugador} a {destino} por {importe}.",
+}
+
+
+def revisar_actividad_mercado(cur):
+    clave = "actividad_mercado_ultimo_id"
+    ultimo_id_texto = obtener_estado(cur, clave)
+
+    if ultimo_id_texto is None:
+        cur.execute("select coalesce(max(id), 0) from actividad_mercado")
+        guardar_estado(cur, clave, str(cur.fetchone()[0]))
+        return
+
+    ultimo_id = int(ultimo_id_texto)
+    cur.execute(
+        """
+        select am.id, am.tipo, am.importe,
+               coalesce(j.nombre, 'un jugador'), coalesce(m1.nombre, 'Alguien'), m2.nombre
+        from actividad_mercado am
+        left join jugadores j on j.id = am.jugador_id
+        left join managers m1 on m1.id = am.usuario_id
+        left join managers m2 on m2.id = am.usuario_destino_id
+        where am.id > %s
+        order by am.fecha
+        """,
+        (ultimo_id,),
+    )
+
+    for id_actividad, tipo, importe, jugador, usuario, destino in cur.fetchall():
+        importe_texto = Común.formatear_miles(importe) if importe is not None else "—"
+        plantilla = MAPA_TIPO_ACTIVIDAD.get(tipo)
+        if plantilla:
+            mensaje = plantilla.format(
+                usuario=usuario, jugador=jugador, destino=destino or "otro mánager", importe=importe_texto
+            )
+        else:
+            mensaje = f"{usuario} ha hecho una operación de mercado con {jugador} por {importe_texto}."
+
+        if not Común.enviar_telegram(mensaje):
+            break
+        guardar_estado(cur, clave, str(id_actividad))
+
+
 def revisar_cierre_mercado(cur):
     ahora = datetime.now(ZONA_BARCELONA)
     if ahora.hour != 21:
@@ -228,9 +346,12 @@ def main():
             for funcion in [
                 revisar_revalorizacion_diaria,
                 revisar_titularidad,
+                revisar_seguimiento_sin_cambio_dueno,
                 revisar_tarjetas_amarillas,
                 revisar_fichas,
                 revisar_inicio_jornada,
+                revisar_puntos_dazn_jornada,
+                revisar_actividad_mercado,
                 revisar_cierre_mercado,
             ]:
                 try:

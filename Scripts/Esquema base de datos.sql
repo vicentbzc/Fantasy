@@ -20,6 +20,9 @@ create table jugadores (
     minutos_jugados integer,
     posicion_x numeric,
     posicion_y numeric,
+    dueno text,
+    protegido_hasta timestamptz,
+    en_mercado boolean not null default false,
     actualizado_en timestamptz not null default now()
 );
 
@@ -94,4 +97,28 @@ create table notificaciones_estado (
     clave text primary key,
     valor text,
     actualizado_en timestamptz not null default now()
+);
+
+create table managers (
+    id bigint primary key,
+    nombre text not null
+);
+
+create table clasificacion_jornada (
+    jornada integer not null,
+    posicion integer not null,
+    equipo_id text not null,
+    manager text not null,
+    puntos integer,
+    primary key (jornada, equipo_id)
+);
+
+create table actividad_mercado (
+    id bigint primary key,
+    tipo integer not null,
+    jugador_id integer,
+    usuario_id bigint,
+    usuario_destino_id bigint,
+    importe bigint,
+    fecha timestamptz not null
 );

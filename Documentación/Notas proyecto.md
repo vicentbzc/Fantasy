@@ -611,13 +611,10 @@ en que el runner de turno la tenga.
    desglose por estadística ya salen reales. Confirmado en local con
    datos de verdad antes de subir el cambio (Baena: 33 minutos jugados,
    1 gol, coincide con el desglose real de la API).
-4. **Histórico real de `valor` (marketValue oficial)**: se descubrió
-   `GET /player/{id}/market-value` con hasta 47 días de histórico real por
-   jugador — no integrado todavía en el pipeline (solo se ha usado para
-   consultas puntuales). Si se quiere, se puede rellenar `historial_valor`
-   de golpe con este endpoint en vez de esperar día a día — pero ojo, ese
-   histórico es de `valor` (marketValue), no de `valor_liga` (la cláusula
-   no tiene histórico en ningún endpoint conocido).
+4. ~~Histórico real de `valor` (marketValue oficial)...~~ **Resuelto
+   (25/08/2026)**: ver "Decimoctava ronda" más abajo — `Rellenar historial
+   valor.py`, script manual de un solo uso, rellenó `historial_valor` con
+   hasta 58 días reales por jugador vía `GET /player/{id}/market-value`.
 5. ~~La liga privada "Prueba"...~~ **Resuelto el 19/08/2026**: la liga real
    del usuario es **"LaLiga"** (`leagueId` `018070031`, 10 mánagers,
    `access: private`), no "Prueba" (`018053483`, esa solo tenía al
@@ -629,46 +626,38 @@ en que el runner de turno la tenga.
    secreto en GitHub** (`LALIGA_FANTASY_LEAGUE_ID` → `018070031`) para que
    el cron use la liga correcta.
 6. Desplegar de verdad en Vercel (conectar repo, `DATABASE_URL` como
-   variable de entorno del proyecto).
-7. Rol de Postgres de solo lectura para la web, en vez de reutilizar el
-   de `Sincronizar`.
-8. ~~`/mi-equipo` ya tiene diseño e interfaz...~~ **Resuelto (24/08/2026)**:
-   ver "Decimotercera ronda" más abajo — plantilla real vía
-   `mi_equipo_jugadores` (gestionada a mano por el usuario desde la web,
-   primera tabla que la web escribe) y dinero/fichas reales vía
-   `mi_club`. Falta que el usuario añada el secreto
-   `LALIGA_FANTASY_TEAM_ID` en GitHub para que el cron real lo sincronice
-   (ya funciona en local).
-9. ~~Consultas en vivo para datos de liga privada...~~ **En marcha
-   (24/08/2026)**: se concretó como avisos por Telegram — ver
-   "Decimoséptima ronda" más abajo. Grupo A ya implementado (9 avisos).
-   Falta:
-    - ~~Que el usuario cree el bot...~~ **Resuelto (24/08/2026)**: bot
-      creado, credenciales puestas en local y como secretos de GitHub,
-      envío real confirmado por el usuario.
-    - **Grupo B**: guardar quién es el dueño de cada jugador de la liga
-      (hoy solo se guarda la cláusula, no el manager) — hace falta para
-      el aviso de "cambio de valor de un jugador en seguimiento sin
-      cambiar de dueño".
-    - **Grupo C**: investigar si la API de LaLiga Fantasy da algo de
-      esto: fecha en que se clausuló un jugador (para calcular cuándo se
-      desbloquea la protección de 14 días), un "panel de actividad" de
-      operaciones de mercado, si un jugador sigue "en el mercado", y la
-      clasificación de la liga jornada a jornada (no solo el total de la
-      temporada) — este último hace falta también para terminar el aviso
-      de puntos DAZN, que se quedó a medias en el Grupo A.
-10. Disposición exacta de los jugadores del banquillo en `/equipos/[id]`:
-    el usuario mencionó una captura de pantalla de referencia que no
-    llegó adjunta al mensaje del 19/08/2026 — pendiente de que la reenvíe.
-11. La deduplicación de `extraer_formacion()` dentro de `Ingestar datos
-    3.py` (ver arriba) deja 2-3 equipos con más de 11 candidatos cuando
-    futbolfantasy.com muestra mucha incertidumbre de rotación — la web
-    recorta al mejor 11, funciona pero no es perfecto; revisar si conviene
-    afinar más el `data-probabilidad` como desempate.
+   variable de entorno del proyecto) — **pospuesto explícitamente por el
+   usuario a propósito para el final** (25/08/2026), no bloquea nada más.
+7. ~~Rol de Postgres de solo lectura para la web...~~ **Resuelto
+   (25/08/2026)**: ver "Decimoctava ronda" — rol `web_solo_lectura`
+   creado y verificado en directo, con permiso de escritura ampliado solo
+   en `mi_equipo_jugadores`. Falta reiniciar el servidor de desarrollo
+   (o desplegar) para que la variable de entorno nueva surta efecto.
+8. ~~`/mi-equipo` ya tiene diseño e interfaz...~~ **Resuelto del todo
+   (25/08/2026)**: plantilla real vía `mi_equipo_jugadores` y dinero/
+   fichas reales vía `mi_club` (Decimotercera ronda); `LALIGA_FANTASY_TEAM_ID`
+   ya añadido también en GitHub, así que el cron real sincroniza esto
+   igual que en local.
+9. ~~Consultas en vivo para datos de liga privada...~~ **Resuelto del
+   todo (25/08/2026)**: Grupos A, B y C completos, ver "Decimoséptima" y
+   "Decimoctava" rondas — 12 avisos de Telegram en total. El usuario
+   ejecutó el SQL en Supabase y se confirmó en directo: `Sincronizar`
+   corre limpio contra producción (0 tablas con error, incluidas las 3
+   nuevas) y `dueno`/`en_mercado`/`protegido_hasta` ya tienen datos reales
+   (123/64/123 jugadores respectivamente).
+10. ~~Disposición exacta de los jugadores del banquillo en
+    `/equipos/[id]`...~~ **Dado por resuelto (25/08/2026)**: el usuario
+    confirmó que ya no hace falta la captura de referencia.
+11. ~~La deduplicación de `extraer_formacion()`...~~ **Resuelto
+    (25/08/2026)**: ver "Decimoctava ronda" — no era incertidumbre de
+    rotación, era un segundo widget `.camiseta-wrapper` intruso en la
+    misma página que se colaba por el mismo selector; filtrado por la
+    clase `tipo_campo`, verificado en los 20 equipos reales (0 con más o
+    menos de 11 titulares).
 12. ~~`GEMINI_API_KEY`...~~ **Resuelto en local (25/08/2026)**: puesta y
     verificada en directo (ver "Chat con IA sobre jugadores" más abajo).
     Falta solo añadirla como variable de entorno de Vercel cuando la web
-    se despliegue de verdad (pendiente 6).
+    se despliegue de verdad (pendiente 6, pospuesto a propósito).
 
 ## Rediseño de la web (14/08/2026)
 
@@ -2257,6 +2246,210 @@ de error
 dentro del propio chat en vez de reventar la página (comprobación
 explícita de `process.env.GEMINI_API_KEY` antes de instanciar el
 cliente).
+
+## Decimoctava ronda: Grupo B/C de Telegram, histórico real de valor, bug de "inicio de jornada" (25/08/2026)
+
+Se cerró casi todo el bloque "Pendiente" de investigación/trabajo técnico que quedaba abierto desde la Decimoséptima ronda. `LALIGA_FANTASY_TEAM_ID` ya estaba añadido en GitHub por el usuario; la captura de referencia del banquillo de `/equipos/[id]` se dio por resuelta sin necesidad de la imagen; Vercel se deja explícitamente para el final, cuando se despliegue la web de verdad.
+
+**Descubrimiento clave, investigando el proyecto de referencia
+[Externoak/LaLigaApp](https://github.com/Externoak/LaLigaApp)**: el mismo
+endpoint que ya se llamaba para la cláusula
+(`GET /leagues/{id}/teams/{teamId}`) trae, sin ninguna petición extra, TODO
+lo que hacía falta para Grupo B y media Grupo C: `manager.managerName` (el
+dueño), `buyoutClauseLockedEndTime` (la fecha exacta en que se desbloquea
+la protección de 14 días, el dato que se pensaba había que calcular a
+mano) y `playerMarket` (si el propio dueño lo ha puesto en venta dentro de
+la liga). Verificado en directo contra la liga real: 123 jugadores con
+dueño, 123 con fecha de protección, 64 en mercado en el momento de la
+prueba.
+
+**Tres endpoints nuevos, todos verificados en directo contra la API real
+antes de usarlos** (ninguno documentado oficialmente, todos descubiertos
+leyendo el código fuente de LaLigaApp):
+- `GET /league/{id}/market?x-lang=es` (nota: `league` en singular, no
+  `leagues` como el resto) — jugadores libres puestos en venta por el
+  sistema, para completar "en mercado" también para jugadores que hoy no
+  pertenecen a ningún equipo de la liga.
+- `GET /leagues/{id}/standing/{semana}?x-lang=es` — clasificación de la
+  liga en una jornada concreta (no solo el total de temporada). Resuelve
+  el pendiente de "clasificación por jornada". `Ingestar datos liga.py`
+  la pide una vez por ciclo, para la última jornada con `weekPoints` en el
+  catálogo (sin coste extra relevante: 1 petición más).
+- `GET /leagues/{id}/activity/{indice}?x-lang=es` — feed de operaciones
+  de mercado de la liga (fichajes, ventas, ofertas entre mánagers).
+  Resuelve el pendiente de "panel de actividad". El significado de
+  `activityTypeId` no está documentado en ningún sitio; se dedujo
+  cruzando el feed real contra el estado actual de propiedad de cada
+  jugador: `31` = compra de un jugador libre del mercado (`user1` pasa a
+  ser el dueño, sin `user2`), `33` = venta de un jugador al mercado
+  (`user1` deja de aparecer como dueño de nadie, sin `user2`), `1` =
+  compra directa a otro mánager (`user1` compra, `user2` es quien vende).
+  Otros valores de `activityTypeId` no vistos en la prueba real quedan sin
+  interpretar.
+
+**Tres columnas nuevas en `jugadores`**: `dueno` (texto, `null` si el
+jugador no está en ninguna plantilla de la liga), `protegido_hasta`
+(`timestamptz`, la fecha real de `buyoutClauseLockedEndTime`), `en_mercado`
+(booleano). Se rellenan en `Ingestar datos liga.py`
+(`construir_propiedad_liga()`, que sustituye a la antigua
+`construir_valores_liga()`) en el mismo bucle que ya recorría cada equipo
+de la liga para la cláusula — sin peticiones extra salvo la del mercado
+libre. Van en `Datos Jugadores.csv` (columnas `Dueño`, `Protegido hasta`,
+`En mercado`) y las sube `sincronizar_jugadores()`.
+
+**Dos tablas nuevas**: `clasificacion_jornada` (`jornada, manager` PK, se
+borra y reinserta solo para la jornada que se acaba de descargar, el
+resto de jornadas históricas se quedan intactas) y `actividad_mercado`
+(`id` PK = el id real de la operación en LaLiga Fantasy, `insert ... on
+conflict do nothing`, va creciendo sin borrar nunca). Ninguna de las dos
+tiene todavía un aviso de Telegram ni un sitio en la web — son la base de
+datos para construirlos, pendiente de que el usuario concrete el mensaje
+exacto que quiere para "puntos DAZN de la jornada" (necesita saber en qué
+puesto quedó su equipo esa jornada, ya disponible en
+`clasificacion_jornada`) y para el aviso/panel de actividad de mercado
+(¿todas las operaciones de la liga, o solo las de jugadores en
+seguimiento/mi equipo? ¿aviso en Telegram o vista en la web?).
+
+**Aviso nuevo de Telegram, Grupo B**: "cambio de valor de un jugador en
+seguimiento sin cambiar de dueño" (`revisar_seguimiento_sin_cambio_dueno()`
+en `Notificar Telegram.py`). Guarda el último dueño conocido de cada
+jugador en seguimiento (`mi_equipo_jugadores.estado = 'seguimiento'`); si
+el dueño no ha cambiado desde la última vez y `diferencia_valor` (ya
+calculado a diario por `calcular_tendencias`) no es cero, avisa — usando
+una marca `dueño:diferencia` para no repetir el mismo aviso en cada ciclo
+del cron mientras no cambie ni el dueño ni la diferencia del día. Si el
+dueño sí cambió, no avisa esa vuelta (un cambio de dueño ya explica por sí
+solo cualquier variación de valor) y solo actualiza el dueño guardado.
+
+**Bug real encontrado y arreglado: avisos de "inicio de jornada" con la
+jornada equivocada**. El usuario reportó un aviso real de "hoy a las
+21:00 h empieza una nueva jornada" para lo que en realidad era un partido
+aplazado de la Jornada 1 (ya casi terminada) — confirmado contra la base
+de datos real: 8 de 20 equipos todavía tenían pendiente su partido
+aplazado de la Jornada 1 (fechas 25-27/08), mientras los otros 12 ya
+tenían la Jornada 3 como su próximo partido (la Jornada 2 ya se había
+jugado entera). `obtener_proxima_jornada()` cogía sin más la fila de
+`calendario` con la fecha más próxima entre *todos* los equipos —
+como ese aplazado de Jornada 1 caía antes que el arranque real de la
+Jornada 3, se colaba como si fuera el inicio de una jornada nueva.
+Arreglado calculando, por cada equipo, cuál es la jornada de su próximo
+partido, y quedándose con la jornada que sea la próxima para más equipos
+(la mayoría, no la fecha más temprana) — con eso los partidos aplazados
+sueltos de una jornada que para el resto de la liga ya pasó dejan de
+disparar el aviso. Verificado en directo contra los datos reales: antes
+del arreglo la función devolvía la Jornada 1 (el aplazado del
+25/08); después, la Jornada 3 (28/08 19:00), la jornada real que
+arranca para la mayoría de la liga.
+
+**Histórico real de `valor` (marketValue oficial), backfill hecho**:
+nuevo script manual `Rellenar historial valor.py` (utilidad de un solo
+uso, como `Descubrir liga.py` — sí imprime progreso). Pide
+`GET /player/{id}/market-value` para cada jugador del catálogo actual
+(~58 días de histórico real por jugador, confirmado en directo) y lo
+inserta en `historial_valor` con `on conflict (id, fecha) do nothing` —
+solo rellena huecos del pasado, nunca toca una fila que ya existiera. Ese
+histórico es de `marketValue` (valor oficial), no de `valor_liga` (la
+cláusula no tiene histórico en ningún endpoint conocido) — se acepta
+igual que en la Decimocuarta ronda ("esa tabla guarda esencialmente el
+mismo dato salvo para los pocos jugadores con la cláusula subida a
+mano"), y de hecho es más correcto que no tener nada: para cualquier día
+anterior a que alguien subiera la cláusula a mano, `valor_liga` de ese día
+habría sido exactamente `marketValue`.
+
+**Pendiente de que el usuario ejecute en el SQL Editor de Supabase** (la
+base de datos real ya tiene datos, así que el esquema nuevo no sirve
+solo, hay que aplicar el cambio a mano — mismo patrón que el Paso 9):
+```sql
+alter table jugadores add column dueno text;
+alter table jugadores add column protegido_hasta timestamptz;
+alter table jugadores add column en_mercado boolean not null default false;
+
+create table clasificacion_jornada (
+    jornada integer not null,
+    posicion integer not null,
+    manager text not null,
+    puntos integer,
+    primary key (jornada, manager)
+);
+
+create table actividad_mercado (
+    id bigint primary key,
+    tipo integer not null,
+    jugador_id integer,
+    usuario_id bigint,
+    usuario_destino_id bigint,
+    importe bigint,
+    fecha timestamptz not null
+);
+```
+Hasta que no se ejecute esto, `sincronizar_jugadores()` vuelve a fallar
+entera en cada ciclo (mismo patrón de siempre: no solo se pierde el dato
+nuevo, se detiene la actualización normal de `jugadores`) y
+`clasificacion_jornada`/`actividad_mercado` fallan también (tablas que
+todavía no existen) — sin bloquear el resto del pipeline, gracias al
+try/except por tabla de `Sincronizar`.
+
+**Rol de Postgres de solo lectura para la web, hecho y verificado en
+directo (25/08/2026)**: nuevo rol `web_solo_lectura` en la base de datos
+real (contraseña generada al azar, guardada solo en
+`Web/.env.local`, nunca en el chat ni en este documento). Con `grant
+select on all tables` no bastaba — el proyecto tiene RLS activado en
+todas las tablas ("por si acaso", ver Paso 5 en memoria), así que sin una
+política explícita el rol nuevo veía 0 filas pese a tener permiso a nivel
+de tabla; se añadió `create policy ... for select to web_solo_lectura
+using (true)` en cada tabla. **Descubierto a mitad de la tarea: la web no
+es 100% de solo lectura** — `Mi equipo` sí escribe en
+`mi_equipo_jugadores` (Decimotercera ronda). Un rol estrictamente de solo
+lectura habría roto esa función; se le concedió también INSERT/UPDATE/
+DELETE (con su política `for all using (true) with check (true)`)
+**únicamente** en esa tabla, confirmado en directo con una prueba real
+(UPDATE en `mi_equipo_jugadores` funciona, UPDATE en `jugadores` da
+`InsufficientPrivilege`). `Web/.env.local` ya apunta al rol nuevo — falta
+reiniciar el servidor de desarrollo para que Next.js recargue la variable
+de entorno (no se recarga en caliente). Cuando se despliegue en Vercel,
+usar esta misma cadena de conexión (con el rol de solo lectura) como
+`DATABASE_URL` de la web, **no** la de `Sincronizar`.
+
+**Dos avisos nuevos de Telegram, con el mensaje exacto que pidió el
+usuario**:
+- `revisar_puntos_dazn_jornada()`: "Terminaste la jornada X en la
+  posición Y de la clasificación, con Z puntos." Se dispara cuando la
+  jornada más reciente en `clasificacion_jornada` ya no aparece en
+  `calendario` de ningún equipo (esa tabla solo guarda partidos
+  *futuros*, así que su ausencia total confirma que la jornada ya
+  terminó del todo para toda la liga) — evita avisar con una
+  clasificación a medias.
+- `revisar_actividad_mercado()`: un mensaje por cada operación nueva de
+  cualquier mánager de la liga (fichaje del mercado, venta al mercado, o
+  compra directa a otro mánager — los 3 tipos identificados de
+  `activityTypeId`), usando los nombres reales vía la tabla `managers`
+  nueva. La primera vez que corre no manda nada de golpe (solo fija el id
+  más alto ya visto como punto de partida, mismo patrón que el resto de
+  avisos con "primera vez que se ve algo") — si no, el primer ciclo tras
+  activarse habría mandado un aviso por cada operación de mercado de toda
+  la temporada.
+
+**Deduplicación de `extraer_formacion()`, causa real encontrada y
+arreglada**: no eran 2-3 equipos por incertidumbre de rotación como se
+pensaba — probando en directo contra los 20 equipos reales, **6** tenían
+más de 11 candidatos (Valencia 15, Rayo 14, Athletic/Atlético/Getafe 13,
+Osasuna 12). Inspeccionando el HTML real de Valencia se encontró que la
+ficha de equipo tiene **dos widgets `.camiseta-wrapper` distintos**: el
+real (11 markers, con `data-probabilidad` y metadatos de posición
+completos, clase `tipo_campo`) y otro con nombres **parcialmente
+distintos** (jugadores que ni siquiera aparecían en el primero: De Haas,
+Gayà, Rioja, Sato en el caso de Valencia), sin `data-probabilidad` y sin
+la clase `tipo_campo` — no era la misma alineación duplicada por vista
+escritorio/móvil como se documentó en el Paso 9, sino un widget
+completamente distinto (probablemente una plantilla genérica de otro
+sitio de la página) colándose por el mismo selector CSS.
+`extraer_formacion()` ahora descarta cualquier marcador sin la clase
+`tipo_campo` antes de deduplicar por slot/nombre. Verificado en directo
+contra los 20 equipos reales: los 6 afectados bajan exactamente a 11,
+los otros 14 se quedan igual (ya estaban en 11) — 0 equipos con más o
+menos de 11 tras el cambio. `extraer_suplentes()` no tenía este problema
+(comprobado: el widget intruso nunca marca a nadie como `suplente`, solo
+como `titular`), así que no hizo falta tocarlo.
 
 ## Historia breve
 

@@ -54,6 +54,16 @@ def parsear_fecha_iso(texto):
     return datetime.strptime(texto, "%Y-%m-%d").date()
 
 
+def parsear_fecha_hora_iso(texto):
+    if not texto:
+        return None
+    return datetime.fromisoformat(texto)
+
+
+def parsear_booleano(texto):
+    return str(texto).strip().lower() in ("true", "1")
+
+
 def dividir(texto):
     return texto.split(" | ") if texto else []
 
@@ -196,6 +206,9 @@ def sincronizar_jugadores(cur):
             parsear_entero(coincidencias_mercado.get(jugador["ID"], {}).get("Diferencia")),
             parsear_numero(coincidencias_mercado.get(jugador["ID"], {}).get("Diferencia porcentaje")),
             parsear_entero_absoluto(coincidencias_mercado.get(jugador["ID"], {}).get("Tendencia")),
+            jugador.get("Dueño") or None,
+            parsear_fecha_hora_iso(jugador.get("Protegido hasta")),
+            parsear_booleano(jugador.get("En mercado")),
         )
         for jugador in jugadores
     ]
@@ -209,7 +222,7 @@ def sincronizar_jugadores(cur):
         insert into jugadores (
             id, nombre, equipo, posicion, porcentaje_titularidad, valor, valor_liga, estado,
             posicion_x, posicion_y, minutos_jugados, diferencia_valor, porcentaje_diferencia,
-            tendencia_dias
+            tendencia_dias, dueno, protegido_hasta, en_mercado
         ) values %s
         on conflict (id) do update set
             nombre = excluded.nombre,
@@ -225,6 +238,9 @@ def sincronizar_jugadores(cur):
             diferencia_valor = excluded.diferencia_valor,
             porcentaje_diferencia = excluded.porcentaje_diferencia,
             tendencia_dias = excluded.tendencia_dias,
+            dueno = excluded.dueno,
+            protegido_hasta = excluded.protegido_hasta,
+            en_mercado = excluded.en_mercado,
             actualizado_en = now()
         """,
         filas,
@@ -455,6 +471,92 @@ def sincronizar_calendario(cur):
     return total
 
 
+def sincronizar_clasificacion_jornada(cur):
+    filas = leer_csv_opcional("Datos Clasificacion jornada.csv")
+    if not filas:
+        return 0
+
+    jornada = parsear_entero(filas[0]["Jornada"])
+    cur.execute("delete from clasificacion_jornada where jornada = %s", (jornada,))
+
+    valores = [
+        (
+            parsear_entero(fila["Jornada"]),
+            parsear_entero(fila["Posición"]),
+            fila["Equipo ID"],
+            fila["Mánager"],
+            parsear_entero(fila["Puntos"]),
+        )
+        for fila in filas
+        if fila["Equipo ID"]
+    ]
+    if not valores:
+        return 0
+
+    execute_values(
+        cur,
+        """
+        insert into clasificacion_jornada (jornada, posicion, equipo_id, manager, puntos)
+        values %s
+        on conflict (jornada, equipo_id) do update set
+            posicion = excluded.posicion,
+            manager = excluded.manager,
+            puntos = excluded.puntos
+        """,
+        valores,
+    )
+    return len(valores)
+
+
+def sincronizar_managers(cur):
+    filas = [
+        (parsear_entero(fila["ID"]), fila["Nombre"])
+        for fila in leer_csv_opcional("Datos Managers.csv")
+        if fila["ID"]
+    ]
+    if not filas:
+        return 0
+
+    execute_values(
+        cur,
+        """
+        insert into managers (id, nombre) values %s
+        on conflict (id) do update set nombre = excluded.nombre
+        """,
+        filas,
+    )
+    return len(filas)
+
+
+def sincronizar_actividad_mercado(cur):
+    filas = [
+        (
+            parsear_entero(fila["ID"]),
+            parsear_entero(fila["Tipo"]),
+            parsear_entero(fila["Jugador"]),
+            parsear_entero(fila["Usuario"]),
+            parsear_entero(fila.get("Usuario destino")),
+            parsear_entero(fila["Importe"]),
+            parsear_fecha_hora_iso(fila["Fecha"]),
+        )
+        for fila in leer_csv_opcional("Datos Actividad mercado.csv")
+    ]
+
+    if not filas:
+        return 0
+
+    execute_values(
+        cur,
+        """
+        insert into actividad_mercado (id, tipo, jugador_id, usuario_id, usuario_destino_id, importe, fecha)
+        values %s
+        on conflict (id) do nothing
+        """,
+        filas,
+    )
+    return len(filas)
+
+
 def sincronizar_mi_club(cur):
     filas = leer_csv_opcional("Datos Mi club.csv")
 
@@ -484,6 +586,9 @@ def main():
                 ("puntos_jornada", sincronizar_puntos),
                 ("puntos_jornada_detalle", sincronizar_detalle),
                 ("calendario", sincronizar_calendario),
+                ("managers", sincronizar_managers),
+                ("clasificacion_jornada", sincronizar_clasificacion_jornada),
+                ("actividad_mercado", sincronizar_actividad_mercado),
                 ("mi_club", sincronizar_mi_club),
             ]:
                 try:

@@ -91,6 +91,8 @@ def extraer_formacion(html):
     for marcador in soup.select(".camiseta-wrapper"):
         if marcador.get("data-onceff") != "titular":
             continue
+        if "tipo_campo" not in (marcador.get("class") or []):
+            continue
         estilo = marcador.get("style", "")
         coincidencia_x = re.search(r"left:\s*([\d.]+)%", estilo)
         coincidencia_y = re.search(r"top:\s*([\d.]+)%", estilo)
