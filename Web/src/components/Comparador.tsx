@@ -36,7 +36,7 @@ function colorMejorPeor(valores: (number | null)[], i: number, menorEsMejor: boo
   const esMejor = menorEsMejor ? v === min : v === max;
   const esPeor = menorEsMejor ? v === max : v === min;
   if (esMejor) return "#16A34A";
-  if (esPeor) return "#DC2626";
+  if (esPeor) return "#FE4B44";
   return undefined;
 }
 

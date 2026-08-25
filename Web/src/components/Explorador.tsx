@@ -29,7 +29,7 @@ type ClaveOrdenable = (typeof COLUMNAS_OPCIONALES)[number]["clave"] | "nombre";
 
 function colorRevalorizacion(valor: number | null): string | undefined {
   if (valor === null || valor === 0) return undefined;
-  return valor > 0 ? "#16A34A" : "#DC2626";
+  return valor > 0 ? "#16A34A" : "#FE4B44";
 }
 
 function compararPorClave(a: Jugador, b: Jugador, clave: ClaveOrdenable, direccion: "asc" | "desc"): number {
@@ -297,7 +297,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                               e.stopPropagation();
                               setModalValor(j);
                             }}
-                            className="underline decoration-dotted underline-offset-2 hover:text-[#e83d50]"
+                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE4B44]"
                           >
                             {texto}
                           </button>
@@ -314,7 +314,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                               e.stopPropagation();
                               setModalPuntos(j);
                             }}
-                            className="underline decoration-dotted underline-offset-2 hover:text-[#e83d50]"
+                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE4B44]"
                           >
                             {texto}
                           </button>
@@ -331,7 +331,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                               e.stopPropagation();
                               setModalUltimaJornada(j);
                             }}
-                            className="underline decoration-dotted underline-offset-2 hover:text-[#e83d50]"
+                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE4B44]"
                           >
                             {texto}
                           </button>

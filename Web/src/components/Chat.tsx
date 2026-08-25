@@ -25,21 +25,12 @@ export function Chat() {
 
   return (
     <div className="max-w-[700px] mx-auto w-full px-6 pt-14 pb-10 flex flex-col gap-6" style={{ height: "calc(100vh - 48px)" }}>
-      <h1 className="text-[32px] font-bold text-center" style={{ letterSpacing: "-1px" }}>
-        Pregunta a la IA
-      </h1>
-
-      <div className="flex-1 overflow-y-auto flex flex-col gap-3 rounded-[24px] bg-white p-5">
-        {mensajes.length === 0 && (
-          <p className="text-sm text-neutral-500 text-center m-auto">
-            Pregunta lo que quieras sobre los jugadores, ej. ¿qué jugadores han marcado en total 7 goles?
-          </p>
-        )}
+      <div className="flex-1 overflow-y-auto flex flex-col gap-3">
         {mensajes.map((m, i) => (
           <div key={i} className={`flex ${m.rol === "user" ? "justify-end" : "justify-start"}`}>
             <div
               className={`max-w-[80%] rounded-[18px] px-4 py-2 text-sm whitespace-pre-wrap ${
-                m.rol === "user" ? "bg-[#e83d50] text-white" : "bg-[#F5F5F7] text-[#1D1D1F]"
+                m.rol === "user" ? "bg-[#FE4B44] text-white" : "bg-[#F5F5F7] text-[#1D1D1F]"
               }`}
             >
               {m.texto}
@@ -69,7 +60,7 @@ export function Chat() {
           type="button"
           onClick={enviar}
           disabled={cargando || !pregunta.trim()}
-          className="h-12 px-6 rounded-[14px] bg-[#e83d50] text-white text-sm font-medium transition-opacity duration-200 hover:opacity-90 disabled:opacity-40"
+          className="h-12 px-6 rounded-[14px] bg-[#FE4B44] text-white text-sm font-medium transition-opacity duration-200 hover:opacity-90 disabled:opacity-40"
         >
           Enviar
         </button>

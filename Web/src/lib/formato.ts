@@ -24,7 +24,7 @@ export function minusculaInicial(texto: string): string {
 }
 
 export const COLOR_DIFICULTAD: Record<string, string> = {
-  "Muy alta": "#DC2626",
+  "Muy alta": "#FE4B44",
   Alta: "#EA580C",
   Media: "#CA8A04",
   Baja: "#2563EB",

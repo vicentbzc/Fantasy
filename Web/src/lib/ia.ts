@@ -26,7 +26,13 @@ Aclaraciones sobre las columnas:
 - "Dificultad del calendario" es la dificultad media de los próximos 5 partidos del equipo del jugador.
 - "Tendencia" son los días consecutivos que el valor del jugador lleva subiendo o bajando en la misma dirección.
 
-Si una pregunta no se puede responder con estos datos, dilo claramente en vez de suponer algo.`;
+Si una pregunta no se puede responder con estos datos, dilo claramente en vez de suponer algo.
+
+Responde en texto plano, sin formato Markdown (nada de asteriscos para negrita/cursiva ni listas con *).`;
+
+function quitarMarkdown(texto: string): string {
+  return texto.replace(/^\s*\*\s+/gm, "- ").replace(/\*/g, "");
+}
 
 function construirEntrada(pregunta: string, historial: MensajeChat[]): string {
   if (historial.length === 0) return pregunta;
@@ -57,7 +63,7 @@ export async function preguntarSobreJugadores(
       },
     });
 
-    return respuesta.text ?? "No he podido generar una respuesta.";
+    return respuesta.text ? quitarMarkdown(respuesta.text) : "No he podido generar una respuesta.";
   } catch (error) {
     const status = (error as { status?: number })?.status;
     if (status === 401 || status === 403) {

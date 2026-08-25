@@ -26,7 +26,6 @@ import { accionEstablecerEstadoMiEquipo, accionEliminarDeMiEquipo } from "@/app/
 const CLAVES_PERMITIDAS = new Set<keyof Jugador>([
   "porcentajeTitularidad",
   "valorSinClausula",
-  "valor",
   "diferenciaValor",
   "dificultadProximos5",
 ]);
@@ -58,13 +57,10 @@ function lineasParaJugador(
   if (columnasVisibles.valorSinClausula) {
     lineas.push({ texto: formatearValor(j.valorSinClausula) });
   }
-  if (columnasVisibles.valor) {
-    lineas.push({ texto: formatearValor(j.valor) });
-  }
   if (columnasVisibles.diferenciaValor) {
     const paletaRevalorizacion = enCampo
       ? COLOR_REVALORIZACION_CAMPO
-      : { positivo: "#16A34A", negativo: "#DC2626" };
+      : { positivo: "#16A34A", negativo: "#FE4B44" };
     const color =
       j.diferenciaValor === null || j.diferenciaValor === 0
         ? undefined
@@ -101,7 +97,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
   const valorEquipo = miClub.valorEquipo;
   const valorClub =
     miClub.valorEquipo !== null || miClub.dinero !== null ? (miClub.valorEquipo ?? 0) + (miClub.dinero ?? 0) : null;
-  const colorRevalorizacion = revalorizacion > 0 ? "#16A34A" : revalorizacion < 0 ? "#DC2626" : undefined;
+  const colorRevalorizacion = revalorizacion > 0 ? "#16A34A" : revalorizacion < 0 ? "#FE4B44" : undefined;
 
   const porteroTitular = titulares.find((j) => j.posicion === "Portero") ?? null;
   const outfieldTitulares = titulares.filter((j) => j.posicion !== "Portero");
@@ -252,7 +248,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
                 <button
                   type="button"
                   onClick={() => eliminar(menuJugador.id)}
-                  className="w-full text-left px-2 py-2 rounded-lg text-sm text-[#DC2626] transition-colors duration-200 hover:bg-[#FAFAFC]"
+                  className="w-full text-left px-2 py-2 rounded-lg text-sm text-[#FE4B44] transition-colors duration-200 hover:bg-[#FAFAFC]"
                 >
                   Eliminar
                 </button>

@@ -6,7 +6,6 @@ const ENLACES = [
   { href: "/jugadores", etiqueta: "Jugadores" },
   { href: "/comparador", etiqueta: "Comparador" },
   { href: "/mi-equipo", etiqueta: "Mi equipo" },
-  { href: "/chat", etiqueta: "Chat" },
 ];
 
 export function NavBar() {
@@ -16,7 +15,7 @@ export function NavBar() {
         <Link
           key={href}
           href={href}
-          className="text-[#1D1D1F] transition-colors duration-200 hover:text-[#e83d50]"
+          className="text-[#1D1D1F] transition-colors duration-200 hover:text-[#FE4B44]"
         >
           {etiqueta}
         </Link>
