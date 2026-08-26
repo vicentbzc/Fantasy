@@ -150,7 +150,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
             <BotonAgregar
               size={TAMANO_BOTON_AGREGAR}
               onClick={() => setBuscador("titular")}
-              className="bg-[#F5F5F7]/50 text-white hover:bg-[#F5F5F7]/30"
+              className="bg-[#F5F5F7]/30 text-white hover:bg-[#F5F5F7]/20"
             />
           </div>
         </div>

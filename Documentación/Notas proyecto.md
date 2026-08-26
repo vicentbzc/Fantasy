@@ -3202,6 +3202,411 @@ dejar nada escrito. El resto de la consulta (la suma en sí) ya está
 probada porque es la misma que llevaba usando el aviso de Telegram desde
 la Vigesimosegunda ronda.
 
+**El usuario ejecutó el `alter table` el mismo día**: confirmado en
+directo (`information_schema.columns` ya lista `revalorizacion`) y una
+sincronización real de verdad rellenó la columna sin error
+(`revalorizacion_mi_equipo: 1 filas sincronizadas`, valor `0` porque
+ningún jugador de la plantilla real había cambiado de valor oficial
+todavía ese día). **Aviso para la próxima vez que se toque el esquema**:
+justo después del `alter table`, la web dio `column "revalorizacion" does
+not exist` — no porque no existiera (sí existía, confirmado por Python),
+sino porque el servidor de desarrollo (`next dev`) ya tenía la conexión a
+Postgres abierta desde antes del cambio y el catálogo de esa conexión no
+se había refrescado. Un reinicio del servidor de desarrollo lo arregló al
+momento. Mismo tipo de aviso que ya existía para variables de entorno
+nuevas (Decimoctava ronda) — un `alter table` en producción también pide
+reiniciar `next dev` si lo tienes abierto en local, no solo desplegar.
+
+## Vigesimonovena ronda: rediseño del chat con IA — centrado, flecha dentro del recuadro, y capacidad de recomendar precios (27/08/2026)
+
+El usuario pidió 8 retoques sobre `/chat` en un solo mensaje, todos en
+`Chat.tsx` salvo el último:
+
+- **Estado vacío, centrado en toda la pantalla**: antes la barra de
+  "Escribe tu pregunta" siempre estaba pegada abajo, incluso sin ningún
+  mensaje. Ahora, mientras `mensajes.length === 0`, el contenedor añade
+  `justify-center` (en vez de `gap-6` normal) y muestra un bloque
+  centrado con el texto "Tu asistente deportivo con IA." encima de la
+  barra — en cuanto se envía el primer mensaje, `hayConversacion` pasa a
+  `true` y todo cae a la posición de siempre (abajo, con la lista de
+  mensajes ocupando el hueco de arriba) — exactamente la disposición que
+  ya existía antes de esta ronda, sin tocarla.
+- **Botón "Enviar" → flecha "↑" dentro del propio recuadro**: el `<input>`
+  y el botón dejan de ser dos cajas separadas en fila; el botón pasa a
+  `position: absolute` dentro de un contenedor `relative` que envuelve al
+  input, centrado verticalmente a la derecha (`right-2 top-1/2
+  -translate-y-1/2`), como un círculo rojo de 32px con la flecha en
+  texto plano (mismo criterio del resto de la web: iconos como caracteres
+  Unicode, no SVG). Solo se renderiza `{pregunta.trim() && (...)}` — no
+  hay que ocultarlo con CSS, directamente no existe en el DOM mientras el
+  campo está vacío.
+- **Márgenes iguales al resto de la web**: `px-6` solo → `px-6 sm:px-12`,
+  el mismo patrón de 48px en pantallas grandes que ya comparten Equipos,
+  Jugadores y Mi equipo desde la Vigesimoprimera ronda (a esta página
+  se le había olvidado entonces).
+- **Burbuja del mensaje propio**: ya era `rounded-[18px]`, un rectángulo
+  con esquinas redondeadas — no hizo falta ningún cambio, solo se
+  confirmó en directo que seguía así tras el resto de la reestructuración.
+- **`lib/ia.ts`, capacidad de recomendar precios**: las instrucciones del
+  sistema decían "nunca inventes un dato que no esté ahí", y el modelo lo
+  interpretaba también para negarse a dar una cifra de precio recomendable
+  (no es una columna literal del CSV). Añadida una aclaración explícita:
+  calcular una recomendación razonada a partir de los datos reales
+  (Valor, Tendencia, Revalorización, Dificultad del calendario...) no
+  cuenta como inventar, siempre que lo diga como una estimación propia.
+
+Verificado en directo con una pregunta real ("¿Qué precio recomendable
+pagarías por la cláusula de Lamine Yamal?"): la IA calculó y explicó una
+recomendación concreta (precio de cláusula justo, o subir un 2-3% como
+mucho) razonando con datos reales (tendencia de 3 días bajando,
+revalorización de -1.396.208€, dificultad del calendario), dejando claro
+que era una estimación suya — y el contenedor cayó solo a la posición de
+abajo (`gap-6`, sin `justify-center`) en cuanto hubo conversación,
+confirmando el comportamiento pedido en el punto 3.
+
+## Trigésima ronda: 6 correcciones sobre el chat — centrado real, sombra roja, degradado, burbujas rectangulares y ancho alineado con Jugadores (27/08/2026)
+
+El usuario vio el resultado de la ronda anterior en su propio navegador y
+pidió 6 ajustes más, todos en `Chat.tsx`:
+
+- **Centrado vertical real**: el `pt-14 pb-10` que llevaba el contenedor
+  siempre (incluso en el estado vacío) desequilibraba el `justify-center`
+  — 56px arriba contra 40px abajo, empujando el bloque hacia abajo.
+  Ahora ese padding solo se aplica cuando `hayConversacion` es `true`; en
+  el estado vacío no hay padding vertical en absoluto, así que
+  `justify-center` centra de verdad dentro de los `calc(100vh - 48px)`
+  completos.
+- **Texto "Tu asistente deportivo con IA"** (sin punto final, como pidió
+  el usuario esta vez): de `text-sm text-neutral-500` a `text-3xl
+  font-bold`, con un degradado de máscara CSS
+  (`mask-image`/`-webkit-mask-image: linear-gradient(to bottom, black
+  55%, transparent 100%)`) para que la parte de abajo del texto se
+  desvanezca — no es un color de fondo degradado, es la máscara la que
+  hace transparente el propio texto progresivamente.
+- **Sombra roja alrededor del recuadro de escribir**: `shadow-[0_0_28px_rgba(254,100,95,0.4)]`
+  en el `<input>` — mismo rojo exacto (`#FE645F`) que ya usa la burbuja
+  del mensaje propio, solo que como sombra difusa en vez de fondo sólido.
+- **Burbujas de mensaje, de `rounded-[18px]` a `rounded-[12px]`**: con
+  mensajes cortos, un radio de 18px en una burbuja de ~36px de alto
+  consumía toda la altura y se veía como una píldora/círculo en vez de un
+  rectángulo — 12px (el mismo radio que ya usan los botones tipo
+  `BotonAgregar`/`MenuFiltros` en el resto de la web) se nota claramente
+  rectangular. Aplicado a las tres burbujas (usuario, IA y "Pensando…").
+- **Ancho del chat igualado al de la tabla de Jugadores**: el contenedor
+  pasó de `max-w-[700px]` a `max-w-[1576px]` (idénticas clases —
+  `mx-auto w-full px-6 sm:px-12` — que ya usa `/jugadores`), así que el
+  borde derecho de mis mensajes (`justify-end`) y el izquierdo de los de
+  la IA (`justify-start`) caen exactamente donde cae el borde de la tabla
+  de jugadores, por construcción CSS, no por coincidencia — misma fórmula
+  de márgenes en las dos páginas. El estado vacío (texto + recuadro de
+  escribir) se queda en un bloque interior de `max-w-[700px] mx-auto`
+  para no verse absurdamente ancho y solo mientras no hay conversación;
+  en cuanto hay mensajes, la lista y la barra de abajo ocupan el ancho
+  completo de 1576px.
+
+**Verificación de esta ronda, con una limitación real de nuevo**: no se
+pudo medir en directo el borde de la tabla de `/jugadores` porque esa
+página sigue sin hidratar en esta sesión (ver Vigesimoquinta ronda) — el
+contenido real queda enterrado en el `<div style="display:none">` del
+streaming de Suspense. Se verificó en su lugar: (1) que el chat usa
+exactamente las mismas clases de ancho/márgenes que ya se leyeron del
+código fuente de `/jugadores` (garantiza el mismo resultado por
+construcción, sin depender de medir la otra página), y (2) con una
+pregunta real ("Hola"), que el borde derecho de la burbuja del usuario
+cae exactamente a 48px del borde del contenedor (el `sm:px-12` esperado),
+con `border-radius: 12px` confirmado por estilo computado. Sombra roja y
+máscara de degradado confirmadas también por estilo computado
+(`box-shadow` con `rgba(254, 100, 95, 0.4)`, `mask-image` con el
+`linear-gradient` esperado).
+
+**Corrección inmediata, mismo día, con una captura de referencia de la
+UI de Gemini**: la sombra roja de la ronda anterior (`0.4` de opacidad,
+28px de difuminado) se veía demasiado intensa comparada con el halo suave
+que el usuario quería — bajada a `0_0_40px_rgba(254,100,95,0.18)` (menos
+opacidad, más difuminado, mismo efecto "resplandor ambiental" que la
+captura de Gemini). El recuadro de escribir pasó de `w-full` (dentro de
+un contenedor de hasta 700px, o de los 1576px completos abajo) a un ancho
+fijo de `max-w-[560px] mx-auto` en los **dos** estados — bastante más
+estrecho que antes, tanto vacío como una vez hay conversación. El fondo
+del botón de enviar pasó de `rounded-full` (círculo) a `rounded-[10px]`
+(cuadrado con esquinas redondeadas, el mismo radio que ya usan las
+burbujas de mensaje). Y la sombra roja **solo se aplica en el estado
+vacío** — se extrajo la barra a un componente `BarraInput` con un prop
+`conSombra` para no duplicar el marcado del input/botón entre los dos
+sitios donde aparece.
+
+Verificado en directo: `560px` de ancho real en los dos estados,
+`box-shadow: none` una vez hay conversación (antes llevaba la sombra
+roja sin querer), `border-radius: 10px` en el botón "↑" (ya no
+`border-radius: 9999px` de un círculo).
+
+**Ajuste inmediato, mismo día**: la sombra roja se quedaba corta
+comparada con el halo amplio de la captura de Gemini — de `0_0_40px` a
+`0_0_140px_40px` (difuminado de 40 a 140px, más un `spread` de 40px que
+antes no tenía), misma opacidad `0.18`. Verificado por estilo computado.
+
+**El degradado del título, ida y vuelta el mismo día**: se ajustó dos
+veces más (`black 55%→transparent 100%` original, luego `black
+15%→transparent 85%` por pedir "más transparente", luego `black
+40%→transparent 100%` por pedir "no tanto, baja un poco el degradado")
+antes de que el usuario decidiera simplemente **quitarlo del todo** — el
+`<p>` del título se quedó sin `style` ni `mask-image`, texto sólido sin
+ningún efecto de desvanecido. Verificado por estilo computado
+(`mask: none`).
+
+## Trigésima primera ronda: la causa real de por qué el borrado de jugadores nunca actuaba — `playerStatus`, no ausencia del catálogo (27/08/2026)
+
+El usuario reportó que "Ferran" le seguía saliendo en `/jugadores` aunque
+ya no aparecía en su app oficial (ni en búsqueda ni en mercado) —
+contradecía la premisa completa de la Vigesimosexta ronda
+(`eliminar_jugadores_desaparecidos()`, "un jugador se borra cuando
+desaparece del catálogo de `/players`").
+
+**Investigado en directo contra la API real**: `/players` **nunca quita**
+a un jugador de la lista — cuando sale de la competición (traspaso fuera
+de LaLiga, etc.) le pone un campo `playerStatus: "out_of_league"` en vez
+de eliminarlo del array. Nuestro filtro de `Ingestar datos liga.py` solo
+miraba `positionId` y `teamId`, así que estos jugadores seguían pasando
+el filtro y quedándose en la base de datos para siempre — el borrador de
+la Vigesimosexta ronda nunca tenía nada que borrar porque su condición
+("falta del catálogo") jamás se cumplía. Confirmado el resto de valores
+de `playerStatus` en el catálogo real: `ok` (485), `out_of_league` (266),
+`injured` (38), `doubtful` (9), `suspended` (6) — los tres últimos son
+disponibilidad normal (el jugador sigue en la liga, ya tenemos ese dato
+por otra vía con `estado`), solo `out_of_league` significa "ya no existe
+para nosotros".
+
+**Verificado con dos casos reales antes de tocar nada**: se le pidió al
+usuario que confirmara en su propia app dos jugadores `out_of_league` de
+alto valor — Ferran (ya sabíamos que sí) y Rashford (sorprendía, en
+teoría sigue cedido en el Barça) — los dos confirmados como desaparecidos
+de verdad en la app real, validando el criterio antes de borrar 263
+filas de golpe.
+
+**Dos cambios**:
+1. `Ingestar datos liga.py` descarta ahora también a cualquier jugador
+   con `playerStatus == "out_of_league"` en el bucle del catálogo (junto
+   al filtro ya existente de posición/equipo) — de 781 a 518 filas en
+   `Datos Jugadores.csv` tras el cambio, verificado en local con la API
+   real.
+2. **Limpieza puntual de una sola vez, no parte del pipeline recurrente**:
+   los 263 jugadores de la diferencia estaban muy por encima de
+   `MAXIMO_JUGADORES_A_ELIMINAR_POR_CICLO = 20` (puesto justo para evitar
+   borrados masivos accidentales) — sin una limpieza manual, el cron
+   normal se habría quedado bloqueado para siempre viendo 263
+   "desaparecidos" cada ciclo sin actuar nunca. Ejecutada a mano contra la
+   base de datos real (mismo orden de cascada que
+   `eliminar_jugadores_desaparecidos()`: `mi_equipo_jugadores` →
+   `puntos_jornada_detalle` → `puntos_jornada` → `historial_valor` →
+   `jugadores`) y confirmado el `commit`: 263 jugadores borrados, 4.652
+   filas de `historial_valor`, 38 de `puntos_jornada_detalle`, 26 de
+   `puntos_jornada`, 0 de `mi_equipo_jugadores` (ninguno de los borrados
+   estaba en el equipo del usuario). Verificado que Ferran y Rashford ya
+   no existen en `jugadores`. A partir de ahora, cualquier jugador que
+   pase a `out_of_league` lo detectará y borrará solo el paso normal del
+   pipeline (dentro del límite de 20 por ciclo, más que de sobra para el
+   ritmo normal de bajas, no 263 de golpe como este backlog acumulado).
+
+## Trigésima segunda ronda: icono de chat que se quedaba "en hover", y animación de deslizamiento al enviar el primer mensaje (27/08/2026)
+
+**Bug real: el icono flotante del chat se quedaba pintado del color de
+hover para siempre**. Causa: `BotonChatFlotante.tsx` guarda el estado de
+"ratón encima" en React (`onMouseEnter`/`onMouseLeave`), no con `hover:`
+de Tailwind — decisión de otra sesión para que el hover se notara también
+en dispositivos táctiles (`hover:` de CSS nunca se activa ahí). El
+componente vive en el layout raíz, así que **nunca se desmonta** al
+navegar entre páginas — solo `return null` mientras `pathname === "/chat"`,
+pero su estado interno sigue vivo. Para llegar a `/chat` hay que hacer
+clic en este mismo botón, lo que dispara `onMouseEnter` (`resaltado =
+true`); en cuanto la página cambia a `/chat`, el botón desaparece del
+DOM sin que el ratón haya "salido" de verdad, así que `onMouseLeave`
+nunca llega a dispararse — `resaltado` se queda en `true` para siempre, y
+la próxima vez que el botón reaparece (al navegar a cualquier otra
+página) sale ya con el color de hover puesto. Arreglado con un
+`useEffect` que resetea `resaltado` a `false` en cuanto `pathname` pasa a
+`"/chat"` — se cura solo, sin depender de que llegue un evento de ratón
+que en la práctica nunca llega en este caso concreto.
+
+**Chat, retoques de la pantalla vacía y animación al enviar**:
+- El bloque de título + recuadro subió un poco respecto al centro exacto
+  de la pantalla (de `top: 50%` a `top: 42%`).
+- **El recuadro de escribir ya no se desmonta/remonta entre el estado
+  vacío y el de conversación** — es el mismo elemento en las dos
+  situaciones, posicionado con `position: absolute` + `top`/`transform`
+  en vez de con `flex`/`justify-center` (que no se puede animar). Al
+  enviar el primer mensaje, `top`/`transform` cambian de los valores de
+  "centrado en pantalla" a los de "40px sobre el borde inferior", con
+  `transition-[top,transform] duration-200 ease-out` — un deslizamiento
+  rápido hacia abajo en vez de un salto instantáneo.
+- El título "Tu asistente deportivo con IA" y la sombra roja **no**
+  llevan ninguna transición — siguen condicionados a `!hayConversacion`
+  tal cual, así que desaparecen de golpe en el mismo instante en que se
+  envía el mensaje, tal y como se pidió (solo el recuadro debía animarse,
+  no estos dos).
+
+**Verificación con una limitación real más de esta sesión**: el panel del
+navegador no compone frames aquí (mismo aviso de siempre en las capturas
+de pantalla), y una transición CSS depende de ese mismo pintado
+fotograma a fotograma para avanzar — así que `getComputedStyle` se quedó
+congelado en el valor de a medio camino para siempre en vez de llegar al
+valor final, aunque el atributo `style` en crudo ya mostraba el valor
+correcto. Se confirmó que la lógica es correcta forzando
+`transition: none` + un reflow manual en la consola: con eso,
+`top`/`transform` saltaron al momento a los valores exactos esperados
+(40px sobre el borde inferior del contenedor) — la animación en sí no se
+pudo ver completarse en este entorno, pero los números de destino son
+correctos y la transición se ejecutará con normalidad en un navegador
+real.
+
+**Ida y vuelta el mismo día, terminó sin cambios**: se probó a mover el
+título debajo del recuadro (malentendido de un mensaje ambiguo — el
+usuario en realidad pedía que se notara el difuminado rojo detrás de las
+propias letras, no cambiar su posición), luego se revirtió la posición y
+se añadió un `text-shadow` rojo de dos capas sobre el texto para lograr
+ese efecto — y finalmente el usuario pidió dejarlo tal cual estaba **antes
+de todo este intercambio**. Resultado final: sin cambios respecto a la
+Trigésima segunda ronda (título encima del recuadro,
+`translateY(calc(-100% - 40px))`, sin `text-shadow`). Verificado en
+directo: `text-shadow: none`, `color: rgb(29, 29, 31)` (negro plano).
+
+**El usuario pidió el degradado de vuelta, esta vez explícitamente
+"sutil"**: `mask-image: linear-gradient(to bottom, black 70%, transparent
+100%)` — solo el 30% inferior del texto se desvanece (frente al 15%/45%/
+100% de los intentos de la ronda anterior, todos descartados). Verificado
+por estilo computado.
+
+**El usuario pidió que se notara un poco más pero que no fuera un
+degradado lineal, sino "esporádico"**: sustituido el `mask-image` de una
+sola capa por 6 capas — 5 `radial-gradient` con un círculo transparente
+cada uno, repartidos a distintas alturas/posiciones cerca del borde
+inferior (18%/38%/58%/74%/90% de ancho, 88-100% de alto), más el
+`linear-gradient` de base (ahora empieza a desvanecer en el 55% en vez
+del 70%, para que se note más) — con `mask-composite: intersect` para
+que las 6 capas se combinen restando "agujeros" en vez de sumarse (el
+valor por defecto, `add`, no crea huecos visibles). Da un patrón
+irregular de desvanecido en vez de una línea recta. **Sin verificación
+visual posible en esta sesión** (el panel no compone frames) — solo se
+confirmó que el CSS es válido y se aplica (`mask-composite: intersect`
+en las 6 capas, sin caer a `none`); pendiente de que el usuario confirme
+si el patrón resultante es el que buscaba.
+
+**Confirmado el problema que se temía**: el usuario reportó que las
+manchas se comían trozos reales de la "u" de "Tu" y la "c" de "con" — los
+círculos (hasta 9px de radio, huecos completamente transparentes) caían
+sobre tinta real de las letras, no solo en el hueco de debajo. Arreglado
+con una versión mucho más conservadora: radio de los círculos bajado a
+2-3px, posición bajada a pegada del todo al borde inferior (98-100% en
+vez de 88-100%), el centro de cada círculo ya no es `transparent` sino
+`rgba(0,0,0,0.5)` (nunca llega a hueco completo, como mucho un aclarado
+suave), y la base `linear-gradient` amplía la zona 100% intacta de 55% a
+70%. Con este margen, "Tu" y el resto del texto por encima del 70% de
+alto quedan fuera de cualquier posible interferencia por construcción,
+no por suerte.
+
+**Efecto de ola en "Pensando…"**: nuevo `@keyframes ola` en `globals.css`
+(`translateY(0) → translateY(-4px) → translateY(0)`, 1s, `ease-in-out`,
+infinito) y clase `.letra-ola` (`display: inline-block` — necesario para
+que `transform` tenga efecto sobre un elemento de texto en línea).
+Componente nuevo `TextoOla` en `Chat.tsx`: separa el texto en letras,
+cada una en su propio `<span className="letra-ola">` con
+`animationDelay: {índice * 0.08}s` — el retraso creciente por letra es
+lo que crea el efecto de ola recorriendo la palabra en vez de que suba y
+baje entera a la vez. Usado en el bloque "Pensando…" que ya existía.
+Verificado que el CSS (`@keyframes`/clase) se registra correctamente en
+la hoja de estilos real de la página; no se pudo capturar en directo el
+instante exacto en que se muestra "Pensando…" para verlo animado (Gemini
+responde más rápido que el tiempo que tarda cada comprobación desde
+fuera), pero la lógica y el CSS están confirmados por separado.
+
+**Corrección el mismo día**: la ola no debía mover las letras arriba/abajo
+— el usuario quería el efecto solo en el **color**. `@keyframes ola`
+cambiado de `transform: translateY` a `color` (gris `#6E6E73` → rojo de
+marca `#FE645F` → gris), y quitado el `display: inline-block` de
+`.letra-ola` (ya no hace falta, no se anima ningún `transform`). Mismo
+retraso escalonado por letra de siempre, así que ahora es una ola de
+color roja recorriendo "Pensando…" en vez de un rebote. También se pidió
+"un poco más" de degradado en el título — el `linear-gradient` de base
+subió su punto de corte de 70% a 60% (los agujeros pequeños siguen igual
+de seguros, pegados al 98-100%, sin tocar la zona segura de arriba).
+Verificado por estilo computado: `@keyframes ola` con `color` en vez de
+`transform`, y el degradado con el nuevo corte en 60%.
+
+**Dos ajustes más, mismo día**: la ola pasó de gris↔rojo a dos tonos de
+gris (`#A1A1A6` ↔ `#3A3A3D`, sin ningún rojo). Y el degradado del título
+no debía subir el punto de corte (se queda en 60%) pero sí ser más
+intenso — añadida una parada intermedia
+(`black 60%, rgba(0,0,0,0.15) 80%, transparent 100%`) para que caiga
+mucho más rápido nada más empezar en vez de una rampa lineal suave hasta
+el 100%, sin tocar la zona segura de arriba (0-60% sigue intacta).
+Verificado por estilo computado.
+
+**El mismo día, definitivo esta vez**: el usuario pidió quitar el
+degradado del título del todo — quitado el `mask-image`/`mask-composite`
+por completo del `<p>`, solo se queda `top`/`transform` para la
+posición. Verificado por estilo computado (`mask: none`). El efecto de
+ola en color de "Pensando…" no se tocó, sigue en pie.
+
+## Trigésima tercera ronda: transparencia del botón "+" del campo en Mi equipo (27/08/2026)
+
+El usuario pidió invertir la transparencia del botón "+" del campo
+(`MiEquipo.tsx`): el color que hasta ahora se veía **al pasar el ratón**
+(30% de opacidad) pasa a ser el color **por defecto**, y el nuevo hover
+baja un poco más, a 20% — más transparente aún al pasar el ratón, en vez
+de menos. `className` de `BotonAgregar` cambiado de
+`bg-[#F5F5F7]/50 text-white hover:bg-[#F5F5F7]/30` a
+`bg-[#F5F5F7]/30 text-white hover:bg-[#F5F5F7]/20`. Verificado por
+estilo computado: fondo por defecto con alfa `0.3`.
+
+## Trigésima cuarta ronda: "Revalorización de mi equipo" en 0, y la columna "Revalorización" de Jugadores pasa a ser oficial en vez de cláusula (27/08/2026)
+
+El usuario reportó dos cosas: "Revalorización de mi equipo" en 0, y que
+la "Revalorización" de Pathé I. Ciss en `/jugadores` (2.552.561) no
+coincidía con lo que muestra su app real (266.838).
+
+**Investigado en directo contra la base de datos real**:
+- El "0" tiene una causa real y esperada: `historial_valor.valor_oficial`
+  es una columna de ayer (26/08) — de los 13 jugadores reales del
+  usuario, 12 no tienen ni un solo día con ese dato, y el que sí lo
+  tiene solo para un día. Como `historial_valor` nunca corrige un día ya
+  guardado (`on conflict do nothing`, por diseño), ese primer día se
+  quedó sin dato para casi todos los jugadores del catálogo completo (solo
+  262 de 779 lo consiguieron esa vez) — sin acceso a los logs de GitHub
+  Actions no se pudo confirmar por qué falló para el resto ese primer
+  día, pero el código y la API funcionan bien ahora mismo (los 804
+  jugadores del catálogo parsean su `marketValue` sin error), así que
+  debería ir rellenándose solo a partir de hoy, un día nuevo cada vez.
+- El caso de Ciss **no era un bug**: mismo patrón que Mikautadze
+  (Vigesimosegunda ronda) — su cláusula (19.723.883) está subida a mano
+  muy por encima de su valor oficial (17.847.266), así que la columna
+  "Revalorización" (que hasta ahora reflejaba el cambio de **cláusula**,
+  a propósito) mostraba el salto de cláusula, no el cambio de valor
+  oficial que ve la app real.
+
+**El usuario decidió que quiere que la columna sea la del valor oficial
+en vez de la cláusula** (revierte la decisión de la Séptima ronda para
+esta columna en concreto — no para `mi_club.revalorizacion`, que ya era
+oficial desde la Vigesimoctava ronda). `calcular_revalorizacion()` en
+`Sincronizar` cambiada para leer `valor`/`historial_valor.valor_oficial`
+en vez de `valor_liga`/`historial_valor.valor` — misma fórmula exacta
+que ya usa `calcular_revalorizacion_mi_equipo()`, ahora también aplicada
+por jugador. Afecta a `jugadores.diferencia_valor`/`porcentaje_diferencia`,
+que alimentan tanto la columna "Revalorización" de `/jugadores` como las
+líneas de revalorización de Mi equipo y el aviso de Telegram de
+seguimiento sin cambio de dueño — los tres pasan a reflejar el valor
+oficial por igual, sin ningún cambio de código adicional en esos sitios
+(ya leían la misma columna).
+
+**Aviso claro dado al usuario antes de subirlo, y aceptado
+explícitamente**: probado en directo (`rollback`, sin escribir nada)
+que ahora mismo la función devuelve **0 actualizaciones** — casi ningún
+jugador tiene todavía un valor oficial histórico válido de un día
+anterior a hoy. Esto significa que nada más desplegarse, la columna
+"Revalorización" (y su porcentaje) mostrarán "—" para casi todos los
+jugadores durante uno o dos días, hasta que se acumule histórico
+suficiente — mismo hueco temporal que ya tiene "Revalorización de mi
+equipo" desde la ronda anterior, ahora también aquí. El usuario lo
+aceptó y pidió subirlo así.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

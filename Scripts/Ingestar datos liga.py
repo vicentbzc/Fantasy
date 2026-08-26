@@ -210,6 +210,8 @@ if __name__ == "__main__":
         filas_puntos = []
         ultima_jornada = None
         for jugador in catalogo:
+            if jugador.get("playerStatus") == "out_of_league":
+                continue
             posicion = Común.MAPA_POSICION_OFICIAL.get(str(jugador.get("positionId")))
             if posicion is None:
                 continue

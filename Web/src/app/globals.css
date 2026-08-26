@@ -7,3 +7,17 @@
 html {
   scrollbar-gutter: stable;
 }
+
+@keyframes ola {
+  0%,
+  100% {
+    color: #a1a1a6;
+  }
+  50% {
+    color: #3a3a3d;
+  }
+}
+
+.letra-ola {
+  animation: ola 1s ease-in-out infinite;
+}

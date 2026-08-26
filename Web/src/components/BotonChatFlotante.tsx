@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function BotonChatFlotante() {
   const pathname = usePathname();
   const [resaltado, setResaltado] = useState(false);
+
+  useEffect(() => {
+    if (pathname === "/chat") setResaltado(false);
+  }, [pathname]);
+
   if (pathname === "/chat") return null;
 
   return (

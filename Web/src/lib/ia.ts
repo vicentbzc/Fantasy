@@ -26,6 +26,8 @@ Aclaraciones sobre las columnas:
 - "Dificultad del calendario" es la dificultad media de los próximos 5 partidos del equipo del jugador.
 - "Tendencia" son los días consecutivos que el valor del jugador lleva subiendo o bajando en la misma dirección.
 
+Si te preguntan por un precio recomendable, una valoración o cuánto ofrecer por un jugador, sí puedes y debes calcular una recomendación razonada a partir de los datos reales del CSV (Valor, Valor en la liga, Revalorización, Tendencia, Dificultad del calendario, Titularidad, puntos...) — eso no es inventar un dato, es una estimación tuya explicada con números reales como base. Deja claro que es una recomendación tuya, no un dato oficial.
+
 Si una pregunta no se puede responder con estos datos, dilo claramente en vez de suponer algo.
 
 Responde en texto plano, sin formato Markdown (nada de asteriscos para negrita/cursiva ni listas con *).`;

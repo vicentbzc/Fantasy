@@ -343,14 +343,14 @@ def clasificar_aceleracion(velocidad_hoy, velocidad_ayer):
 
 def calcular_revalorizacion(cur):
     cur.execute("""
-        select distinct on (id) id, valor
+        select distinct on (id) id, valor_oficial
         from historial_valor
-        where fecha < current_date
+        where fecha < current_date and valor_oficial is not null
         order by id, fecha desc
     """)
     baseline_por_jugador = dict(cur.fetchall())
 
-    cur.execute("select id, valor_liga from jugadores")
+    cur.execute("select id, valor from jugadores")
     actuales = cur.fetchall()
 
     actualizaciones = []
