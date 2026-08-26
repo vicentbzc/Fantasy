@@ -269,6 +269,29 @@ def sincronizar_jugadores(cur):
     return len(filas)
 
 
+MAXIMO_JUGADORES_A_ELIMINAR_POR_CICLO = 20
+
+
+def eliminar_jugadores_desaparecidos(cur):
+    ids_actuales = {int(fila["ID"]) for fila in leer_csv_opcional("Datos Jugadores.csv")}
+    if not ids_actuales:
+        return 0
+
+    cur.execute("select id from jugadores")
+    ids_existentes = {fila[0] for fila in cur.fetchall()}
+    ids_a_eliminar = list(ids_existentes - ids_actuales)
+
+    if not ids_a_eliminar or len(ids_a_eliminar) > MAXIMO_JUGADORES_A_ELIMINAR_POR_CICLO:
+        return 0
+
+    cur.execute("delete from mi_equipo_jugadores where jugador_id = any(%s)", (ids_a_eliminar,))
+    cur.execute("delete from puntos_jornada_detalle where id = any(%s)", (ids_a_eliminar,))
+    cur.execute("delete from puntos_jornada where id = any(%s)", (ids_a_eliminar,))
+    cur.execute("delete from historial_valor where id = any(%s)", (ids_a_eliminar,))
+    cur.execute("delete from jugadores where id = any(%s)", (ids_a_eliminar,))
+    return len(ids_a_eliminar)
+
+
 def sincronizar_historial(cur):
     filas = [
         (
@@ -656,6 +679,7 @@ def main():
             for nombre, funcion in [
                 ("equipos", sincronizar_equipos),
                 ("jugadores", sincronizar_jugadores),
+                ("jugadores_eliminados", eliminar_jugadores_desaparecidos),
                 ("historial_valor", sincronizar_historial),
                 ("revalorizacion", calcular_revalorizacion),
                 ("tendencias", calcular_tendencias),

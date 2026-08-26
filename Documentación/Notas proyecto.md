@@ -2932,6 +2932,57 @@ se queda igual para su uso real: el modal que abre cada tarjeta de
 "Próximos partidos" en la ficha de equipo (`ListaProximosPartidos.tsx`),
 donde sí hace falta ver la alineación de un partido concreto.
 
+## Vigesimosexta ronda: borrado real de jugadores que desaparecen de la app oficial (26/08/2026)
+
+Hasta ahora un jugador que dejaba de existir en el catálogo oficial de
+LaLiga Fantasy (baja definitiva, error de la API, lo que sea) se quedaba
+para siempre en `jugadores` con el último dato que tuvo — nada lo volvía
+a tocar ni para bien ni para mal, exactamente el mismo patrón de "basura
+que nadie limpia" que ya motivó la Novena/Décima rondas para
+`minutos_jugados`/`puntos_jornada`. El usuario pidió borrarlo del todo en
+vez de dejarlo huérfano, para no gastar espacio guardando algo que ya no
+existe.
+
+Nueva `eliminar_jugadores_desaparecidos()` en `Sincronizar base de
+datos.py`, paso propio del pipeline justo después de `sincronizar_jugadores`:
+compara los `id` que trae ahora mismo `Datos Jugadores.csv` (el catálogo
+completo de `/players`, ya filtrado) contra los `id` que ya hay en
+`jugadores`, y borra los que sobran — en cascada manual por las FK que
+apuntan a `jugadores(id)` sin `on delete cascade`: primero
+`mi_equipo_jugadores`, luego `puntos_jornada_detalle` (por FK compuesta a
+`puntos_jornada`), `puntos_jornada`, `historial_valor`, y por último la
+fila de `jugadores`. `actividad_mercado.jugador_id` no tiene FK real (es
+un registro histórico de operaciones de mercado, no un dato en vivo del
+jugador) así que se deja intacta a propósito — el `left join` que ya usa
+la web/Telegram cae solo a "un jugador" si el id ya no existe.
+
+**Límite de seguridad, `MAXIMO_JUGADORES_A_ELIMINAR_POR_CICLO = 20`**: si
+en un ciclo aparecen más de 20 jugadores "desaparecidos" de golpe, no se
+borra nada esa vuelta — un salto así de grande es mucho más probable que
+sea un fallo del catálogo (API caída a medias, `Datos Jugadores.csv`
+corrupto o viejo) que 20 bajas reales a la vez, y el coste de esperar al
+siguiente ciclo es cero (la próxima vez que la app oficial reporte un
+catálogo real, se vuelve a intentar solo). Mismo criterio de cautela que
+ya se aplicó en la Vigesimotercera ronda para no vaciar tablas enteras por
+un CSV que no debía estar vacío.
+
+**Probado en directo, encontrando de paso un peligro real de mi propio
+método de prueba**: la primera vez que se probó la función contra la base
+de datos real dio "2 jugadores eliminados" (Van Oevelen y A. De Pablo) —
+alarmante, pero resultó ser un falso positivo: el `Datos Jugadores.csv`
+local llevaba desde el día anterior sin refrescar (el cron real de
+GitHub Actions sí lo mantiene fresco cada 5 min, pero el `Datos/` de este
+PC no se toca solo). Al volver a ejecutar `Ingestar datos liga.py` de
+verdad contra la API antes de repetir la prueba, el resultado pasó a 0
+(la base de datos y el catálogo real están sincronizados, como debía
+ser) — confirma en la práctica el motivo de tener el límite de seguridad
+de arriba, y sirve de aviso para cualquier prueba futura de este tipo:
+refrescar el CSV real antes de comparar, nunca fiarse de uno viejo en
+local. La cadena completa de `delete` también se probó de verdad contra
+un jugador real (`A. De Pablo`, id 3233) dentro de una transacción con
+`rollback` al final, para confirmar que el orden evita cualquier error de
+clave foránea sin llegar a borrar nada de verdad.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
