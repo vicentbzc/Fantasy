@@ -347,16 +347,23 @@ export async function obtenerHistorialPuntos(id: number): Promise<JornadaPuntos[
   }));
 }
 
-export type MiClub = { dinero: number | null; fichas: number | null; valorEquipo: number | null };
+export type MiClub = {
+  dinero: number | null;
+  fichas: number | null;
+  valorEquipo: number | null;
+  revalorizacion: number | null;
+};
 
 export async function obtenerMiClub(): Promise<MiClub> {
-  const resultado = await pool.query(`select dinero, fichas, valor_equipo from mi_club where id = 1`);
+  const resultado = await pool.query(`select dinero, fichas, valor_equipo, revalorizacion from mi_club where id = 1`);
   const fila = resultado.rows[0];
   return {
     dinero: fila?.dinero === undefined || fila.dinero === null ? null : Number(fila.dinero),
     fichas: fila?.fichas === undefined || fila.fichas === null ? null : Number(fila.fichas),
     valorEquipo:
       fila?.valor_equipo === undefined || fila.valor_equipo === null ? null : Number(fila.valor_equipo),
+    revalorizacion:
+      fila?.revalorizacion === undefined || fila.revalorizacion === null ? null : Number(fila.revalorizacion),
   };
 }
 

@@ -8,9 +8,9 @@ export function TarjetaEstadistica({
   color?: string;
 }) {
   return (
-    <div className="rounded-[18px] bg-white p-[18px] flex flex-col gap-1 text-left">
-      <p className="text-sm text-neutral-500">{etiqueta}</p>
-      <p className="text-xl font-bold tabular-nums" style={{ color }}>
+    <div className="flex flex-col gap-1 text-left">
+      <h2 className="text-[20px] font-bold">{etiqueta}</h2>
+      <p className="text-lg font-bold text-neutral-500 tabular-nums" style={{ color }}>
         {valor}
       </p>
     </div>

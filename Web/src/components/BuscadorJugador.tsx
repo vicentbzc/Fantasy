@@ -38,9 +38,10 @@ export function BuscadorJugador({
           key={j.id}
           type="button"
           onClick={() => onSeleccionar(j.id)}
-          className="w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 hover:bg-[#FAFAFC]"
+          className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 hover:bg-[#FAFAFC]"
         >
-          {j.nombre} <span className="text-neutral-400">{j.equipoNombreOficial ?? j.equipo}</span>
+          <span className="truncate min-w-0">{j.nombre}</span>
+          <span className="text-neutral-400 shrink-0">{j.equipoNombreOficial ?? j.equipo}</span>
         </button>
       ))}
       {candidatos.length === 0 && <p className="px-3 py-1.5 text-sm text-neutral-400">Sin resultados</p>}

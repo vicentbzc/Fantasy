@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { Jugador, MiClub, EstadoMiEquipo, JugadorProbable } from "@/lib/db";
 import { CampoTactico } from "./CampoTactico";
-import { Banquillo } from "./Banquillo";
 import { BotonAgregar } from "./BotonAgregar";
 import { RanuraAgregar } from "./RanuraAgregar";
 import { TarjetaEstadistica } from "./TarjetaEstadistica";
@@ -25,7 +24,6 @@ import { accionEstablecerEstadoMiEquipo, accionEliminarDeMiEquipo } from "@/app/
 
 const CLAVES_PERMITIDAS = new Set<keyof Jugador>([
   "porcentajeTitularidad",
-  "valorSinClausula",
   "diferenciaValor",
   "dificultadProximos5",
 ]);
@@ -53,9 +51,6 @@ function lineasParaJugador(
   const lineas: { texto: string; color?: string; onClick?: () => void }[] = [];
   if (columnasVisibles.porcentajeTitularidad) {
     lineas.push({ texto: j.porcentajeTitularidad === null ? "—" : `${j.porcentajeTitularidad} %` });
-  }
-  if (columnasVisibles.valorSinClausula) {
-    lineas.push({ texto: formatearValor(j.valorSinClausula) });
   }
   if (columnasVisibles.diferenciaValor) {
     const paletaRevalorizacion = enCampo
@@ -93,11 +88,12 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
   const seguimiento = jugadores.filter((j) => j.estadoMiEquipo === "seguimiento");
   const idsAsignados = new Set(jugadores.filter((j) => j.estadoMiEquipo !== null).map((j) => j.id));
 
-  const revalorizacion = [...titulares, ...suplentes].reduce((acc, j) => acc + (j.diferenciaValor ?? 0), 0);
+  const revalorizacion = miClub.revalorizacion;
   const valorEquipo = miClub.valorEquipo;
   const valorClub =
     miClub.valorEquipo !== null || miClub.dinero !== null ? (miClub.valorEquipo ?? 0) + (miClub.dinero ?? 0) : null;
-  const colorRevalorizacion = revalorizacion > 0 ? "#3BB568" : revalorizacion < 0 ? "#FE645F" : undefined;
+  const colorRevalorizacion =
+    revalorizacion === null ? undefined : revalorizacion > 0 ? "#3BB568" : revalorizacion < 0 ? "#FE645F" : undefined;
 
   const porteroTitular = titulares.find((j) => j.posicion === "Portero") ?? null;
   const outfieldTitulares = titulares.filter((j) => j.posicion !== "Portero");
@@ -154,26 +150,39 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
             <BotonAgregar
               size={TAMANO_BOTON_AGREGAR}
               onClick={() => setBuscador("titular")}
-              className="bg-[#F5F5F7]"
+              className="bg-[#F5F5F7]/50 text-white hover:bg-[#F5F5F7]/30"
             />
           </div>
         </div>
-
-        <Banquillo
-          jugadores={formacion.banquillo}
-          mostrarAgregar
-          onAgregar={() => setBuscador("suplente")}
-          datosPorJugador={datosPorJugador}
-          onClickJugador={abrirMenu}
-        />
       </div>
 
-      <div className="w-full lg:w-[700px] lg:shrink-0 flex flex-col gap-14">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
+      <div className="w-full lg:w-[700px] lg:shrink-0 flex flex-col gap-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-6 w-full">
           <TarjetaEstadistica etiqueta="Valor de mi club" valor={formatearValor(valorClub)} />
           <TarjetaEstadistica etiqueta="Valor de mi equipo" valor={formatearValor(valorEquipo)} />
-          <TarjetaEstadistica etiqueta="Revalorización" valor={formatearValor(revalorizacion)} color={colorRevalorizacion} />
+          <TarjetaEstadistica etiqueta="Revalorización de mi equipo" valor={formatearValor(revalorizacion)} color={colorRevalorizacion} />
           <TarjetaEstadistica etiqueta="Fichas de mi equipo" valor={miClub.fichas === null ? "—" : String(miClub.fichas)} />
+        </div>
+
+        <div className="w-full flex flex-col items-start gap-[18px]">
+          <h2 className="text-[20px] font-bold">Banquillo</h2>
+          <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
+            {suplentes.map((j) => (
+              <FotoJugadorSlot
+                key={j.id}
+                src={urlFotoJugador(j.id)}
+                alt={j.nombre}
+                size={62}
+                radius={12}
+                probabilidad={j.porcentajeTitularidad}
+                colorProbabilidad="#6E6E73"
+                fontSizeProbabilidad={14}
+                lineas={datosPorJugador[j.id]}
+                onClick={() => abrirMenu(j.id)}
+              />
+            ))}
+            <RanuraAgregar size={62} onClick={() => setBuscador("suplente")} />
+          </div>
         </div>
 
         <div className="w-full flex flex-col items-start gap-[18px]">
@@ -239,7 +248,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
           onClick={() => setMenuJugador(null)}
         >
           <div className="bg-white rounded-2xl p-4 w-full max-w-xs" onClick={(e) => e.stopPropagation()}>
-            <p className="font-semibold text-sm mb-2 px-2">{menuJugador.nombre}</p>
+            <p className="font-semibold text-sm mb-2 px-2 text-left">{menuJugador.nombre}</p>
             <div className="flex flex-col">
               {(Object.keys(ETIQUETAS_ESTADO) as EstadoMiEquipo[])
                 .filter((estado) => menuJugador.estadoMiEquipo !== estado)

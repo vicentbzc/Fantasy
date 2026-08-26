@@ -29,7 +29,7 @@ export function ProximosPartidos({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto"
+        className="bg-[#F5F5F7] rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -49,6 +49,7 @@ export function ProximosPartidos({
             partidos={datos.partidos}
             equipoId={equipoId}
             equipoNombre={equipoNombre}
+            fondoTarjeta="#FFFFFF"
             jornadaLigaOrden={datos.jornadaLigaOrden}
           />
         )}

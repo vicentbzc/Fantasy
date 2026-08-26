@@ -636,6 +636,34 @@ def sincronizar_mi_club(cur):
     return 1
 
 
+def calcular_revalorizacion_mi_equipo(cur):
+    cur.execute("select manager from mi_club where id = 1")
+    fila = cur.fetchone()
+    if not fila or not fila[0]:
+        return 0
+    mi_manager = fila[0]
+
+    cur.execute(
+        """
+        select coalesce(sum(j.valor - h.valor_oficial), 0)
+        from jugadores j
+        join lateral (
+            select valor_oficial
+            from historial_valor
+            where id = j.id and fecha < current_date and valor_oficial is not null
+            order by fecha desc
+            limit 1
+        ) h on true
+        where j.dueno = %s and j.valor is not null
+        """,
+        (mi_manager,),
+    )
+    total = cur.fetchone()[0] or 0
+
+    cur.execute("update mi_club set revalorizacion = %s where id = 1", (total,))
+    return 1
+
+
 ARCHIVOS_CADA_5_MIN = ["Datos Jugadores.csv", "Datos Titularidad.csv", "Datos Estado.csv"]
 
 
@@ -691,6 +719,7 @@ def main():
                 ("clasificacion_jornada", sincronizar_clasificacion_jornada),
                 ("actividad_mercado", sincronizar_actividad_mercado),
                 ("mi_club", sincronizar_mi_club),
+                ("revalorizacion_mi_equipo", calcular_revalorizacion_mi_equipo),
             ]:
                 try:
                     filas_sincronizadas = funcion(cur)

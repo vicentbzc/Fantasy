@@ -87,6 +87,7 @@ create table mi_club (
     fichas integer,
     valor_equipo bigint,
     manager text,
+    revalorizacion bigint,
     check (id = 1)
 );
 

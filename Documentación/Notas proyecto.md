@@ -2983,6 +2983,225 @@ un jugador real (`A. De Pablo`, id 3233) dentro de una transacción con
 `rollback` al final, para confirmar que el orden evita cualquier error de
 clave foránea sin llegar a borrar nada de verdad.
 
+## Vigesimoséptima ronda: 8 retoques de Mi equipo (26/08/2026)
+
+- **Botón "+" del campo, 50% transparente** (`opacity-50` añadido solo a
+  esa instancia de `BotonAgregar` en `MiEquipo.tsx` — los otros tres "+"
+  de banquillo/en duda/seguimiento, misma clase pero sin `opacity-50`, se
+  quedan igual).
+- **"Valor" quitado del botón de Filtros del campo**: `CLAVES_PERMITIDAS`
+  en `MiEquipo.tsx` pasa de 4 a 3 claves (Titularidad, Revalorización,
+  Dificultad del calendario) — el `if (columnasVisibles.valorSinClausula)`
+  de `lineasParaJugador()` se quitó también, ya no había forma de que
+  fuera `true` nunca.
+- **`ProximosPartidos.tsx`** (el recuadro que abre cualquier etiqueta de
+  dificultad — tanto en Mi equipo como en Jugadores desde la ronda
+  anterior, mismo componente compartido): fondo del modal de blanco a
+  `bg-[#F5F5F7]`, tarjetas de partido de gris a blancas
+  (`fondoTarjeta="#FFFFFF"` a `ListaProximosPartidos`) — mismo patrón que
+  ya se aplicó a `HistorialPuntos.tsx` en la Vigesimoquinta ronda.
+- **`BuscadorJugador.tsx`, equipo alineado a la derecha**: cada fila pasa
+  de texto corrido (nombre + equipo pegados) a `flex justify-between`,
+  con el nombre truncado (`min-w-0 truncate`) para que un nombre largo no
+  empuje el equipo fuera de la fila.
+- **`TarjetaEstadistica.tsx` sin recuadro**: quitado `rounded-[18px]
+  bg-white p-[18px]` — se queda en título gris pequeño + dato grande
+  debajo, sin caja ni fondo, manteniendo el color de
+  `colorRevalorizacion` que ya se le pasaba.
+- **"Revalorización" → "Revalorización de mi equipo"** (solo el texto de
+  la etiqueta en `MiEquipo.tsx`, el dato detrás no cambió).
+- **"En duda"/"Seguimiento", mismo tamaño que "Valor de mi club" etc.**:
+  de `text-[20px]` a `text-sm` (14px, el mismo tamaño que ya usa la
+  etiqueta gris de `TarjetaEstadistica`) — se dejó el `font-bold` tal
+  cual, el usuario solo pidió igualar el tamaño, no el peso ni el color.
+- **Nombre del jugador alineado a la izquierda en el menú de
+  titular/suplente/duda/seguimiento**: le faltaba `text-left` explícito
+  — heredaba el `text-center` del contenedor raíz de la página (el mismo
+  que ya centra todo `/mi-equipo` en pantallas pequeñas), a diferencia de
+  los botones de debajo que sí llevaban `text-left` desde siempre.
+
+Verificado en directo en el navegador integrado (esta página sí hidrata
+en esta sesión, a diferencia de `/jugadores` con `Suspense` — ver
+Vigesimoquinta ronda): opacidad `0.5` solo en el botón de 52px del campo,
+"Filtros (1)" con solo 3 opciones tras quitar Valor, modal de dificultad
+con `rgb(245, 245, 247)` de fondo y 5 tarjetas blancas dentro, fila del
+buscador con `justify-content: space-between`, y `text-align: left`
+confirmado en el nombre del menú de jugador.
+
+**El mismo día, dos correcciones sobre esta misma ronda** (el usuario
+aclaró que el primer intento de los títulos de Mi equipo no era lo que
+pedía):
+
+- **Botón "+" del campo, transparencia solo del fondo**: `opacity-50`
+  (Vigesimoséptima ronda) hacía translúcido el botón entero, incluido el
+  propio símbolo "+" — el usuario quería el fondo difuminado pero el "+"
+  a plena opacidad. `opacity` de CSS afecta a todo el elemento y a sus
+  hijos por igual, así que no vale para esto; cambiado a
+  `bg-[#F5F5F7]/50` (modificador de opacidad de Tailwind 4 sobre un color
+  arbitrario), que solo pone alfa en el `background-color` — el color del
+  texto del "+" no lleva alfa y se queda opaco del todo.
+- **Títulos de "Valor de mi club" etc., estilo real pedido**: no era solo
+  iguales entre sí (lo que se hizo en la Vigesimoséptima ronda), sino que
+  siguieran el mismo estilo que el título "Posible alineación..." de la
+  ficha de equipo (`text-[32px] font-bold text-left`, `letterSpacing:
+  "-1px"`) — mismas clases exactas, copiadas de
+  `app/equipos/[id]/page.tsx`. `TarjetaEstadistica.tsx` cambia su
+  etiqueta de un `<p className="text-sm text-neutral-500">` a un `<h2>`
+  con ese estilo grande; el dato sigue debajo (`text-xl font-bold
+  tabular-nums`, con el color de revalorización intacto). El grid de 2×4
+  de las 4 tarjetas se sustituyó por una sola columna (`flex flex-col
+  gap-8`) para que cada título quede seguido de su dato y luego venga el
+  siguiente título, tal y como se pidió — ya no hay tarjetas en fila,
+  todo es una lista vertical. "En duda" y "Seguimiento" pasan del
+  `text-sm` de la ronda anterior al mismo `text-[32px]` grande, con el
+  mismo `style` de `letterSpacing`.
+
+Verificado en directo: los 6 títulos (4 datos + En duda + Seguimiento)
+salen con `fontSize: 32px`, `fontWeight: 700`, `letterSpacing: -1px` y
+`textAlign: left` idénticos entre sí, cada dato en la línea siguiente a
+su título; y el botón "+" del campo con `opacity: 1` en el propio
+elemento pero `background-color` con alfa `0.5` (formato `lab(... / 0.5)`
+que usa Tailwind 4 internamente) y el color del texto sin alfa.
+
+**Tercera corrección sobre la misma ronda, mismo día**: el usuario aclaró
+que no se le había entendido del todo bien:
+
+- **`BotonAgregar.tsx`, refactor real (no solo este botón)**: el color
+  del icono (`text-neutral-500`) y el fondo de hover (`hover:bg-[#FAFAFC]`)
+  estaban fijos en la clase base del componente, igual que le pasaba a
+  `bg-white` antes de la Decimocuarta ronda — mismo bug de fondo (dos
+  clases de color compitiendo, el orden en el HTML no decide cuál gana en
+  el CSS compilado de Tailwind), solo que esta vez en `color` y en
+  `hover:background-color` en vez de en `background-color` normal. Se
+  comprobó que este componente **solo se usa una vez en toda la web** (el
+  "+" del campo de Mi equipo), así que se pudo mover sin riesgo todo el
+  color (fondo, texto, hover) al valor por defecto de `className`, dejando
+  en la clase base solo estructura/tipografía — mismo patrón exacto que ya
+  se estableció entonces, aplicado ahora también a texto y hover.
+- **El "+" del campo, blanco y con más transparencia al pasar el ratón**:
+  `className="bg-[#F5F5F7]/50 text-white hover:bg-[#F5F5F7]/30"` — el
+  icono en `color: white` sin alfa (no se ve afectado por la transparencia
+  del fondo, son propiedades CSS distintas) y el fondo baja de 50% a 30%
+  de opacidad al pasar el ratón (más transparente, no menos).
+- **"En duda"/"Seguimiento" no debían seguir el estilo de "Posible
+  alineación..."**: revertidos a como estaban antes de esta ronda entera
+  (`text-[20px] font-bold`, sin el `letterSpacing` que sí llevan los 4
+  títulos de arriba) — el usuario solo quería ese estilo grande para los
+  4 datos del club, no para estos dos títulos.
+- **El dato de cada estadística (no el título)**: de `text-xl font-bold`
+  a `text-2xl` sin negrita (`font-bold` quitado del todo) y en gris
+  (`text-neutral-500` como color por defecto en la clase, con el `color`
+  que ya se le pasaba por `style` — el verde/rojo de Revalorización — 
+  ganando por especificidad de un estilo inline sobre una clase, sin tocar
+  nada de esa lógica).
+
+Verificado en directo: el botón "+" con `color: rgb(255, 255, 255)` y
+fondo con alfa `0.5`; "En duda"/"Seguimiento" de vuelta a `20px`/`700`;
+los 4 datos a `24px`/`400` (sin negrita) en gris para los tres neutros y
+en verde (`rgb(59, 181, 104)`) para Revalorización con valor positivo —
+confirma que el color de revalorización se mantiene intacto sobre el
+nuevo gris por defecto.
+
+**Cuarta corrección, mismo día**: los datos vuelven a llevar negrita
+(`font-bold` restaurado en el `<p>` de `TarjetaEstadistica.tsx`, el resto
+de esa línea intacta — `text-2xl`, gris, color de revalorización) y los 4
+títulos ("Valor de mi club" etc.) pasan de `text-[32px]` a `text-[20px]`
+sin `letterSpacing`, para quedar exactamente del mismo tamaño que "En
+duda"/"Seguimiento" — ya no siguen el estilo de "Posible alineación..."
+en absoluto, esa referencia queda descartada del todo tras esta ronda de
+correcciones. Verificado en directo: los 6 títulos a `20px`/`700`
+idénticos, los 4 datos a `24px`/`700`.
+
+**Quinta corrección, mismo día**: el dato de cada tarjeta (24px) se veía
+grande respecto al título (20px) — bajado a `text-lg` (18px), verificado
+en directo, negrita intacta.
+
+**Sexta corrección/ampliación, mismo día**: los 4 datos vuelven a ir en
+una fila (`grid grid-cols-2 sm:grid-cols-4`, la rejilla que se había
+quitado en la Vigesimoctava ronda para apilarlos en columna) — con el
+título/dato ya sin caja de por sí, la fila no necesita ningún ajuste
+visual extra. **Nuevo recuadro "Banquillo" en la columna derecha,
+justo encima de "En duda"**: mismo patrón exacto que "En duda"/
+"Seguimiento" (título + caja blanca con `FotoJugadorSlot` por cada
+suplente + `RanuraAgregar` para añadir), usando el array `suplentes` que
+ya existía (el mismo que alimenta el banquillo táctico de debajo del
+campo, en la columna izquierda) — el usuario pidió **añadirlo** aquí, no
+moverlo, así que el banquillo sigue apareciendo también bajo el campo
+como hasta ahora; se muestra en los dos sitios a propósito, con dos
+estilos distintos (alineado en filas bajo el campo vs. tarjetas sueltas
+como En duda/Seguimiento). Verificado en directo: los 4 datos comparten
+el mismo `top` de posición (misma fila), "Banquillo" aparece entre las 4
+tarjetas y "En duda", con las mismas 4 fotos que ya se ven bajo el campo.
+
+**Séptima corrección, mismo día**: el usuario aclaró que sí quería
+moverlo, no duplicarlo — quitado el `<Banquillo>` táctico de debajo del
+campo (columna izquierda) junto con su import, ya no usado en este
+archivo. `formacion.banquillo` se sigue calculando igual
+(`suplentes.map(aProbable)`) porque el tipo `Formacion` que exige
+`CampoTactico` lo requiere como campo, aunque ya no se use para renderizar
+nada aquí — solo lo consume ahora el nuevo recuadro "Banquillo" de la
+columna derecha, vía el array `suplentes` directamente. Verificado en
+directo: la columna izquierda solo tiene ya el campo (1 solo hijo), y
+"Banquillo" como título aparece una única vez en toda la página.
+
+## Vigesimoctava ronda: "Revalorización de mi equipo" pasa a ser el dato real de la plantilla oficial (27/08/2026)
+
+El usuario preguntó de dónde salía "Revalorización de mi equipo" en
+`/mi-equipo` — sumaba `diferenciaValor` (columna `jugadores.diferencia_valor`,
+calculada sobre `valor_liga`/la cláusula) de solo los jugadores marcados
+como titular/suplente **dentro de esta web** (`mi_equipo_jugadores`), no
+la plantilla real completa de la app oficial. Un cálculo totalmente
+distinto al que ya usaba el aviso diario de Telegram
+("Tu equipo hoy se ha revalorizado X€"), que suma `valor` (el oficial,
+`marketValue`) de **toda la plantilla real** vía `jugadores.dueno`. El
+usuario pidió que los dos usen exactamente el mismo número — el de la
+plantilla real oficial, sumando también las revalorizaciones negativas
+(restan) — y que sea ese número el que vea tanto la web como Telegram.
+
+**Antes de este cambio, ese cálculo "oficial" no se guardaba en ningún
+sitio** — solo existía como una consulta SQL suelta dentro de
+`revisar_revalorizacion_diaria()` en `Notificar Telegram.py`, calculada
+una vez al día. Para que la web lo pueda mostrar en vivo (igual que ya
+hace con `diferencia_valor`, actualizado cada 5 min por
+`calcular_revalorizacion()`) hacía falta guardarlo en algún sitio que
+ambos lados pudieran leer — nueva columna `mi_club.revalorizacion`,
+calculada en cada sincronización por la nueva
+`calcular_revalorizacion_mi_equipo()` en `Sincronizar base de datos.py`
+(paso nuevo del pipeline, el último de todos, después de `mi_club` —
+necesita que la fila de `mi_club` y el `manager` ya estén frescos esa
+misma vuelta). La consulta es literalmente la misma que ya tenía
+`revisar_revalorizacion_diaria()` — se movió de sitio, no se reinventó.
+`Notificar Telegram.py` ahora solo lee `mi_club.revalorizacion` en vez de
+recalcularlo, así los dos lados leen exactamente el mismo número por
+construcción, no por casualidad de tener la misma fórmula copiada dos
+veces. El aviso de Telegram **sigue siendo una vez al día** (gate de las
+8:00 + `notificaciones_estado`, sin cambios) — "en cuanto se actualicen
+los datos" se entendió como "que use el dato fresco calculado cada 5 min
+por el pipeline", no como mandar el aviso varias veces al día (el propio
+texto del mensaje dice "hoy", y el patrón de toda la web es evitar avisos
+repetidos, no generarlos más a menudo).
+
+**Web**: `MiClub` en `db.ts` gana el campo `revalorizacion`,
+`obtenerMiClub()` lo lee de la columna nueva. `MiEquipo.tsx` ya no calcula
+nada localmente — `revalorizacion = miClub.revalorizacion` directo, y
+`colorRevalorizacion` contempla el caso `null` (antes de que el pipeline
+calcule algo la primera vez).
+
+**Pendiente de que el usuario ejecute en el SQL Editor de Supabase**
+(mismo patrón de siempre — la base de datos real ya existe, el esquema
+nuevo no se aplica solo):
+```sql
+alter table mi_club add column revalorizacion bigint;
+```
+Hasta entonces, `calcular_revalorizacion_mi_equipo()` falla sola en cada
+ciclo (columna inexistente) sin afectar al resto del pipeline —
+confirmado en directo reproduciendo el error exacto
+(`UndefinedColumn: column "revalorizacion" of relation "mi_club" does
+not exist`) contra la base de datos real, con `rollback` después, sin
+dejar nada escrito. El resto de la consulta (la suma en sí) ya está
+probada porque es la misma que llevaba usando el aviso de Telegram desde
+la Vigesimosegunda ronda.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
