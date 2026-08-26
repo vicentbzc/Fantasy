@@ -2728,6 +2728,27 @@ regeneran enteros en cada corrida) necesita subir también la clave de
 caché en el mismo commit, si no la ejecución en GitHub Actions puede
 fallar aunque en local funcione perfecto (en local no hay caché vieja).
 
+**Segundo fallo real, justo después de aplicar el arreglo anterior**: la
+primera ejecución tras subir la clave de caché a `v4` también falló en
+"Sincronizar con Supabase", por una causa distinta. Con la caché recién
+reseteada (sin nada que restaurar), esa ejecución concreta fue del cron
+de **15 minutos** (`Ingestar datos 3`/`detalle`, ver los `if:` de cada
+step en `scraping.yml`) — `Ingestar datos liga.py` (el único script que
+genera `Datos Historial valor.csv`) solo corre en el cron de **5**
+minutos, así que ese archivo directamente no existía todavía en el disco
+del runner. `sincronizar_historial()` lo leía con `leer_csv()` (exige que
+el archivo exista, lanza `FileNotFoundError` si no), a diferencia de
+`leer_csv_opcional()` que ya usan otras tablas para CSV que pueden no
+estar aún generados. Arreglado cambiando esa lectura a
+`leer_csv_opcional()` — se autocura solo en cuanto corre el siguiente
+cron de 5 minutos, sin bloquear el resto del pipeline mientras tanto
+(mismo patrón de try/except por tabla de siempre). **Lección añadida a la
+de arriba**: un reseteo de caché no solo pierde el contenido acumulado,
+también puede dejar sin generar aún cualquier CSV cuyo script fuente no
+corra en *todos* los disparos del cron — hay que leerlo siempre como
+opcional salvo que se sepa con certeza que el disparo que llama a
+`Sincronizar` es siempre el mismo que genera ese CSV.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

@@ -279,7 +279,7 @@ def sincronizar_historial(cur):
             parsear_entero_miles(fila["Valor"]),
             parsear_entero_miles(fila["Valor oficial"]),
         )
-        for fila in leer_csv("Datos Historial valor.csv")
+        for fila in leer_csv_opcional("Datos Historial valor.csv")
     ]
 
     if not filas:
