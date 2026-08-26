@@ -2650,6 +2650,61 @@ directo que la ficha de equipo cae a una columna centrada con el campo
 reducido a su ancho. La tabla de Jugadores ya tenía scroll horizontal
 propio (`overflow-x-auto`) desde antes de esta ronda.
 
+## Vigesimosegunda ronda: bug real de la revalorización diaria (26/08/2026)
+
+**Aviso de Telegram con una cifra imposible, encontrado y arreglado**: el
+usuario recibió "tu equipo hoy se ha revalorizado 38.488.526 euros" a las
+8:06 de la mañana, cuando la cifra real (la que da la propia app de LaLiga
+Fantasy) era de ~3.460.000€. Tres cosas revisadas:
+
+- **Texto**: "euros" → "€" (`"Tu equipo hoy se ha revalorizado
+  38.488.526€."`).
+- **Bug real de fondo, confirmado contra la base de datos real**:
+  `revisar_revalorizacion_diaria()` sumaba `diferencia_valor` de
+  `jugadores`, que `calcular_revalorizacion()` calcula sobre `valor_liga`
+  (la cláusula) — decisión explícita de la Decimonovena ronda, correcta
+  para la columna "Revalorización" que se ve en Jugadores/Comparador
+  (coherente con que la web muestra `valor_liga` como "Valor"). El
+  problema es que **el usuario tiene la cláusula subida a mano en todos
+  sus jugadores** (protegerlos de compra) y esas subidas manuales se
+  contaban como si fueran revalorización real de mercado. Verificado
+  jugador a jugador: los 13 jugadores de la suma tenían todos
+  `valor_liga` muy por encima de `valor` (oficial) — ej. Mikautadze
+  69.651.107 de valor oficial contra 76.621.325 de cláusula, con la
+  cláusula de ayer en 68.330.131 (casi igual al valor oficial de hoy) y
+  la de hoy subida de golpe a 76.621.325. El valor oficial, en cambio,
+  apenas se había movido — la cifra real del usuario (~3,46M) es la
+  variación del valor oficial, no de la cláusula.
+- **Arreglo, sin tocar `calcular_revalorizacion()` ni la columna
+  "Revalorización" del resto de la web** (sigue siendo sobre
+  `valor_liga`, a propósito): nueva columna `historial_valor.valor_oficial`,
+  rellenada cada día junto a la cláusula (`guardar_historial()` en
+  `Ingestar datos liga.py` ahora también escribe "Valor oficial" en
+  `Datos Historial valor.csv`, `sincronizar_historial()` la inserta).
+  `revisar_revalorizacion_diaria()` ahora suma `valor` (oficial, en vivo)
+  menos el último `valor_oficial` de `historial_valor` anterior a hoy,
+  por jugador de `dueno = mi_manager` — mismo patrón que
+  `calcular_revalorizacion()` pero sobre el valor oficial en vez de la
+  cláusula. Un jugador sin ningún `valor_oficial` histórico todavía
+  (ningún día lo tiene hasta que se aplique el `alter table` de abajo y
+  corra un ciclo del cron) simplemente no entra en la suma esa vez, no
+  cuenta como 0 erróneo.
+- **Timing (a las 8:06, no "cuando se actualiza de verdad")**: no es un
+  bug — es la misma ventana de las 8:00 que el usuario pidió
+  explícitamente en la Décima ronda (el valor justo después de
+  medianoche a veces sale mal y se autocorrige a los pocos minutos, así
+  que se espera a las 8:00 para coger un valor ya asentado). Se explicó
+  al usuario y se dejó tal cual a petición suya.
+
+**`alter table historial_valor add column valor_oficial bigint;` ya
+aplicado (26/08/2026)**: ejecutado directamente contra la base de datos
+real con las credenciales de `DATABASE_URL` del propio proyecto, a
+petición explícita del usuario (en vez del patrón habitual de pegarlo a
+mano en el SQL Editor de Supabase). El aviso de revalorización diaria no
+tendrá ningún jugador con `valor_oficial` histórico hasta el primer día
+completo después de aplicarlo (necesita al menos una fila de ayer para
+tener con qué comparar hoy).
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

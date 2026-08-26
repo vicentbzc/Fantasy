@@ -95,7 +95,7 @@ def guardar_historial(filas, ruta_archivo=Común.ruta_datos("Datos Historial val
         return
 
     hoy = ahora.strftime("%d/%m/%Y")
-    columnas = ["Fecha", "ID", "Jugador", "Equipo", "Valor"]
+    columnas = ["Fecha", "ID", "Jugador", "Equipo", "Valor", "Valor oficial"]
 
     archivo_existe = os.path.isfile(ruta_archivo)
 
@@ -116,6 +116,7 @@ def guardar_historial(filas, ruta_archivo=Común.ruta_datos("Datos Historial val
                 "Jugador": fila["Jugador"],
                 "Equipo": fila["Equipo"],
                 "Valor": fila["Valor en la liga"],
+                "Valor oficial": fila["Valor"],
             })
 
 

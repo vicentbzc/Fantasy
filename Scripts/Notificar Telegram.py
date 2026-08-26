@@ -70,11 +70,22 @@ def revisar_revalorizacion_diaria(cur):
     mi_manager = fila[0]
 
     cur.execute(
-        "select coalesce(sum(diferencia_valor), 0) from jugadores where dueno = %s",
+        """
+        select coalesce(sum(j.valor - h.valor_oficial), 0)
+        from jugadores j
+        join lateral (
+            select valor_oficial
+            from historial_valor
+            where id = j.id and fecha < current_date and valor_oficial is not null
+            order by fecha desc
+            limit 1
+        ) h on true
+        where j.dueno = %s and j.valor is not null
+        """,
         (mi_manager,),
     )
     total = cur.fetchone()[0] or 0
-    mensaje = f"Tu equipo hoy se ha revalorizado {Común.formatear_miles(total)} euros."
+    mensaje = f"Tu equipo hoy se ha revalorizado {Común.formatear_miles(total)}€."
     if Común.enviar_telegram(mensaje):
         guardar_estado(cur, "revalorizacion_diaria", hoy)
 

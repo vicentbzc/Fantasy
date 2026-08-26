@@ -277,6 +277,7 @@ def sincronizar_historial(cur):
             parsear_fecha(fila["Fecha"]),
             fila["Equipo"],
             parsear_entero_miles(fila["Valor"]),
+            parsear_entero_miles(fila["Valor oficial"]),
         )
         for fila in leer_csv("Datos Historial valor.csv")
     ]
@@ -287,7 +288,7 @@ def sincronizar_historial(cur):
     execute_values(
         cur,
         """
-        insert into historial_valor (id, jugador, fecha, equipo, valor)
+        insert into historial_valor (id, jugador, fecha, equipo, valor, valor_oficial)
         values %s
         on conflict (id, fecha) do nothing
         """,

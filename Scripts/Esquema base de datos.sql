@@ -32,6 +32,7 @@ create table historial_valor (
     fecha date not null,
     equipo text references equipos(nombre),
     valor bigint,
+    valor_oficial bigint,
     primary key (id, fecha)
 );
 
