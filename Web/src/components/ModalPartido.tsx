@@ -85,7 +85,7 @@ export function ModalPartido({
               </p>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-5 gap-y-2 w-full max-w-md">
                 {local.id !== null ? (
-                  <Link href={`/equipos/${local.id}`} className="text-[16px] font-semibold text-right hover:opacity-70">
+                  <Link href={`/equipos/${local.id}`} className="text-[16px] font-semibold text-right hover:text-[#6E6E73]">
                     {local.nombre}
                   </Link>
                 ) : (
@@ -104,7 +104,7 @@ export function ModalPartido({
                   />
                 </div>
                 {visitante.id !== null ? (
-                  <Link href={`/equipos/${visitante.id}`} className="text-[16px] font-semibold text-left hover:opacity-70">
+                  <Link href={`/equipos/${visitante.id}`} className="text-[16px] font-semibold text-left hover:text-[#6E6E73]">
                     {visitante.nombre}
                   </Link>
                 ) : (
@@ -122,7 +122,7 @@ export function ModalPartido({
               <CampoTactico formacion={detalle.formacion} hrefsPorJugador={hrefs} />
             </div>
 
-            <Banquillo jugadores={detalle.formacion.banquillo} hrefsPorJugador={hrefs} />
+            <Banquillo jugadores={detalle.formacion.banquillo} hrefsPorJugador={hrefs} fondo="#F5F5F7" />
 
             {detalle.proximosPartidos.length > 0 && (
               <div className="w-full flex flex-col items-start gap-3 text-left">

@@ -11,6 +11,7 @@ export function Banquillo({
   onClickJugador,
   tamanoAgregar = 62,
   hrefsPorJugador,
+  fondo = "#FFFFFF",
 }: {
   jugadores: JugadorProbable[];
   mostrarAgregar?: boolean;
@@ -19,11 +20,12 @@ export function Banquillo({
   onClickJugador?: (id: number) => void;
   tamanoAgregar?: number;
   hrefsPorJugador?: Record<number, string>;
+  fondo?: string;
 }) {
   return (
     <div
-      className="bg-white rounded-[24px] p-[28px] grid gap-[28px] w-full max-w-[700px] mx-auto"
-      style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}
+      className="rounded-[24px] p-[28px] grid gap-[28px] w-full max-w-[700px] mx-auto"
+      style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))", backgroundColor: fondo }}
     >
       {jugadores.map((jugador) => (
         <div key={jugador.id} className="flex justify-center">

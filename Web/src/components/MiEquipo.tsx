@@ -60,7 +60,7 @@ function lineasParaJugador(
   if (columnasVisibles.diferenciaValor) {
     const paletaRevalorizacion = enCampo
       ? COLOR_REVALORIZACION_CAMPO
-      : { positivo: "#16A34A", negativo: "#FE4B44" };
+      : { positivo: "#3BB568", negativo: "#FE645F" };
     const color =
       j.diferenciaValor === null || j.diferenciaValor === 0
         ? undefined
@@ -97,7 +97,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
   const valorEquipo = miClub.valorEquipo;
   const valorClub =
     miClub.valorEquipo !== null || miClub.dinero !== null ? (miClub.valorEquipo ?? 0) + (miClub.dinero ?? 0) : null;
-  const colorRevalorizacion = revalorizacion > 0 ? "#16A34A" : revalorizacion < 0 ? "#FE4B44" : undefined;
+  const colorRevalorizacion = revalorizacion > 0 ? "#3BB568" : revalorizacion < 0 ? "#FE645F" : undefined;
 
   const porteroTitular = titulares.find((j) => j.posicion === "Portero") ?? null;
   const outfieldTitulares = titulares.filter((j) => j.posicion !== "Portero");
@@ -141,7 +141,12 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
     <div className="max-w-[1576px] mx-auto w-full px-6 sm:px-12 pt-14 pb-22 flex flex-col lg:flex-row items-center lg:items-start gap-14 lg:gap-20 text-center">
       <div className="flex flex-col items-center gap-14 w-full lg:w-[700px] lg:shrink-0">
         <div className="relative w-full">
-          <CampoTactico formacion={formacion} datosPorJugador={datosPorJugadorCampo} onClickJugador={abrirMenu} />
+          <CampoTactico
+            formacion={formacion}
+            datosPorJugador={datosPorJugadorCampo}
+            onClickJugador={abrirMenu}
+            oscuro={columnasVisibles.diferenciaValor || columnasVisibles.dificultadProximos5}
+          />
           <div className="absolute top-4 right-4">
             <MenuFiltros columnas={columnasVisibles} onChangeColumnas={setColumnasVisibles} excluir={EXCLUIR_FILTROS} />
           </div>
@@ -252,7 +257,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
                 <button
                   type="button"
                   onClick={() => eliminar(menuJugador.id)}
-                  className="w-full text-left px-2 py-2 rounded-lg text-sm text-[#FE4B44] transition-colors duration-200 hover:bg-[#FAFAFC]"
+                  className="w-full text-left px-2 py-2 rounded-lg text-sm text-[#FE645F] transition-colors duration-200 hover:bg-[#FAFAFC]"
                 >
                   Eliminar
                 </button>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { accionProximosPartidos } from "@/app/actions";
 import { TarjetaProximoPartido } from "./TarjetaProximoPartido";
+import { ModalPartido } from "./ModalPartido";
 import type { Partido } from "@/lib/db";
 
 export function ProximosPartidos({
@@ -15,6 +16,8 @@ export function ProximosPartidos({
   onClose: () => void;
 }) {
   const [partidos, setPartidos] = useState<Partido[] | null>(null);
+  const [ordenAbierto, setOrdenAbierto] = useState<number | null>(null);
+  const [ordenResaltado, setOrdenResaltado] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -46,10 +49,29 @@ export function ProximosPartidos({
 
         <div className="flex flex-col gap-3">
           {partidos?.map((partido) => (
-            <TarjetaProximoPartido key={partido.orden} partido={partido} equipoId={equipoId} equipoNombre={equipoNombre} />
+            <div
+              key={partido.orden}
+              role="button"
+              tabIndex={0}
+              onClick={() => setOrdenAbierto(partido.orden)}
+              onMouseEnter={() => setOrdenResaltado(partido.orden)}
+              onMouseLeave={() => setOrdenResaltado(null)}
+              className="cursor-pointer"
+            >
+              <TarjetaProximoPartido
+                partido={partido}
+                equipoId={equipoId}
+                equipoNombre={equipoNombre}
+                resaltada={ordenResaltado === partido.orden}
+              />
+            </div>
           ))}
         </div>
       </div>
+
+      {ordenAbierto !== null && (
+        <ModalPartido equipoId={equipoId} orden={ordenAbierto} onClose={() => setOrdenAbierto(null)} />
+      )}
     </div>
   );
 }

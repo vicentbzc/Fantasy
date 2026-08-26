@@ -7,38 +7,43 @@ export function CampoTactico({
   datosPorJugador,
   onClickJugador,
   hrefsPorJugador,
+  oscuro,
 }: {
   formacion: Formacion;
   datosPorJugador?: Record<number, { texto: string; color?: string }[]>;
   onClickJugador?: (id: number) => void;
   hrefsPorJugador?: Record<number, string>;
+  oscuro?: boolean;
 }) {
   const filas = formacion.lineas;
+  const claseLinea = oscuro ? "border-white/45" : "border-white/55";
 
   return (
     <div
       className="relative w-full max-w-[700px] mx-auto rounded-[36px] overflow-hidden p-6 pt-10 pb-[140px] flex flex-col justify-between gap-6"
       style={{
         aspectRatio: "700 / 980",
-        background: "linear-gradient(135deg, #5B9D70 0%, #3E8055 100%)",
+        background: oscuro ? "#194C2B" : "#3BB568",
       }}
     >
-      <div className="absolute inset-x-0 top-1/2 border-t border-white/80 pointer-events-none" />
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[180px] h-[180px] rounded-full border border-white/80 pointer-events-none" />
+      <div className={`absolute inset-x-0 top-1/2 border-t ${claseLinea} pointer-events-none`} />
+      <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[180px] h-[180px] rounded-full border ${claseLinea} pointer-events-none`} />
 
-      <div className="absolute left-1/2 bottom-0 -translate-x-1/2 w-[380px] h-[150px] border border-white/80 border-b-0 pointer-events-none" />
-      <div className="absolute left-1/2 bottom-0 -translate-x-1/2 w-[220px] h-[54px] border border-white/80 border-b-0 pointer-events-none" />
+      <div className={`absolute left-1/2 bottom-0 -translate-x-1/2 w-[380px] h-[150px] border ${claseLinea} border-b-0 pointer-events-none`} />
+      <div className={`absolute left-1/2 bottom-0 -translate-x-1/2 w-[220px] h-[54px] border ${claseLinea} border-b-0 pointer-events-none`} />
       <div
-        className="absolute left-1/2 -translate-x-1/2 border border-white/80 border-b-0 pointer-events-none"
+        className={`absolute left-1/2 -translate-x-1/2 border ${claseLinea} border-b-0 pointer-events-none`}
         style={{ bottom: 150, width: 120, height: 60, borderRadius: "120px 120px 0 0" }}
       />
 
-      <div className="absolute left-1/2 top-0 -translate-x-1/2 w-[380px] h-[150px] border border-white/80 border-t-0 pointer-events-none" />
-      <div className="absolute left-1/2 top-0 -translate-x-1/2 w-[220px] h-[54px] border border-white/80 border-t-0 pointer-events-none" />
+      <div className={`absolute left-1/2 top-0 -translate-x-1/2 w-[380px] h-[150px] border ${claseLinea} border-t-0 pointer-events-none`} />
+      <div className={`absolute left-1/2 top-0 -translate-x-1/2 w-[220px] h-[54px] border ${claseLinea} border-t-0 pointer-events-none`} />
       <div
-        className="absolute left-1/2 -translate-x-1/2 border border-white/80 border-t-0 pointer-events-none"
+        className={`absolute left-1/2 -translate-x-1/2 border ${claseLinea} border-t-0 pointer-events-none`}
         style={{ top: 150, width: 120, height: 60, borderRadius: "0 0 120px 120px" }}
       />
+
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "rgba(120,120,120,0.28)", backdropFilter: "blur(2px)" }} />
 
       {formacion.posicionesReales ? (
         formacion.posicionesReales.map((jugador) => (

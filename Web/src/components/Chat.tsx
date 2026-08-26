@@ -30,7 +30,7 @@ export function Chat() {
           <div key={i} className={`flex ${m.rol === "user" ? "justify-end" : "justify-start"}`}>
             <div
               className={`max-w-[80%] rounded-[18px] px-4 py-2 text-sm whitespace-pre-wrap ${
-                m.rol === "user" ? "bg-[#FE4B44] text-white" : "bg-[#F5F5F7] text-[#1D1D1F]"
+                m.rol === "user" ? "bg-[#FE645F] text-white" : "bg-[#F5F5F7] text-[#1D1D1F]"
               }`}
             >
               {m.texto}
@@ -60,7 +60,7 @@ export function Chat() {
           type="button"
           onClick={enviar}
           disabled={cargando || !pregunta.trim()}
-          className="h-12 px-6 rounded-[14px] bg-[#FE4B44] text-white text-sm font-medium transition-opacity duration-200 hover:opacity-90 disabled:opacity-40"
+          className="h-12 px-6 rounded-[14px] bg-[#FE645F] text-white text-sm font-medium transition-colors duration-200 hover:bg-[#FE8B87] disabled:opacity-40"
         >
           Enviar
         </button>

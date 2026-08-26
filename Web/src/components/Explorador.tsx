@@ -13,7 +13,7 @@ import { urlFotoJugador, urlEscudoEquipo } from "@/lib/imagenes";
 import { COLUMNAS_OPCIONALES, CLAVES_SUMABLES, formatearCelda } from "@/lib/columnas";
 import { normalizarTexto } from "@/lib/texto";
 import { COLOR_DIFICULTAD_CALENDARIO } from "@/lib/formato";
-import { ProximosPartidos } from "./ProximosPartidos";
+import { ModalPartido } from "./ModalPartido";
 import { usePersistedState } from "@/lib/usePersistedState";
 
 const POSICIONES = ["Portero", "Defensa", "Mediocampista", "Delantero"];
@@ -29,7 +29,7 @@ type ClaveOrdenable = (typeof COLUMNAS_OPCIONALES)[number]["clave"] | "nombre";
 
 function colorRevalorizacion(valor: number | null): string | undefined {
   if (valor === null || valor === 0) return undefined;
-  return valor > 0 ? "#16A34A" : "#FE4B44";
+  return valor > 0 ? "#3BB568" : "#FE645F";
 }
 
 function compararPorClave(a: Jugador, b: Jugador, clave: ClaveOrdenable, direccion: "asc" | "desc"): number {
@@ -75,6 +75,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   const [modalPuntos, setModalPuntos] = useState<Jugador | null>(null);
   const [modalUltimaJornada, setModalUltimaJornada] = useState<Jugador | null>(null);
   const [modalPartidos, setModalPartidos] = useState<Jugador | null>(null);
+  const [filaResaltada, setFilaResaltada] = useState<number | null>(null);
 
   useEffect(() => {
     const idParam = searchParams.get("seleccionado");
@@ -167,7 +168,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
   return (
     <div className="flex flex-col gap-6 px-6 sm:px-12 pb-16 max-w-[1576px] mx-auto w-full pt-8">
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 justify-center">
         <input
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
@@ -196,7 +197,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
             {totalesEquipo.equipoId !== null && (
               <Avatar src={urlEscudoEquipo(totalesEquipo.equipoId)!} alt={totalesEquipo.nombreEquipo} size={32} />
             )}
-            <div>
+            <div className="flex items-baseline gap-2">
               <h2 className="text-sm font-semibold text-neutral-900">{totalesEquipo.nombreEquipo}</h2>
               <p className="text-xs text-neutral-500">{totalesEquipo.numJugadores} jugadores</p>
             </div>
@@ -246,15 +247,21 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
           <tbody>
             {filas.map((j, i) => {
               const marcado = seleccionados.includes(j.id);
-              const bg = i % 2 === 0 ? "#F7F7F8" : "#FFFFFF";
+              const bg = i % 2 === 0 ? "#F5F5F7" : "#FFFFFF";
+              const resaltada = filaResaltada === j.id;
               return (
                 <tr
                   key={j.id}
                   onClick={() => alternarSeleccion(j.id)}
-                  style={{ backgroundColor: bg }}
-                  className="cursor-pointer transition-colors duration-200 hover:bg-[#FAFAFC]"
+                  onMouseEnter={() => setFilaResaltada(j.id)}
+                  onMouseLeave={() => setFilaResaltada(null)}
+                  style={{ backgroundColor: resaltada ? "#FAFAFC" : bg }}
+                  className="cursor-pointer transition-colors duration-200"
                 >
-                  <td className="p-3 w-[300px] sticky left-0 z-10 overflow-hidden" style={{ backgroundColor: bg }}>
+                  <td
+                    className="p-3 w-[300px] sticky left-0 z-10 overflow-hidden transition-colors duration-200"
+                    style={{ backgroundColor: resaltada ? "#FAFAFC" : bg }}
+                  >
                     <div className="flex items-center gap-2 min-w-0">
                       <input
                         type="checkbox"
@@ -297,7 +304,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                               e.stopPropagation();
                               setModalValor(j);
                             }}
-                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE4B44]"
+                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE8B87]"
                           >
                             {texto}
                           </button>
@@ -314,7 +321,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                               e.stopPropagation();
                               setModalPuntos(j);
                             }}
-                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE4B44]"
+                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE8B87]"
                           >
                             {texto}
                           </button>
@@ -331,7 +338,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                               e.stopPropagation();
                               setModalUltimaJornada(j);
                             }}
-                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE4B44]"
+                            className="underline decoration-dotted underline-offset-2 hover:text-[#FE8B87]"
                           >
                             {texto}
                           </button>
@@ -394,11 +401,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
         />
       )}
       {modalPartidos && modalPartidos.equipoId !== null && (
-        <ProximosPartidos
-          equipoId={modalPartidos.equipoId}
-          equipoNombre={modalPartidos.equipoNombreOficial ?? modalPartidos.equipo}
-          onClose={() => setModalPartidos(null)}
-        />
+        <ModalPartido equipoId={modalPartidos.equipoId} orden={1} onClose={() => setModalPartidos(null)} />
       )}
     </div>
   );

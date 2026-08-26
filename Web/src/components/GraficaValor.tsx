@@ -67,9 +67,9 @@ function GraficaLinea({ datos }: { datos: PuntoHistorialValor[] }) {
   return (
     <div>
       <svg viewBox={`0 0 ${ancho} ${alto}`} className="w-full h-auto">
-        <polyline points={linea} fill="none" stroke="#FE4B44" strokeWidth={2} />
+        <polyline points={linea} fill="none" stroke="#FE645F" strokeWidth={2} />
         {puntos.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill="#FE4B44" />
+          <circle key={i} cx={p.x} cy={p.y} r={3} fill="#FE645F" />
         ))}
       </svg>
       <div className="relative h-3 text-[9px] text-neutral-500 mt-1">
@@ -115,7 +115,7 @@ function RevalorizacionDiaria({ datos }: { datos: PuntoHistorialValor[] }) {
             <span className="text-neutral-500">{formatearFechaLarga(fila.fecha)}</span>
             <span
               className="tabular-nums"
-              style={{ color: fila.diferencia > 0 ? "#16A34A" : fila.diferencia < 0 ? "#FE4B44" : undefined }}
+              style={{ color: fila.diferencia > 0 ? "#3BB568" : fila.diferencia < 0 ? "#FE645F" : undefined }}
             >
               {fila.diferencia > 0 ? "+" : ""}
               {formatearValor(fila.diferencia)}

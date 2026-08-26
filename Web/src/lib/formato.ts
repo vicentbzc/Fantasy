@@ -27,11 +27,11 @@ export function minusculaInicial(texto: string): string {
 }
 
 export const COLOR_DIFICULTAD: Record<string, string> = {
-  "Muy alta": "#FE4B44",
-  Alta: "#EA580C",
-  Media: "#CA8A04",
-  Baja: "#2563EB",
-  "Muy baja": "#16A34A",
+  "Muy alta": "#FE645F",
+  Alta: "#EE722B",
+  Media: "#D59F25",
+  Baja: "#477EEF",
+  "Muy baja": "#3BB568",
 };
 
 export function bucketDificultadCalendario(
@@ -54,14 +54,14 @@ export const COLOR_DIFICULTAD_CALENDARIO: Record<string, string> = {
 };
 
 export const COLOR_DIFICULTAD_CALENDARIO_CAMPO: Record<string, string> = {
-  "Muy fácil": "#CFFFDF",
-  Fácil: "#CFE8FF",
-  Normal: "#FFF2A8",
-  Difícil: "#FFD8A8",
-  "Muy difícil": "#FFC9C9",
+  "Muy fácil": "#3BB568",
+  Fácil: "#477EEF",
+  Normal: "#D59F25",
+  Difícil: "#EE722B",
+  "Muy difícil": "#FE645F",
 };
 
-export const COLOR_REVALORIZACION_CAMPO = { positivo: "#CFFFDF", negativo: "#FFC9C9" };
+export const COLOR_REVALORIZACION_CAMPO = { positivo: "#3BB568", negativo: "#FE645F" };
 
 export function formatearCuando(
   prefijo: string | null,

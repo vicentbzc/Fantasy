@@ -34,8 +34,13 @@ export function FotoJugadorSlot({
   href?: string;
 }) {
   const [error, setError] = useState(false);
+  const [resaltado, setResaltado] = useState(false);
   const mostrarSinFoto = !src || error;
-  const claseContenedor = `flex flex-col items-center gap-1 ${onClick || href ? "cursor-pointer" : ""}`;
+  const esClicable = Boolean(onClick || href);
+  const claseContenedor = `flex flex-col items-center gap-1 ${esClicable ? "cursor-pointer" : ""}`;
+  const eventosHover = esClicable
+    ? { onMouseEnter: () => setResaltado(true), onMouseLeave: () => setResaltado(false) }
+    : {};
 
   const contenido = (
     <>
@@ -69,38 +74,40 @@ export function FotoJugadorSlot({
           {probabilidad === null ? "—" : `${probabilidad}%`}
         </span>
       )}
-      <div
-        style={{ width: size, height: size, borderRadius: radius }}
-        className="overflow-hidden shrink-0"
-      >
-        <Image
-          src={mostrarSinFoto ? SIN_FOTO : src!}
-          alt={alt}
-          width={size}
-          height={size}
-          className="object-cover w-full h-full"
-          onError={() => setError(true)}
-        />
+      <div style={{ opacity: resaltado ? 0.6 : 1 }} className="flex flex-col items-center gap-1 transition-opacity duration-200">
+        <div
+          style={{ width: size, height: size, borderRadius: radius }}
+          className="overflow-hidden shrink-0"
+        >
+          <Image
+            src={mostrarSinFoto ? SIN_FOTO : src!}
+            alt={alt}
+            width={size}
+            height={size}
+            className="object-cover w-full h-full"
+            onError={() => setError(true)}
+          />
+        </div>
+        <span
+          style={{ color: colorNombre, fontSize: fontSizeNombre }}
+          className="font-medium leading-tight text-center w-full"
+        >
+          {alt}
+        </span>
       </div>
-      <span
-        style={{ color: colorNombre, fontSize: fontSizeNombre }}
-        className="font-medium leading-tight text-center w-full"
-      >
-        {alt}
-      </span>
     </>
   );
 
   if (href) {
     return (
-      <Link href={href} className={claseContenedor} style={{ width: size }}>
+      <Link href={href} className={claseContenedor} style={{ width: size }} {...eventosHover}>
         {contenido}
       </Link>
     );
   }
 
   return (
-    <div className={claseContenedor} style={{ width: size }} onClick={onClick}>
+    <div className={claseContenedor} style={{ width: size }} onClick={onClick} {...eventosHover}>
       {contenido}
     </div>
   );

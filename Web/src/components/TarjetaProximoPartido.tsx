@@ -17,8 +17,9 @@ function ConEnlaceAEquipo({
   children: ReactNode;
 }) {
   if (id === null) return <span className={className}>{children}</span>;
+  const claseHover = className ? "hover:text-[#6E6E73]" : "hover:opacity-70";
   return (
-    <Link href={`/equipos/${id}`} onClick={(e) => e.stopPropagation()} className={`hover:opacity-70 ${className ?? ""}`}>
+    <Link href={`/equipos/${id}`} onClick={(e) => e.stopPropagation()} className={`${claseHover} ${className ?? ""}`}>
       {children}
     </Link>
   );
@@ -28,10 +29,14 @@ export function TarjetaProximoPartido({
   partido,
   equipoId,
   equipoNombre,
+  resaltada,
+  fondo = "#F5F5F7",
 }: {
   partido: Partido;
   equipoId: number;
   equipoNombre: string;
+  resaltada?: boolean;
+  fondo?: string;
 }) {
   const cuando = formatearCuando(partido.jornada, partido.dia, partido.hora, partido.localVisitante);
   const logoCompeticion = urlLogoCompeticion(partido.competicion);
@@ -43,7 +48,10 @@ export function TarjetaProximoPartido({
   const visitante = esVisitante ? { id: equipoId, nombre: equipoNombre } : { id: partido.rivalId, nombre: nombreRival };
 
   return (
-    <div className="rounded-[18px] bg-[#F5F5F7] p-[18px] flex flex-col items-center gap-[10px] text-center w-full">
+    <div
+      className="rounded-[18px] transition-colors duration-200 p-[18px] flex flex-col items-center gap-[10px] text-center w-full"
+      style={{ backgroundColor: resaltada ? "#FAFAFC" : fondo }}
+    >
       <p className="text-xs font-medium text-[#6E6E73]">{cuando || "Por confirmar"}</p>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 w-full">
