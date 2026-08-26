@@ -38,8 +38,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: Datos
-          key: datos-fantasy-v3-${{ github.run_id }}
-          restore-keys: datos-fantasy-v3-
+          key: datos-fantasy-v4-${{ github.run_id }}
+          restore-keys: datos-fantasy-v4-
 
       - name: Ingestar datos 1 (titularidad)
         if: github.event.schedule == '*/5 * * * *' || (github.event_name == 'workflow_dispatch' && (inputs.modo == 'todo' || inputs.modo == 'solo-rapido'))

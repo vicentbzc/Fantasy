@@ -2705,6 +2705,29 @@ tendrá ningún jugador con `valor_oficial` histórico hasta el primer día
 completo después de aplicarlo (necesita al menos una fila de ayer para
 tener con qué comparar hoy).
 
+## Vigesimotercera ronda: fallo real en GitHub Actions tras la ronda anterior (26/08/2026)
+
+Las dos primeras ejecuciones del cron después de subir la Vigesimosegunda
+ronda fallaron en el step "Sincronizar con Supabase" (`Process completed
+with exit code 1`). Causa real, mismo patrón que ya pasó en la Décima
+ronda: `guardar_historial()` añadió una columna nueva ("Valor oficial") a
+`Datos Historial valor.csv`, pero la caché de `actions/cache`
+(`datos-fantasy-v3-`) restauraba el CSV de una ejecución de hoy anterior
+al commit, con la cabecera vieja de 5 columnas (sin "Valor oficial"). Al
+leerlo con `csv.DictReader`, `sincronizar_historial()` hacía
+`fila["Valor oficial"]` sobre filas sin esa clave → `KeyError`, la tabla
+`historial_valor` fallaba, y como cualquier fallo de tabla hace
+`sys.exit(1)` en `main()`, el step entero se marcaba como fallido (sin
+bloquear el resto de tablas, que sí se sincronizaron bien — solo faltó
+`historial_valor`/`revalorizacion` esos dos ciclos). Arreglado subiendo la
+clave de `actions/cache` a `datos-fantasy-v4-` en `scraping.yml`, para que
+el CSV arranque limpio con la cabecera nueva. **Lección para el futuro**:
+cualquier cambio de columnas en un CSV que `actions/cache` persiste entre
+ejecuciones (los archivos que se van acumulando día a día, no los que se
+regeneran enteros en cada corrida) necesita subir también la clave de
+caché en el mismo commit, si no la ejecución en GitHub Actions puede
+fallar aunque en local funcione perfecto (en local no hay caché vieja).
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
