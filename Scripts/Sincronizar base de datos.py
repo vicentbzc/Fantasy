@@ -177,9 +177,9 @@ def sincronizar_equipos(cur):
 
 
 def sincronizar_jugadores(cur):
-    jugadores = leer_csv("Datos Jugadores.csv")
-    coincidencias_mercado = emparejar_por_nombre(jugadores, leer_csv("Datos Titularidad.csv"))
-    coincidencias_estado = emparejar_por_nombre(jugadores, leer_csv("Datos Estado.csv"))
+    jugadores = leer_csv_opcional("Datos Jugadores.csv")
+    coincidencias_mercado = emparejar_por_nombre(jugadores, leer_csv_opcional("Datos Titularidad.csv"))
+    coincidencias_estado = emparejar_por_nombre(jugadores, leer_csv_opcional("Datos Estado.csv"))
     posiciones = leer_csv_opcional("Datos Posicion.csv")
     coincidencias_posicion = emparejar_por_nombre(jugadores, posiciones)
 
@@ -412,14 +412,14 @@ def sincronizar_puntos(cur):
             fila["Estadísticas"],
             parsear_entero(fila["Tarjetas amarillas acumuladas"]),
         )
-        for fila in leer_csv("Datos Puntos jornada.csv")
+        for fila in leer_csv_opcional("Datos Puntos jornada.csv")
     ]
-
-    cur.execute("delete from puntos_jornada_detalle")
-    cur.execute("delete from puntos_jornada")
 
     if not filas:
         return 0
+
+    cur.execute("delete from puntos_jornada_detalle")
+    cur.execute("delete from puntos_jornada")
 
     execute_values(
         cur,
@@ -470,7 +470,7 @@ def sincronizar_detalle(cur):
 
 def sincronizar_calendario(cur):
     total = 0
-    for fila in leer_csv("Datos 3.csv"):
+    for fila in leer_csv_opcional("Datos 3.csv"):
         equipo = fila["Equipo"]
         rivales = dividir(fila["Siguientes rivales"])
         competiciones = dividir(fila["Competición"])

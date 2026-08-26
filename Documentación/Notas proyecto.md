@@ -2749,6 +2749,50 @@ corra en *todos* los disparos del cron — hay que leerlo siempre como
 opcional salvo que se sepa con certeza que el disparo que llama a
 `Sincronizar` es siempre el mismo que genera ese CSV.
 
+**Tercer fallo, mismo origen, encontrado reproduciendo en local antes de
+que volviera a pasar en producción**: reproducido el escenario exacto de
+una caché fría en un cron de 5 minutos (mover `Datos/` aparte, correr
+solo `Ingestar datos 1.py`/`estado.py`/`liga.py`, y llamar a cada función
+de `Sincronizar` una a una contra la base de datos real, con rollback
+después de cada una para no tocar nada) — con eso se vio en directo, con
+el traceback completo (que en producción queda oculto a propósito por la
+regla de no imprimir detalle de excepciones), que la tabla que fallaba de
+verdad en la ejecución de las 13:26 era **`calendario`**, no
+`historial_valor`: `sincronizar_calendario()` leía `Datos 3.csv` con
+`leer_csv()` (obligatorio), y ese archivo solo lo genera `Ingestar datos
+3.py`, que corre en el cron de **15** minutos — en una ejecución del cron
+de 5 minutos con la caché recién reseteada, ese archivo no existe. Mismo
+patrón exacto que el fallo anterior, en una tabla distinta.
+
+Revisado el resto de `Sincronizar` por el mismo problema, encontradas
+**dos tablas más** en riesgo:
+- `sincronizar_jugadores()` leía `Datos Jugadores.csv`/`Titularidad.csv`/
+  `Estado.csv` con `leer_csv()` obligatorio — las tres pasadas a
+  `leer_csv_opcional()`. Seguro: si no hay filas, la función devuelve 0
+  antes de tocar la base de datos (ni upsert ni el `delete from
+  posicion_sin_oficial` de más abajo se ejecutan).
+- `sincronizar_puntos()` leía `Datos Puntos jornada.csv` con `leer_csv()`
+  obligatorio, y además hacía `delete from puntos_jornada_detalle` /
+  `delete from puntos_jornada` **antes** de comprobar si había filas —
+  con `leer_csv_opcional()` a secas esto habría sido peor que el bug
+  original: en vez de fallar (y hacer rollback, sin perder nada), habría
+  **vaciado en silencio** esas dos tablas cada vez que el CSV no
+  existiera todavía, sin ningún error que avisara. Arreglado pasando a
+  `leer_csv_opcional()` **y** moviendo el `if not filas: return 0` antes
+  de los `delete` (no solo evita el fallo, corrige un riesgo real de
+  pérdida de datos silenciosa que ya existía desde antes, solo que nunca
+  se había disparado porque la caché nunca había estado vacía de verdad
+  hasta este reseteo).
+- `sincronizar_calendario()`: `leer_csv("Datos 3.csv")` → `leer_csv_opcional`.
+  El `delete from calendario where equipo = %s` ya estaba dentro del
+  bucle por fila, así que no hacía falta reordenar nada — con el CSV
+  vacío el bucle simplemente no itera, cero riesgo de borrado.
+
+Verificado en local, dos veces, contra la base de datos real (con
+rollback tras cada función, nada quedó escrito): las 13 tablas
+sincronizan sin error con `Datos/` reconstruida desde cero solo con los 3
+scripts del cron de 5 minutos (antes fallaba en `calendario`).
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
