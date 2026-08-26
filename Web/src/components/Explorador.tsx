@@ -13,7 +13,7 @@ import { urlFotoJugador, urlEscudoEquipo } from "@/lib/imagenes";
 import { COLUMNAS_OPCIONALES, CLAVES_SUMABLES, formatearCelda } from "@/lib/columnas";
 import { normalizarTexto } from "@/lib/texto";
 import { COLOR_DIFICULTAD_CALENDARIO } from "@/lib/formato";
-import { ModalPartido } from "./ModalPartido";
+import { ProximosPartidos } from "./ProximosPartidos";
 import { usePersistedState } from "@/lib/usePersistedState";
 
 const POSICIONES = ["Portero", "Defensa", "Mediocampista", "Delantero"];
@@ -176,7 +176,6 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
     return {
       nombreEquipo: jugadoresEquipo[0].equipoNombreOficial ?? nombreEquipo,
-      equipoId: jugadoresEquipo[0].equipoId,
       totales,
     };
   }, [jugadores, equiposSel, seleccionados]);
@@ -208,12 +207,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
       {!seleccionados.length && totalesEquipo && (
         <section className="rounded-2xl bg-white p-4">
-          <div className="flex items-center gap-3 mb-4">
-            {totalesEquipo.equipoId !== null && (
-              <Avatar src={urlEscudoEquipo(totalesEquipo.equipoId)!} alt={totalesEquipo.nombreEquipo} size={32} />
-            )}
-            <h2 className="text-sm font-semibold text-neutral-900">{totalesEquipo.nombreEquipo}</h2>
-          </div>
+          <h2 className="text-sm font-semibold text-neutral-900 mb-4">{totalesEquipo.nombreEquipo}</h2>
           <dl className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
             {columnasTotales.map((columna) => (
               <div key={columna.clave} className="flex items-center justify-between gap-2">
@@ -415,7 +409,11 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
         />
       )}
       {modalPartidos && modalPartidos.equipoId !== null && (
-        <ModalPartido equipoId={modalPartidos.equipoId} orden={1} onClose={() => setModalPartidos(null)} />
+        <ProximosPartidos
+          equipoId={modalPartidos.equipoId}
+          equipoNombre={modalPartidos.equipoNombreOficial ?? modalPartidos.equipo}
+          onClose={() => setModalPartidos(null)}
+        />
       )}
     </div>
   );

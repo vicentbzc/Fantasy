@@ -2918,6 +2918,20 @@ navegador de cada visitante (no hay nada compartido en servidor), así que
 es un cambio sin riesgo — el valor viejo bajo la clave sin `.v2` queda
 huérfano sin más.
 
+**Dos retoques más el mismo día**: quitado el escudo del recuadro de
+totales de un equipo en `/jugadores` (solo queda el nombre oficial),
+`totalesEquipo.equipoId` eliminado del `useMemo` por quedarse sin ningún
+uso. Y el recuadro que abre "Dificultad del calendario" en Jugadores
+dejó de usar `ModalPartido` (VS grande + alineación completa + banquillo,
+pensado para el partido concreto de una tarjeta de "Próximos partidos")
+y pasó a usar `ProximosPartidos` — el mismo componente, más simple (solo
+título + lista de partidos, sin alineación), que ya usa Mi equipo para
+el mismo click. No tenía sentido mostrar la alineación probable del
+equipo rival al consultar solo su calendario de dificultad. `ModalPartido`
+se queda igual para su uso real: el modal que abre cada tarjeta de
+"Próximos partidos" en la ficha de equipo (`ListaProximosPartidos.tsx`),
+donde sí hace falta ver la alineación de un partido concreto.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
