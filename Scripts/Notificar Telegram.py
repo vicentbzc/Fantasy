@@ -10,8 +10,8 @@ import Común
 ZONA_BARCELONA = ZoneInfo("Europe/Madrid")
 
 MAPA_DIAS_SEMANA = {
-    0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves",
-    4: "Viernes", 5: "Sábado", 6: "Domingo",
+    0: "lunes", 1: "martes", 2: "miércoles", 3: "jueves",
+    4: "viernes", 5: "sábado", 6: "domingo",
 }
 
 MAPA_MESES = {
