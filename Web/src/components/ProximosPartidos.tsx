@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { accionProximosPartidos } from "@/app/actions";
-import { TarjetaProximoPartido } from "./TarjetaProximoPartido";
-import { ModalPartido } from "./ModalPartido";
+import { ListaProximosPartidos } from "./ListaProximosPartidos";
 import type { Partido } from "@/lib/db";
 
 export function ProximosPartidos({
@@ -15,14 +14,12 @@ export function ProximosPartidos({
   equipoNombre: string;
   onClose: () => void;
 }) {
-  const [partidos, setPartidos] = useState<Partido[] | null>(null);
-  const [ordenAbierto, setOrdenAbierto] = useState<number | null>(null);
-  const [ordenResaltado, setOrdenResaltado] = useState<number | null>(null);
+  const [datos, setDatos] = useState<{ partidos: Partido[]; jornadaLigaOrden: number | null } | null>(null);
 
   useEffect(() => {
     let cancelado = false;
     accionProximosPartidos(equipoId).then((resultado) => {
-      if (!cancelado) setPartidos(resultado);
+      if (!cancelado) setDatos(resultado);
     });
     return () => {
       cancelado = true;
@@ -42,36 +39,20 @@ export function ProximosPartidos({
           </button>
         </div>
 
-        {partidos === null && <p className="text-sm text-neutral-500">Cargando…</p>}
-        {partidos !== null && partidos.length === 0 && (
+        {datos === null && <p className="text-sm text-neutral-500">Cargando…</p>}
+        {datos !== null && datos.partidos.length === 0 && (
           <p className="text-sm text-neutral-500">Sin partidos programados.</p>
         )}
 
-        <div className="flex flex-col gap-3">
-          {partidos?.map((partido) => (
-            <div
-              key={partido.orden}
-              role="button"
-              tabIndex={0}
-              onClick={() => setOrdenAbierto(partido.orden)}
-              onMouseEnter={() => setOrdenResaltado(partido.orden)}
-              onMouseLeave={() => setOrdenResaltado(null)}
-              className="cursor-pointer"
-            >
-              <TarjetaProximoPartido
-                partido={partido}
-                equipoId={equipoId}
-                equipoNombre={equipoNombre}
-                resaltada={ordenResaltado === partido.orden}
-              />
-            </div>
-          ))}
-        </div>
+        {datos !== null && datos.partidos.length > 0 && (
+          <ListaProximosPartidos
+            partidos={datos.partidos}
+            equipoId={equipoId}
+            equipoNombre={equipoNombre}
+            jornadaLigaOrden={datos.jornadaLigaOrden}
+          />
+        )}
       </div>
-
-      {ordenAbierto !== null && (
-        <ModalPartido equipoId={equipoId} orden={ordenAbierto} onClose={() => setOrdenAbierto(null)} />
-      )}
     </div>
   );
 }

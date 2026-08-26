@@ -71,10 +71,10 @@ export function FotoJugadorSlot({
           style={{ color: colorProbabilidad, fontSize: fontSizeProbabilidad }}
           className="font-bold leading-none whitespace-nowrap"
         >
-          {probabilidad === null ? "—" : `${probabilidad}%`}
+          {probabilidad === null ? "—" : `${probabilidad} %`}
         </span>
       )}
-      <div style={{ opacity: resaltado ? 0.6 : 1 }} className="flex flex-col items-center gap-1 transition-opacity duration-200">
+      <div style={{ opacity: resaltado ? 0.85 : 1 }} className="flex flex-col items-center gap-1 transition-opacity duration-200">
         <div
           style={{ width: size, height: size, borderRadius: radius }}
           className="overflow-hidden shrink-0"

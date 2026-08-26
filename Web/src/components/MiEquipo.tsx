@@ -52,7 +52,7 @@ function lineasParaJugador(
 ): { texto: string; color?: string; onClick?: () => void }[] {
   const lineas: { texto: string; color?: string; onClick?: () => void }[] = [];
   if (columnasVisibles.porcentajeTitularidad) {
-    lineas.push({ texto: j.porcentajeTitularidad === null ? "—" : `${j.porcentajeTitularidad}%` });
+    lineas.push({ texto: j.porcentajeTitularidad === null ? "—" : `${j.porcentajeTitularidad} %` });
   }
   if (columnasVisibles.valorSinClausula) {
     lineas.push({ texto: formatearValor(j.valorSinClausula) });

@@ -31,13 +31,13 @@ export default function Home() {
             className="text-5xl sm:text-6xl md:text-7xl font-bold leading-[0.95] md:max-w-[560px]"
             style={{ letterSpacing: "-4px" }}
           >
-            Juega cada jornada con ventaja.
+            Juega cada jornada con ventaja
           </h1>
           <p
             className="text-xl md:text-[22px] font-medium max-w-[360px]"
             style={{ letterSpacing: "-0.44px" }}
           >
-            Bienvenido a la herramienta definitiva para LaLiga Fantasy.
+            Bienvenido a la herramienta definitiva para LaLiga Fantasy
           </p>
         </motion.div>
       </div>

@@ -14,11 +14,11 @@ export const COLUMNAS_OPCIONALES: ColumnaOpcional[] = [
   { clave: "equipo", etiqueta: "Equipo", tipo: "texto" },
   { clave: "posicion", etiqueta: "Posición", tipo: "texto" },
   { clave: "estado", etiqueta: "Estado", tipo: "texto", formatear: (v) => formatearEstado(v as string | null) },
-  { clave: "porcentajeTitularidad", etiqueta: "Titularidad", sufijo: "%" },
+  { clave: "porcentajeTitularidad", etiqueta: "Titularidad", sufijo: " %" },
   { clave: "valorSinClausula", etiqueta: "Valor" },
   { clave: "valor", etiqueta: "Valor en la liga" },
   { clave: "diferenciaValor", etiqueta: "Revalorización" },
-  { clave: "porcentajeDiferencia", etiqueta: "Porcentaje de revalorización", sufijo: "%", decimales: 2 },
+  { clave: "porcentajeDiferencia", etiqueta: "Porcentaje de revalorización", sufijo: " %", decimales: 2 },
   {
     clave: "tendenciaDias",
     etiqueta: "Tendencia",

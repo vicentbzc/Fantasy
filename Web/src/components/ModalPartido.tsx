@@ -17,10 +17,12 @@ export function ModalPartido({
   equipoId,
   orden,
   onClose,
+  mostrarProximosPartidos = true,
 }: {
   equipoId: number;
   orden: number;
   onClose: () => void;
+  mostrarProximosPartidos?: boolean;
 }) {
   const [ordenActual, setOrdenActual] = useState(orden);
   const [cargado, setCargado] = useState<{ orden: number; detalle: DetallePartido } | null>(null);
@@ -66,7 +68,7 @@ export function ModalPartido({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+        className="bg-[#F5F5F7] rounded-2xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-end mb-2">
@@ -85,7 +87,7 @@ export function ModalPartido({
               </p>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-5 gap-y-2 w-full max-w-md">
                 {local.id !== null ? (
-                  <Link href={`/equipos/${local.id}`} className="text-[16px] font-semibold text-right hover:text-[#6E6E73]">
+                  <Link href={`/equipos/${local.id}`} className="text-[16px] font-semibold text-right justify-self-end w-fit hover:text-[#6E6E73]">
                     {local.nombre}
                   </Link>
                 ) : (
@@ -104,7 +106,7 @@ export function ModalPartido({
                   />
                 </div>
                 {visitante.id !== null ? (
-                  <Link href={`/equipos/${visitante.id}`} className="text-[16px] font-semibold text-left hover:text-[#6E6E73]">
+                  <Link href={`/equipos/${visitante.id}`} className="text-[16px] font-semibold text-left justify-self-start w-fit hover:text-[#6E6E73]">
                     {visitante.nombre}
                   </Link>
                 ) : (
@@ -122,23 +124,31 @@ export function ModalPartido({
               <CampoTactico formacion={detalle.formacion} hrefsPorJugador={hrefs} />
             </div>
 
-            <Banquillo jugadores={detalle.formacion.banquillo} hrefsPorJugador={hrefs} fondo="#F5F5F7" />
+            <Banquillo jugadores={detalle.formacion.banquillo} hrefsPorJugador={hrefs} />
 
-            {detalle.proximosPartidos.length > 0 && (
+            {mostrarProximosPartidos && detalle.proximosPartidos.length > 0 && (
               <div className="w-full flex flex-col items-start gap-3 text-left">
                 <h3 className="text-lg font-bold">Próximos partidos</h3>
                 <div className="w-full flex flex-col gap-3">
-                  {detalle.proximosPartidos.map((partido) => (
-                    <div
-                      key={partido.orden}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setOrdenActual(partido.orden)}
-                      className="cursor-pointer"
-                    >
-                      <TarjetaProximoPartido partido={partido} equipoId={detalle.equipoId} equipoNombre={detalle.equipoNombre} />
-                    </div>
-                  ))}
+                  {detalle.proximosPartidos.slice(0, 5).map((partido) => {
+                    const clicable = partido.orden === detalle.jornadaLigaOrden;
+                    return (
+                      <div
+                        key={partido.orden}
+                        role={clicable ? "button" : undefined}
+                        tabIndex={clicable ? 0 : undefined}
+                        onClick={clicable ? () => setOrdenActual(partido.orden) : undefined}
+                        className={clicable ? "cursor-pointer" : ""}
+                      >
+                        <TarjetaProximoPartido
+                          partido={partido}
+                          equipoId={detalle.equipoId}
+                          equipoNombre={detalle.equipoNombre}
+                          fondo="#FFFFFF"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

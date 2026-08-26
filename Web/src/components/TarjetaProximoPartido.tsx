@@ -49,13 +49,13 @@ export function TarjetaProximoPartido({
 
   return (
     <div
-      className="rounded-[18px] transition-colors duration-200 p-[18px] flex flex-col items-center gap-[10px] text-center w-full"
+      className="rounded-[18px] transition-colors duration-200 px-[18px] py-6 flex flex-col items-center gap-[10px] text-center w-full"
       style={{ backgroundColor: resaltada ? "#FAFAFC" : fondo }}
     >
       <p className="text-xs font-medium text-[#6E6E73]">{cuando || "Por confirmar"}</p>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 w-full">
-        <ConEnlaceAEquipo id={local.id} className="text-xs font-semibold text-[#1D1D1F] text-right">
+        <ConEnlaceAEquipo id={local.id} className="text-xs font-semibold text-[#1D1D1F] text-right justify-self-end w-fit">
           {local.nombre}
         </ConEnlaceAEquipo>
         <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export function TarjetaProximoPartido({
             />
           </ConEnlaceAEquipo>
         </div>
-        <ConEnlaceAEquipo id={visitante.id} className="text-xs font-semibold text-[#1D1D1F] text-left">
+        <ConEnlaceAEquipo id={visitante.id} className="text-xs font-semibold text-[#1D1D1F] text-left justify-self-start w-fit">
           {visitante.nombre}
         </ConEnlaceAEquipo>
       </div>

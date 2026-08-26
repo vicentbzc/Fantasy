@@ -24,7 +24,10 @@ export async function accionHistorialPuntos(id: number) {
 
 export async function accionProximosPartidos(equipoId: number) {
   const equipo = await obtenerEquipoDetalle(equipoId);
-  return equipo?.partidos ?? [];
+  return {
+    partidos: equipo?.partidos ?? [],
+    jornadaLigaOrden: equipo?.jornadaLigaOrden ?? null,
+  };
 }
 
 export async function accionDetallePartido(equipoId: number, orden: number) {
@@ -40,6 +43,7 @@ export async function accionDetallePartido(equipoId: number, orden: number) {
     partido,
     formacion: calcularFormacion(jugadores),
     proximosPartidos: equipo.partidos.filter((p) => p.orden !== orden),
+    jornadaLigaOrden: equipo.jornadaLigaOrden,
   };
 }
 
