@@ -378,15 +378,33 @@ def revisar_actividad_mercado(cur):
         guardar_estado(cur, clave, str(id_actividad))
 
 
+HORA_CIERRE_MERCADO = 22
+
+
 def revisar_cierre_mercado(cur):
     ahora = datetime.now(ZONA_BARCELONA)
-    if ahora.hour != 21:
+    cierre = ahora.replace(hour=HORA_CIERRE_MERCADO, minute=0, second=0, microsecond=0)
+    minutos_para_cierre = (cierre - ahora).total_seconds() / 60
+    if not (0 < minutos_para_cierre <= 120):
         return
     hoy = ahora.strftime("%Y-%m-%d")
     clave = f"mercado_cierre:{hoy}"
     if obtener_estado(cur, clave) is not None:
         return
-    if Común.enviar_telegram("En 1 hora se cerrará el mercado de hoy."):
+    minutos_redondeados = round(minutos_para_cierre)
+    if minutos_redondeados >= 115:
+        texto_tiempo = "2 horas"
+    elif minutos_redondeados > 60:
+        horas, minutos = divmod(minutos_redondeados, 60)
+        texto_horas = "1 hora" if horas == 1 else f"{horas} horas"
+        texto_tiempo = f"{texto_horas} y {minutos} minuto{'s' if minutos != 1 else ''}"
+    elif minutos_redondeados >= 55:
+        texto_tiempo = "1 hora"
+    elif minutos_redondeados == 1:
+        texto_tiempo = "1 minuto"
+    else:
+        texto_tiempo = f"{minutos_redondeados} minutos"
+    if Común.enviar_telegram(f"En {texto_tiempo} se cerrará el mercado de hoy."):
         guardar_estado(cur, clave, "enviado")
 
 
