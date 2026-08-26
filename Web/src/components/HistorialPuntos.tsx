@@ -50,13 +50,13 @@ export function HistorialPuntos({
 
   const datosMostrados = soloUltimaJornada ? (datos ? datos.slice(0, 1) : datos) : datos;
   const titulo = soloUltimaJornada
-    ? `Puntos de la última jornada de ${jugador.nombre}`
+    ? `Puntos en la última jornada de ${jugador.nombre}`
     : `Puntos por jornada de ${jugador.nombre}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto"
+        className="bg-[#F5F5F7] rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -74,7 +74,7 @@ export function HistorialPuntos({
         <div className="flex flex-col gap-3">
           {soloUltimaJornada
             ? datosMostrados?.map((jornada) => (
-                <div key={jornada.jornada} className="rounded-xl bg-neutral-50 p-3">
+                <div key={jornada.jornada} className="rounded-xl bg-white p-3">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Jornada {jornada.jornada}</span>
                     <span className="text-sm font-semibold tabular-nums">{formatearPuntos(jornada.puntos)}</span>
@@ -85,7 +85,7 @@ export function HistorialPuntos({
             : datosMostrados?.map((jornada) => {
                 const abierta = expandida === jornada.jornada;
                 return (
-                  <div key={jornada.jornada} className="rounded-xl bg-neutral-50 p-3">
+                  <div key={jornada.jornada} className="rounded-xl bg-white p-3">
                     <button
                       type="button"
                       onClick={() => setExpandida(abierta ? null : jornada.jornada)}

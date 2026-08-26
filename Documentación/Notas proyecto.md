@@ -2793,6 +2793,108 @@ rollback tras cada función, nada quedó escrito): las 13 tablas
 sincronizan sin error con `Datos/` reconstruida desde cero solo con los 3
 scripts del cron de 5 minutos (antes fallaba en `calendario`).
 
+## Vigesimocuarta ronda: aviso de Telegram por logo de competición que falta (26/08/2026)
+
+El usuario preguntó de dónde salen las imágenes de la web (fotos de
+jugador y escudos: API oficial de LaLiga Fantasy, ver "Descargar
+imágenes.py" más arriba; logo de competición: **no automático**, mapeo a
+mano en `urlLogoCompeticion()` que hasta ahora solo cubría "LaLiga",
+cualquier otra competición cae a un fallback silencioso de 3 letras en
+`ImagenCuadrada.tsx`, nunca una imagen rota) y si se le podía avisar por
+Telegram de una imagen que falte o de una falta de ortografía en la web.
+Se le explicó la diferencia de dificultad entre las dos cosas — la
+ortografía necesitaría revisión con IA bajo demanda, no es automatizable
+como aviso recurrente de cron sin muchos falsos positivos con nombres
+propios — y eligió implementar solo el aviso de competición sin logo.
+
+Nueva `revisar_competicion_sin_logo()` en `Notificar Telegram.py`, mismo
+patrón que el resto (una vez por competición nueva, vía
+`notificaciones_estado`): compara las competiciones distintas de
+`calendario` contra `COMPETICIONES_CON_LOGO` (constante en Python, `{"LaLiga"}`,
+duplica a mano el mismo conjunto que `urlLogoCompeticion()` en el lado
+web — no hay ninguna tabla ni fuente compartida entre los dos lados, así
+que si algún día se añade el logo de otra competición en la web hay que
+quitarla también de aquí o el aviso seguiría diciendo que falta). Probado
+en directo contra la base de datos real: había "Conference League" sin
+logo en `calendario` en ese momento, el aviso llegó de verdad por
+Telegram y quedó marcado como avisado (no se repite).
+
+**El mismo día, el usuario subió el PNG real** a `Datos/Imágenes/Competiciones/Conference League.png`
+(mismo sitio donde ya tenía guardado `LaLiga.png` de referencia). Copiado a
+`Web/public/conference-league.png` y añadida la entrada en
+`urlLogoCompeticion()` (`imagenes.ts`); `COMPETICIONES_CON_LOGO` en
+`Notificar Telegram.py` actualizada a la vez para mantener las dos listas
+sincronizadas, tal y como queda dicho arriba. Verificado por red (sin
+panel de navegador visible en esta sesión): tanto `/conference-league.png`
+como su versión optimizada por Next.js devuelven `200 image/png`, y el
+`<img>` de la tarjeta del partido de Conference League del Getafe
+(jueves 27/08, playoff contra el Partizan) apunta a la ruta correcta.
+
+## Vigesimoquinta ronda: 10 retoques de Jugadores — orden alfabético con 3 estados, recuadro de equipo, modal de puntos, escudos del modal de dificultad, filtros por defecto (26/08/2026)
+
+El usuario pidió 10 cambios sobre `/jugadores` en un solo mensaje. El
+único ambiguo ("ordénalos siempre por orden alfabético") se aclaró con el
+usuario antes de tocar código: no es quitar el orden por columna, es que
+al pulsar una columna por tercera vez (ya en ascendente) vuelva al orden
+alfabético en vez de quedarse encadenada para siempre entre asc/desc —
+`orden.clave` pasa a admitir `null` (estado "sin orden", el inicial),
+`alternarOrden()` cicla ahora en 3 pasos: sin orden → descendente →
+ascendente → sin orden.
+
+- **"Equipo" y "Posición" dejan de ser ordenables** (`CLAVES_NO_ORDENABLES`,
+  se les une a "Estado" que ya lo era desde la Octava ronda) — no son un
+  valor cuantificable, mismo razonamiento que ya se aplicó entonces.
+- **Recuadro de totales de un equipo seleccionado**: usa
+  `equipoNombreOficial` en vez del nombre largo interno de `MAPA_EQUIPOS`
+  (ej. "FC Barcelona", no "Fútbol Club Barcelona"); quitada la línea
+  "N jugadores"; "Valor en la liga" añadida a `CLAVES_EXCLUIDAS_TOTALES`
+  (no se suma en ese recuadro, sigue existiendo como columna normal de la
+  tabla).
+- **Modal de puntos (`HistorialPuntos.tsx`)**: título "Puntos **en** la
+  última jornada de..." (antes "de", sin "en", en el modo
+  `soloUltimaJornada`); fondo del modal a `bg-[#F5F5F7]` (el gris de toda
+  la web, mismo valor que ya usaba `ModalPartido.tsx`) y los recuadros de
+  cada jornada a `bg-white` (antes al revés: modal blanco, recuadros
+  grises).
+- **Flechas de orden de columna, `↑`/`↓` → `▴`/`▾`**: mismo estilo
+  (`text-neutral-400 text-xs`) que ya usaban el desplegable de Filtros y
+  el desglose de jornada de `HistorialPuntos.tsx`, para que las tres
+  fuentes de "esto es ordenable/expandible" se vean iguales en toda la
+  web.
+- **Escudos del modal de "Dificultad del calendario" (`ModalPartido.tsx`)
+  no llevaban a la ficha del equipo**: solo los nombres de equipo del VS
+  grande eran `next/link`, los escudos (`ImagenCuadrada`) no — a
+  diferencia de `TarjetaProximoPartido.tsx`, que sí envuelve ambos
+  (nombre y escudo) desde la Decimoquinta ronda. Añadido el mismo
+  envoltorio `Link` a los dos escudos del VS.
+- **Filtros activos por defecto en `/jugadores`**: `COLUMNAS_DEFECTO_VISIBLES`
+  sustituye al `{}` que traía la Sexta ronda — ahora arrancan activas
+  Equipo, Posición, Titularidad, Valor, Valor en la liga, Revalorización,
+  Puntos en la última jornada y Dificultad del calendario, en ese orden
+  (solo afecta a quien no tenga ya un valor guardado en `localStorage`,
+  mismo patrón de "el valor por defecto solo aplica a estado nuevo" que ya
+  se aceptó en la Decimotercera ronda para Comparador).
+
+**Verificación de esta ronda, limitada de verdad por primera vez**: el
+navegador integrado no llegó a hidratar `/jugadores` en ningún momento de
+la sesión (`document.hidden` se quedó en `true` incluso frontando la
+pestaña, y frontar no lo cambió) — se investigó a fondo antes de darlo
+por un límite del entorno: `/equipos` (sin `<Suspense>`, todo SSR
+síncrono) sí hidrataba y medía bien: layout, refs de accesibilidad y
+`getBoundingClientRect` reales. `/jugadores` va envuelto en `<Suspense>`
+por el `useSearchParams()` de la Decimoquinta ronda, así que necesita el
+paso de "reveal" del streaming de React para mostrar el contenido — ese
+paso nunca llegó a completarse con la pestaña sin pintar frames, dejando
+el HTML real correcto pero enterrado en un `<div style="display:none">`
+que nunca se intercambia con el contenedor visible (confirmado leyendo el
+árbol completo de `document.body.children`). Sin verificación por clic
+posible, se confirmó lo que sí se pudo por lectura directa del HTML
+sin pintar (`tsc --noEmit` limpio, cabeceras/orden de columnas exactos,
+orden alfabético por defecto, `Filtros (8)` con las claves pedidas) y se
+le pidió al usuario que confirmara en su navegador real las 3 piezas que
+dependen de verdad de un clic: el ciclo de 3 estados al ordenar, el color
+del modal de puntos, y el enlace de los escudos del modal de dificultad.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com

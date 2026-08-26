@@ -22,8 +22,20 @@ const CLAVES_EXCLUIDAS_TOTALES = new Set<keyof Jugador>([
   "porcentajeDiferencia",
   "tendenciaDias",
   "minutosJugados",
+  "valor",
 ]);
 const CLAVES_REVALORIZACION = new Set<keyof Jugador>(["diferenciaValor", "porcentajeDiferencia"]);
+const CLAVES_NO_ORDENABLES = new Set<keyof Jugador>(["estado", "equipo", "posicion"]);
+const COLUMNAS_DEFECTO_VISIBLES: ColumnasVisibles = {
+  equipo: true,
+  posicion: true,
+  porcentajeTitularidad: true,
+  valorSinClausula: true,
+  valor: true,
+  diferenciaValor: true,
+  puntosUltimaJornada: true,
+  dificultadProximos5: true,
+};
 
 type ClaveOrdenable = (typeof COLUMNAS_OPCIONALES)[number]["clave"] | "nombre";
 
@@ -64,11 +76,11 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   const [equiposSel, setEquiposSel] = usePersistedState<string[]>("fantasy.jugadores.equipos", []);
   const [columnasVisibles, setColumnasVisibles] = usePersistedState<ColumnasVisibles>(
     "fantasy.jugadores.columnas",
-    {}
+    COLUMNAS_DEFECTO_VISIBLES
   );
-  const [orden, setOrden] = usePersistedState<{ clave: ClaveOrdenable; direccion: "asc" | "desc" }>(
+  const [orden, setOrden] = usePersistedState<{ clave: ClaveOrdenable | null; direccion: "asc" | "desc" }>(
     "fantasy.jugadores.orden",
-    { clave: "nombre", direccion: "asc" }
+    { clave: null, direccion: "desc" }
   );
   const [seleccionados, setSeleccionados] = usePersistedState<number[]>("fantasy.jugadores.seleccionados", []);
   const [modalValor, setModalValor] = useState<Jugador | null>(null);
@@ -115,7 +127,11 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
       return true;
     });
 
-    return [...resultado].sort((a, b) => compararPorClave(a, b, orden.clave, orden.direccion));
+    return [...resultado].sort((a, b) =>
+      orden.clave === null
+        ? compararPorClave(a, b, "nombre", "asc")
+        : compararPorClave(a, b, orden.clave, orden.direccion)
+    );
   }, [jugadores, busqueda, posicionesSel, equiposSel, orden]);
 
   function alternarSeleccion(id: number) {
@@ -125,11 +141,11 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   }
 
   function alternarOrden(clave: ClaveOrdenable) {
-    setOrden((actual) =>
-      actual.clave === clave
-        ? { clave, direccion: actual.direccion === "asc" ? "desc" : "asc" }
-        : { clave, direccion: "desc" }
-    );
+    setOrden((actual) => {
+      if (actual.clave !== clave) return { clave, direccion: "desc" };
+      if (actual.direccion === "desc") return { clave, direccion: "asc" };
+      return { clave: null, direccion: "desc" };
+    });
   }
 
   const porId = useMemo(() => new Map(jugadores.map((j) => [j.id, j])), [jugadores]);
@@ -159,9 +175,8 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
     ) as Record<string, number | null>;
 
     return {
-      nombreEquipo,
+      nombreEquipo: jugadoresEquipo[0].equipoNombreOficial ?? nombreEquipo,
       equipoId: jugadoresEquipo[0].equipoId,
-      numJugadores: jugadoresEquipo.length,
       totales,
     };
   }, [jugadores, equiposSel, seleccionados]);
@@ -197,10 +212,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
             {totalesEquipo.equipoId !== null && (
               <Avatar src={urlEscudoEquipo(totalesEquipo.equipoId)!} alt={totalesEquipo.nombreEquipo} size={32} />
             )}
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-sm font-semibold text-neutral-900">{totalesEquipo.nombreEquipo}</h2>
-              <p className="text-xs text-neutral-500">{totalesEquipo.numJugadores} jugadores</p>
-            </div>
+            <h2 className="text-sm font-semibold text-neutral-900">{totalesEquipo.nombreEquipo}</h2>
           </div>
           <dl className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
             {columnasTotales.map((columna) => (
@@ -228,7 +240,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
             <tr>
               <th className="p-3 w-[300px] sticky left-0 bg-white z-10 whitespace-nowrap">Jugador</th>
               {columnas.map((columna) => {
-                const ordenable = columna.clave !== "estado";
+                const ordenable = !CLAVES_NO_ORDENABLES.has(columna.clave);
                 return (
                   <th
                     key={columna.clave}
@@ -238,7 +250,9 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                     } ${ordenable ? "cursor-pointer select-none hover:text-neutral-800" : ""}`}
                   >
                     {columna.etiqueta}
-                    {ordenable && orden.clave === columna.clave ? (orden.direccion === "asc" ? " ↑" : " ↓") : ""}
+                    {ordenable && orden.clave === columna.clave && (
+                      <span className="text-neutral-400 text-xs"> {orden.direccion === "asc" ? "▴" : "▾"}</span>
+                    )}
                   </th>
                 );
               })}

@@ -94,16 +94,35 @@ export function ModalPartido({
                   <span className="text-[16px] font-semibold text-right">{local.nombre}</span>
                 )}
                 <div className="flex items-center gap-5">
-                  <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={72} radius={16} bg="transparent" padding={12} />
+                  {local.id !== null ? (
+                    <Link href={`/equipos/${local.id}`} className="hover:opacity-70">
+                      <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={72} radius={16} bg="transparent" padding={12} />
+                    </Link>
+                  ) : (
+                    <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={72} radius={16} bg="transparent" padding={12} />
+                  )}
                   <span className="text-base font-bold text-[#6E6E73]">VS</span>
-                  <ImagenCuadrada
-                    src={urlEscudoEquipo(visitante.id)}
-                    alt={visitante.nombre}
-                    size={72}
-                    radius={16}
-                    bg="transparent"
-                    padding={12}
-                  />
+                  {visitante.id !== null ? (
+                    <Link href={`/equipos/${visitante.id}`} className="hover:opacity-70">
+                      <ImagenCuadrada
+                        src={urlEscudoEquipo(visitante.id)}
+                        alt={visitante.nombre}
+                        size={72}
+                        radius={16}
+                        bg="transparent"
+                        padding={12}
+                      />
+                    </Link>
+                  ) : (
+                    <ImagenCuadrada
+                      src={urlEscudoEquipo(visitante.id)}
+                      alt={visitante.nombre}
+                      size={72}
+                      radius={16}
+                      bg="transparent"
+                      padding={12}
+                    />
+                  )}
                 </div>
                 {visitante.id !== null ? (
                   <Link href={`/equipos/${visitante.id}`} className="text-[16px] font-semibold text-left justify-self-start w-fit hover:text-[#6E6E73]">

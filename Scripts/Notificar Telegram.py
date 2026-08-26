@@ -378,6 +378,22 @@ def revisar_actividad_mercado(cur):
         guardar_estado(cur, clave, str(id_actividad))
 
 
+COMPETICIONES_CON_LOGO = {"LaLiga", "Conference League"}
+
+
+def revisar_competicion_sin_logo(cur):
+    cur.execute("select distinct competicion from calendario where competicion is not null")
+    for (competicion,) in cur.fetchall():
+        if competicion in COMPETICIONES_CON_LOGO:
+            continue
+        clave = f"competicion_sin_logo:{competicion}"
+        if obtener_estado(cur, clave) is not None:
+            continue
+        mensaje = f"Falta el logo de la competición '{competicion}' en la web."
+        if Común.enviar_telegram(mensaje):
+            guardar_estado(cur, clave, "avisado")
+
+
 HORA_CIERRE_MERCADO = 22
 
 
@@ -422,6 +438,7 @@ def main():
                 revisar_inicio_jornada,
                 revisar_puntos_dazn_jornada,
                 revisar_actividad_mercado,
+                revisar_competicion_sin_logo,
                 revisar_cierre_mercado,
             ]:
                 try:
