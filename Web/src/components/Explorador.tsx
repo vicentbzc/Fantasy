@@ -75,11 +75,11 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   const [posicionesSel, setPosicionesSel] = usePersistedState<string[]>("fantasy.jugadores.posiciones", []);
   const [equiposSel, setEquiposSel] = usePersistedState<string[]>("fantasy.jugadores.equipos", []);
   const [columnasVisibles, setColumnasVisibles] = usePersistedState<ColumnasVisibles>(
-    "fantasy.jugadores.columnas",
+    "fantasy.jugadores.columnas.v2",
     COLUMNAS_DEFECTO_VISIBLES
   );
   const [orden, setOrden] = usePersistedState<{ clave: ClaveOrdenable | null; direccion: "asc" | "desc" }>(
-    "fantasy.jugadores.orden",
+    "fantasy.jugadores.orden.v2",
     { clave: null, direccion: "desc" }
   );
   const [seleccionados, setSeleccionados] = usePersistedState<number[]>("fantasy.jugadores.seleccionados", []);

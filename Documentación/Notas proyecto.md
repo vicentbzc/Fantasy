@@ -2895,6 +2895,29 @@ le pidió al usuario que confirmara en su navegador real las 3 piezas que
 dependen de verdad de un clic: el ciclo de 3 estados al ordenar, el color
 del modal de puntos, y el enlace de los escudos del modal de dificultad.
 
+**Bug real encontrado por el usuario probando en su propio navegador,
+mismo día**: los filtros nuevos por defecto (y el orden alfabético)
+aparecían un instante al recargar y luego desaparecían — el propio
+`localStorage` del navegador del usuario, de sesiones anteriores, ya
+tenía guardado el valor **antiguo** (`columnas: {}`, sin ningún filtro
+activo) bajo la misma clave `fantasy.jugadores.columnas`. `usePersistedState`
+siempre pinta primero con `valorInicial` (tanto en el render de servidor
+como en el primer pintado de cliente, porque `getServerSnapshot` devuelve
+`null` a propósito, ver Decimoquinta ronda) y solo después, al hidratar,
+lee el `localStorage` real — con un valor antiguo ya guardado, ese
+segundo pintado pisa el nuevo valor por defecto casi al instante, dando
+la sensación de "aparece y desaparece". Mismo problema en potencia para
+`orden` si el usuario había dejado guardada alguna vez una columna
+distinta a "nombre". Arreglado igual que ya se hace con la clave de
+`actions/cache` de GitHub Actions cuando cambia el formato de un CSV
+persistido (ver "Vigesimotercera ronda"): las claves de `localStorage`
+pasan a `fantasy.jugadores.columnas.v2` y `fantasy.jugadores.orden.v2`,
+para que el navegador del usuario arranque limpio con el valor nuevo en
+vez de arrastrar el antiguo. Solo afecta al propio `localStorage` del
+navegador de cada visitante (no hay nada compartido en servidor), así que
+es un cambio sin riesgo — el valor viejo bajo la clave sin `.v2` queda
+huérfano sin más.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
