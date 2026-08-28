@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|apple-touch-icon).*)",
+  ],
 };
 
 const NOMBRE_COOKIE = "fantasy_acceso";
