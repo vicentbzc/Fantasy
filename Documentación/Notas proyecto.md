@@ -4028,11 +4028,16 @@ así que `Buffer` está disponible.
   pantalla de inicio" es **"Análisis Fantasy"** (`Web/src/app/layout.tsx`).
 - **Logo** (`Datos/Imágenes/Web/Logo web.svg` — línea horizontal negra a
   sangre + círculo central negro sobre blanco, estilo centro del campo).
-  El fuente es SVG: se copia tal cual a `Web/src/app/icon.svg` (Next 16
-  lo sirve como favicon principal, `type=image/svg+xml`) y se rasteriza
-  con `sharp` (`density:600`) a `Web/src/app/favicon.ico` (48px, fallback),
-  `Web/src/app/apple-icon.png` (180) y `Web/public/logo.png` (512, para
-  `Logo.tsx`, que de momento no se usa en ninguna página). El
+  El fuente es SVG y **no se toca**. `Web/src/app/icon.svg` reproduce sus
+  3 formas (rect `#FEFFFF`, línea y círculo, `stroke-width` 9) dentro de
+  un `<g clip-path>` con un `<rect rx="24">` → **esquinas redondeadas**
+  (petición explícita del usuario: "cuadrado de fondo como ahora pero con
+  bordes redondeados", 28/08). Next 16 sirve ese `icon.svg` como favicon
+  principal (`type=image/svg+xml`). De ahí se rasteriza con `sharp`
+  (`density:900`) `Web/src/app/favicon.ico` (48px, fallback, esquinas
+  transparentes) y `Web/public/logo.png` (512, para `Logo.tsx`, sin usar
+  aún). `Web/src/app/apple-icon.png` (180) se rasteriza del **SVG fuente
+  cuadrado**, no del redondeado — iOS aplica su propia máscara. El
   decodificador de `.ico` de Turbopack **exige que el PNG interno sea
   RGBA** (`.ensureAlpha()`), si no el build falla con "The PNG is not in
   RGBA format!". Next 16 App Router coge estos ficheros por convención sin
