@@ -4031,20 +4031,24 @@ así que `Buffer` está disponible.
   pendiente si el usuario lo quiere algún día.
 - El título de pestaña / `applicationName` / nombre para "añadir a
   pantalla de inicio" es **"Análisis Fantasy"** (`Web/src/app/layout.tsx`).
-- **Logo / favicon: NO hay** (decisión final del usuario, 28/08). Tras
-  media docena de iteraciones (silueta de futbolista PNG → línea+círculo
-  SVG → esquinas redondeadas → transparente+blanco → opaco `#FFFEFF`),
-  Safari seguía mostrando el icono de Vercel **cacheado** por mucho que se
-  cambiara el fichero, y no hay forma de forzar a Safari desde el
-  servidor. El usuario prefirió **quitar el icono propio** y que cada
-  navegador use el suyo por defecto. Eliminados `Web/src/app/favicon.ico`,
-  `Web/src/app/icon.svg`, `Web/src/app/apple-icon.png` y
-  `Web/public/apple-touch-icon*.png`; `/favicon.ico` etc. devuelven 404;
-  la página de "Acceso restringido" ya no enlaza iconos. `Web/public/logo.png`
-  se deja (lo usa `Logo.tsx`, que no se renderiza en ninguna página).
-  Si algún día se quiere un favicon otra vez, basta con volver a poner
-  `Web/src/app/icon.svg` (Next 16 lo coge por convención) — el `.ico` de
-  Turbopack exige que el PNG interno sea RGBA (`.ensureAlpha()`).
+- **Logo / favicon**: historia larga el 28/08 (silueta de futbolista PNG
+  → línea+círculo SVG → esquinas redondeadas → transparente+blanco → opaco
+  `#FFFEFF`). Safari se empeñaba en mostrar el icono de Vercel **cacheado**
+  (su caché de favicons es independiente de la HTTP y de lo que sirva el
+  servidor). Se llegó a **quitar todo** (`f720335`) y luego a **restaurarlo**
+  (`e8dd531`, revert) con esta jugada del usuario: dejar el icono puesto,
+  añadir la web a la pantalla de inicio de iOS (así el web-clip captura el
+  `apple-touch-icon` en ese momento), y **después** volver a quitar el
+  icono del servidor — el acceso directo ya creado conserva su icono y la
+  pestaña de Safari vuelve al icono por defecto.
+  - Estado **ahora**: icono PUESTO. `Web/src/app/icon.svg` (blanco `#fff`,
+    trazo `#000`, `clip-path` `rect rx="24"`), `Web/src/app/favicon.ico`
+    (48px RGBA, el `.ico` de Turbopack exige PNG interno RGBA),
+    `Web/src/app/apple-icon.png` (180px, `#FFFEFF` opaco, trazo `#000`),
+    copias en `Web/public/apple-touch-icon.png` y `-precomposed.png`.
+  - Para volver a quitarlo cuando el usuario avise: `git revert e8dd531`
+    (o borrar esos 5 ficheros + quitar los `<link>` de `PAGINA_BLOQUEO`
+    en `proxy.ts`).
   - **La caché de favicon de Safari es independiente de la HTTP** (base de
     datos propia + snapshot del web-clip). Aunque el servidor devuelva 404,
     Safari puede seguir enseñando el icono viejo hasta: iOS → Ajustes →
