@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png).*)"],
 };
 
 const NOMBRE_COOKIE = "fantasy_acceso";
 const UN_ANIO = 60 * 60 * 24 * 365;
 
-const PAGINA_BLOQUEO = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Acceso restringido</title></head><body style="font-family:system-ui,-apple-system,sans-serif;max-width:30rem;margin:22vh auto;padding:0 1.5rem;text-align:center;color:#1D1D1F"><h1 style="font-size:1.25rem;margin:0 0 .5rem">Acceso restringido</h1><p style="color:#6e6e73;line-height:1.5;margin:0">Esta web es privada. Ábrela desde tu enlace de acceso.</p></body></html>`;
+const PAGINA_BLOQUEO = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Acceso restringido</title><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="apple-touch-icon" href="/apple-icon.png"></head><body style="font-family:system-ui,-apple-system,sans-serif;max-width:30rem;margin:22vh auto;padding:0 1.5rem;text-align:center;color:#1D1D1F"><h1 style="font-size:1.25rem;margin:0 0 .5rem">Acceso restringido</h1><p style="color:#6e6e73;line-height:1.5;margin:0">Esta web es privada. Ábrela desde tu enlace de acceso.</p></body></html>`;
 
 export function proxy(request: NextRequest) {
   if (process.env.NODE_ENV === "development") {
