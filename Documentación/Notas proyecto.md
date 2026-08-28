@@ -4031,45 +4031,27 @@ así que `Buffer` está disponible.
   pendiente si el usuario lo quiere algún día.
 - El título de pestaña / `applicationName` / nombre para "añadir a
   pantalla de inicio" es **"Análisis Fantasy"** (`Web/src/app/layout.tsx`).
-- **Logo** (`Datos/Imágenes/Web/Logo web.svg` — línea horizontal + círculo
-  central, estilo centro del campo). El fuente **no se toca**. Tras varias
-  vueltas el mismo día (28/08), el estado **final**:
-  - `Web/src/app/icon.svg` (favicon del PC): fondo **blanco** `#fff` +
-    trazo **negro** (`stroke-width` 9), recortado con `clip-path` a un
-    `rect rx="24"` → esquinas redondeadas. Next 16 lo sirve como favicon
-    principal (`type=image/svg+xml`).
-  - `Web/src/app/favicon.ico` (48px): rasterizado de `icon.svg` con
-    `sharp` (`density:900`), RGBA (el `.ico` de Turbopack **exige PNG
-    interno RGBA**, `.ensureAlpha()`, si no el build falla con "The PNG is
-    not in RGBA format!").
-  - `Web/src/app/apple-icon.png` (180px, "añadir a pantalla de inicio" de
-    iOS): fondo **`#FFFEFF`** (casi blanco, no blanco puro — el usuario lo
-    pidió así), **opaco** (`.flatten().removeAlpha()`, 3 canales, sin
-    alfa), líneas `#000`, sin redondear (iOS pone su máscara). Sin
-    transparencia = iOS no tiene nada que rellenar con "glass". El efecto
-    glass que veía el usuario era en realidad la **captura de fallback**
-    porque `/apple-icon.png` devolvía 401. También se copia a
-    `Web/public/apple-touch-icon.png` y `-precomposed.png` para que iOS lo
-    encuentre en la ruta convencional. **Si las líneas siguen sin verse
-    100% negras en la pantalla de inicio, es el ajuste de iconos de iOS
-    (Oscuro/Con tinte) desaturando el web-clip — no hay arreglo web.**
-  - `Web/public/logo.png` (512, para `Logo.tsx`, sin usar aún): igual que
-    el favicon.
-  - **Safari cachea el favicon con muchísima persistencia** (base de datos
-    propia, no la caché HTTP). Tras cambiarlo hay que forzar: iOS →
-    Ajustes → Safari → Borrar historial y datos de sitios web (o Avanzado
-    → Datos de sitios web → borrar el sitio), y luego borrar y volver a
-    añadir el acceso directo. macOS → Safari → Ajustes → Privacidad →
-    Gestionar datos de sitios web → borrar el sitio, o menú Desarrollo →
-    Vaciar cachés. Mientras no se haga, sigue saliendo el icono viejo (el
-    de Vercel, cacheado de cuando era el despliegue pelado).
-  - Historial del mismo día: 1) silueta de futbolista PNG blanca/negro;
-    2) línea+círculo SVG negro/blanco; 3) + esquinas redondeadas;
-    4) transparente + trazo blanco (para el efecto glass de iOS);
-    5) **este**: iOS opaco blanco/negro sin glass, favicon blanco/negro
-    redondeado.
-  - Next App Router coge estos ficheros por convención, sin tocar
-    `metadata.icons`.
+- **Logo / favicon: NO hay** (decisión final del usuario, 28/08). Tras
+  media docena de iteraciones (silueta de futbolista PNG → línea+círculo
+  SVG → esquinas redondeadas → transparente+blanco → opaco `#FFFEFF`),
+  Safari seguía mostrando el icono de Vercel **cacheado** por mucho que se
+  cambiara el fichero, y no hay forma de forzar a Safari desde el
+  servidor. El usuario prefirió **quitar el icono propio** y que cada
+  navegador use el suyo por defecto. Eliminados `Web/src/app/favicon.ico`,
+  `Web/src/app/icon.svg`, `Web/src/app/apple-icon.png` y
+  `Web/public/apple-touch-icon*.png`; `/favicon.ico` etc. devuelven 404;
+  la página de "Acceso restringido" ya no enlaza iconos. `Web/public/logo.png`
+  se deja (lo usa `Logo.tsx`, que no se renderiza en ninguna página).
+  Si algún día se quiere un favicon otra vez, basta con volver a poner
+  `Web/src/app/icon.svg` (Next 16 lo coge por convención) — el `.ico` de
+  Turbopack exige que el PNG interno sea RGBA (`.ensureAlpha()`).
+  - **La caché de favicon de Safari es independiente de la HTTP** (base de
+    datos propia + snapshot del web-clip). Aunque el servidor devuelva 404,
+    Safari puede seguir enseñando el icono viejo hasta: iOS → Ajustes →
+    Safari → Borrar historial y datos de sitios web **+ reiniciar el
+    móvil**; y borrar/rehacer el acceso directo de la pantalla de inicio.
+    macOS → cerrar Safari, borrar `~/Library/Safari/Favicon Cache/` y
+    `~/Library/Safari/Touch Icons Cache/`.
 - La cookie de acceso (`fantasy_acceso`) es **por dominio**: hay que abrir
   el enlace `?acceso=` una vez en cada dominio nuevo además de en cada
   dispositivo.
