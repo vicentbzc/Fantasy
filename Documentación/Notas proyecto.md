@@ -4043,12 +4043,16 @@ así que `Buffer` está disponible.
     interno RGBA**, `.ensureAlpha()`, si no el build falla con "The PNG is
     not in RGBA format!").
   - `Web/src/app/apple-icon.png` (180px, "añadir a pantalla de inicio" de
-    iOS): fondo blanco **sólido y opaco** (`.flatten().removeAlpha()`, 3
-    canales, sin alfa), líneas negras, **sin redondear** (iOS pone su
-    propia máscara). Sin transparencia = iOS no tiene nada que rellenar
-    con su material "glass". El efecto glass que veía el usuario era en
-    realidad la **captura de fallback** porque `/apple-icon.png` devolvía
-    401 (ver el `matcher` del proxy más arriba).
+    iOS): fondo **`#FFFEFF`** (casi blanco, no blanco puro — el usuario lo
+    pidió así), **opaco** (`.flatten().removeAlpha()`, 3 canales, sin
+    alfa), líneas `#000`, sin redondear (iOS pone su máscara). Sin
+    transparencia = iOS no tiene nada que rellenar con "glass". El efecto
+    glass que veía el usuario era en realidad la **captura de fallback**
+    porque `/apple-icon.png` devolvía 401. También se copia a
+    `Web/public/apple-touch-icon.png` y `-precomposed.png` para que iOS lo
+    encuentre en la ruta convencional. **Si las líneas siguen sin verse
+    100% negras en la pantalla de inicio, es el ajuste de iconos de iOS
+    (Oscuro/Con tinte) desaturando el web-clip — no hay arreglo web.**
   - `Web/public/logo.png` (512, para `Logo.tsx`, sin usar aún): igual que
     el favicon.
   - **Safari cachea el favicon con muchísima persistencia** (base de datos
