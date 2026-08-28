@@ -3963,15 +3963,16 @@ sigue funcionando pero está deprecado; el fichero va en `src/proxy.ts`,
 al lado de `app/`). Corre en **runtime Node.js** por defecto (no Edge),
 así que `Buffer` está disponible.
 
-- `matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png).*)"]`
-  — protege todo salvo los assets del framework **y los iconos**. Los
-  iconos hay que dejarlos pasar: si `/icon.svg` y `/apple-icon.png`
-  devuelven 401, iOS al "añadir a pantalla de inicio" no puede cargar el
-  apple-touch-icon y usa una **captura de la página con efecto glass**, y
-  Safari en la vista de pestañas enseña un icono genérico / el de Vercel.
-  Los `.png` de `public/` (fotos de relleno, ilustración de inicio) sí
-  siguen pasando por el proxy. La página de "Acceso restringido" también
-  enlaza los iconos en su `<head>`.
+- `matcher` excluye `_next/static`, `_next/image`, `favicon.ico`,
+  `icon.svg`, `apple-icon.png` y `apple-touch-icon` (iOS sondea
+  `/apple-touch-icon.png` y `-precomposed.png` directamente; mejor un 404
+  limpio que un 401 HTML). Los iconos hay que dejarlos pasar: si
+  `/icon.svg` o `/apple-icon.png` devuelven 401, iOS al "añadir a pantalla
+  de inicio" no puede cargar el apple-touch-icon y usa una **captura de la
+  página** (que se ve con efecto glass), y Safari en la vista de pestañas
+  enseña un icono genérico / el de Vercel. Los `.png` de `public/` (fotos
+  de relleno, ilustración de inicio) sí siguen pasando por el proxy. La
+  página de "Acceso restringido" también enlaza los iconos en su `<head>`.
 - En **desarrollo** (`process.env.NODE_ENV === "development"`, es decir
   `npm run dev`) **no pide nada** — el bloqueo solo aplica en el
   despliegue.
@@ -4032,31 +4033,37 @@ así que `Buffer` está disponible.
   pantalla de inicio" es **"Análisis Fantasy"** (`Web/src/app/layout.tsx`).
 - **Logo** (`Datos/Imágenes/Web/Logo web.svg` — línea horizontal + círculo
   central, estilo centro del campo). El fuente **no se toca**. Tras varias
-  vueltas el mismo día (28/08), el estado final que pidió el usuario es:
-  **fondo transparente y trazo blanco**, tanto en el favicon del PC como
-  en el icono de iOS.
-  - `Web/src/app/icon.svg`: sin fondo, solo la línea y el círculo con
-    `stroke:#fff`; una `@media (prefers-color-scheme: light)` lo pone
-    `#000` para que no desaparezca en un navegador con tema claro. Next 16
-    lo sirve como favicon principal (`type=image/svg+xml`). Los favicon
-    SVG **sí** evalúan `prefers-color-scheme`.
-  - `Web/src/app/favicon.ico` (48px) y `Web/src/app/apple-icon.png` (180):
-    rasterizados con `sharp` (`density:900`) de una versión de trazo
-    **blanco** sobre transparente (sharp no evalúa la media query, así que
-    se rasteriza de un SVG con el color ya fijado). El `.ico` de Turbopack
-    **exige PNG interno RGBA** (`.ensureAlpha()`), si no el build falla con
-    "The PNG is not in RGBA format!".
-  - `Web/public/logo.png` (512, para `Logo.tsx`, sin usar aún):
-    rasterizado con trazo **negro** sobre transparente (la UI de la web es
-    clara).
-  - iOS: con el trazo transparente, iOS 26 le aplica su efecto "glass"
-    por debajo y el logo se ve limpio. `apple-icon.png` va sin máscara
-    propia (cuadrado/transparente); iOS pone la suya.
-  - Historial del mismo día: 1) silueta de futbolista PNG blanca sobre
-    negro; 2) línea+círculo SVG negro sobre blanco; 3) lo mismo con
-    esquinas redondeadas (`clip-path` + `rect rx`); 4) **este**:
-    transparente + trazo blanco (y se quitó el fondo, así que las esquinas
-    redondeadas ya no aplican).
+  vueltas el mismo día (28/08), el estado **final**:
+  - `Web/src/app/icon.svg` (favicon del PC): fondo **blanco** `#fff` +
+    trazo **negro** (`stroke-width` 9), recortado con `clip-path` a un
+    `rect rx="24"` → esquinas redondeadas. Next 16 lo sirve como favicon
+    principal (`type=image/svg+xml`).
+  - `Web/src/app/favicon.ico` (48px): rasterizado de `icon.svg` con
+    `sharp` (`density:900`), RGBA (el `.ico` de Turbopack **exige PNG
+    interno RGBA**, `.ensureAlpha()`, si no el build falla con "The PNG is
+    not in RGBA format!").
+  - `Web/src/app/apple-icon.png` (180px, "añadir a pantalla de inicio" de
+    iOS): fondo blanco **sólido y opaco** (`.flatten().removeAlpha()`, 3
+    canales, sin alfa), líneas negras, **sin redondear** (iOS pone su
+    propia máscara). Sin transparencia = iOS no tiene nada que rellenar
+    con su material "glass". El efecto glass que veía el usuario era en
+    realidad la **captura de fallback** porque `/apple-icon.png` devolvía
+    401 (ver el `matcher` del proxy más arriba).
+  - `Web/public/logo.png` (512, para `Logo.tsx`, sin usar aún): igual que
+    el favicon.
+  - **Safari cachea el favicon con muchísima persistencia** (base de datos
+    propia, no la caché HTTP). Tras cambiarlo hay que forzar: iOS →
+    Ajustes → Safari → Borrar historial y datos de sitios web (o Avanzado
+    → Datos de sitios web → borrar el sitio), y luego borrar y volver a
+    añadir el acceso directo. macOS → Safari → Ajustes → Privacidad →
+    Gestionar datos de sitios web → borrar el sitio, o menú Desarrollo →
+    Vaciar cachés. Mientras no se haga, sigue saliendo el icono viejo (el
+    de Vercel, cacheado de cuando era el despliegue pelado).
+  - Historial del mismo día: 1) silueta de futbolista PNG blanca/negro;
+    2) línea+círculo SVG negro/blanco; 3) + esquinas redondeadas;
+    4) transparente + trazo blanco (para el efecto glass de iOS);
+    5) **este**: iOS opaco blanco/negro sin glass, favicon blanco/negro
+    redondeado.
   - Next App Router coge estos ficheros por convención, sin tocar
     `metadata.icons`.
 - La cookie de acceso (`fantasy_acceso`) es **por dominio**: hay que abrir
