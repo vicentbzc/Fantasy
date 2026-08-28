@@ -25,6 +25,7 @@ import { accionEstablecerEstadoMiEquipo, accionEliminarDeMiEquipo } from "@/app/
 
 const CLAVES_PERMITIDAS = new Set<keyof Jugador>([
   "porcentajeTitularidad",
+  "valorSinClausula",
   "valor",
   "diferenciaValor",
   "dificultadProximos5",
@@ -53,6 +54,9 @@ function lineasParaJugador(
   const lineas: { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode }[] = [];
   if (columnasVisibles.porcentajeTitularidad) {
     lineas.push({ texto: j.porcentajeTitularidad === null ? "—" : `${j.porcentajeTitularidad} %` });
+  }
+  if (columnasVisibles.valorSinClausula) {
+    lineas.push({ texto: formatearValor(j.valorSinClausula) });
   }
   if (columnasVisibles.valor) {
     lineas.push({ texto: formatearValor(j.valor) });
