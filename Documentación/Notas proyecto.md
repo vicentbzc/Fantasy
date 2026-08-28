@@ -4026,6 +4026,15 @@ así que `Buffer` está disponible.
   pendiente si el usuario lo quiere algún día.
 - El título de pestaña / `applicationName` / nombre para "añadir a
   pantalla de inicio" es **"Análisis Fantasy"** (`Web/src/app/layout.tsx`).
+- **Logo** (silueta de futbolista blanca sobre negro, de
+  `Datos/Imágenes/Web/Logo web.png`): generado con `sharp` a cuadrado y
+  RGBA → `Web/src/app/favicon.ico` (48px), `Web/src/app/icon.png` (512),
+  `Web/src/app/apple-icon.png` (180) y `Web/public/logo.png` (512, para
+  el componente `Logo.tsx`, que de momento no se usa en ninguna página).
+  El decodificador de `.ico` de Turbopack **exige que el PNG interno sea
+  RGBA** (`.ensureAlpha()`), si no el build falla con "The PNG is not in
+  RGBA format!". Next 16 App Router coge esos ficheros por convención sin
+  tocar `metadata.icons`.
 - La cookie de acceso (`fantasy_acceso`) es **por dominio**: hay que abrir
   el enlace `?acceso=` una vez en cada dominio nuevo además de en cada
   dispositivo.
