@@ -630,8 +630,8 @@ en que el runner de turno la tenga.
 6. ~~Desplegar de verdad en Vercel...~~ **Resuelto (28/08/2026)**: ver
    "Cuadragésima tercera ronda". Web en producción en
    `fantasy-vicent-blanquez.vercel.app`, auto-deploy en cada push a
-   `main`, `DATABASE_URL` + `GEMINI_API_KEY` + `BASIC_AUTH_USER/PASSWORD`
-   como variables de Vercel, protegida con Basic Auth (`Web/src/proxy.ts`).
+   `main`, `DATABASE_URL` + `GEMINI_API_KEY` + `SITE_ACCESS_KEY`
+   como variables de Vercel, acceso por enlace + cookie (`Web/src/proxy.ts`).
    Falta solo un **dominio propio** (de momento el `.vercel.app`).
 7. ~~Rol de Postgres de solo lectura para la web...~~ **Resuelto
    (25/08/2026)**: ver "Decimoctava ronda" — rol `web_solo_lectura`
@@ -3950,9 +3950,13 @@ Directory = `Web` (correcto). Faltaban tres cosas:
      el `AIzaSy…` clásico) y son 53 caracteres.
 3. **Restringir el acceso "solo a mis dispositivos"**: Vercel no filtra
    por dispositivo. Se descartó reactivar Vercel Authentication (flujo
-   tosco en móvil) y se implementó **Basic Auth con un proxy de Next 16**.
+   tosco en móvil) y se implementó un **proxy de Next 16** (`Web/src/proxy.ts`).
+   Primero con **Basic Auth** (usuario/contraseña), pero en móvil el
+   diálogo nativo se atascaba (el teclado autocorregía/autocapitalizaba
+   usuario y contraseña, "iniciar sesión" parecía borrar el texto). Se
+   cambió el mismo día a **acceso por enlace + cookie** (ver abajo).
 
-### `Web/src/proxy.ts` (Basic Auth)
+### `Web/src/proxy.ts` (acceso por enlace + cookie)
 
 En Next.js 16 el *middleware* se llama ahora **proxy** (`middleware.ts`
 sigue funcionando pero está deprecado; el fichero va en `src/proxy.ts`,
@@ -3961,26 +3965,37 @@ así que `Buffer` está disponible.
 
 - `matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"]` — protege
   todo salvo los assets del framework. Los ficheros de `public/`
-  (`/logo.png`, etc.) **sí** pasan por el proxy: sin autenticar dan 401,
-  pero una vez el navegador tiene las credenciales las reenvía solas en
-  cada petición del mismo origen, así que cargan bien. Las fotos de
+  (`/logo.png`, etc.) **sí** pasan por el proxy. Las fotos de
   jugador/escudos no se ven afectadas (se sirven desde Supabase Storage,
   otro origen).
 - En **desarrollo** (`process.env.NODE_ENV === "development"`, es decir
-  `npm run dev`) **no pide nada** — el prompt solo aparece en el
+  `npm run dev`) **no pide nada** — el bloqueo solo aplica en el
   despliegue.
-- Compara contra `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`. Si esas dos
-  variables **no** están, deja pasar (fail-open, para no quedarte fuera
-  por un error de config). Están puestas en Vercel (Production + Preview)
-  y en `Web/.env.local` — el usuario mira ahí su usuario y contraseña
-  (usuario = `vicent`). Nunca en git ni en este documento.
+- Variable **`SITE_ACCESS_KEY`** (Vercel Production + Preview, y
+  `Web/.env.local`). Si no está, el proxy deja pasar (fail-open). El
+  valor y el enlace listo para usar están en `Web/.env.local` (línea
+  `SITE_ACCESS_KEY=` y un comentario con el enlace). Nunca en git ni
+  aquí.
+- Flujo: se abre **una vez por dispositivo**
+  `https://…/?acceso=SITE_ACCESS_KEY` → el proxy pone una cookie
+  `fantasy_acceso` (httpOnly, secure, sameSite lax, 1 año) y redirige
+  (307) a la URL sin el parámetro. A partir de ahí, la cookie basta y no
+  se vuelve a pedir nada hasta que caduque o se borre.
+- Sin cookie ni parámetro válido → `401` con una **página HTML mínima**
+  ("Acceso restringido"), no un diálogo nativo (por eso ya no se atasca
+  en móvil).
+- Se mantiene aceptar la cabecera `Authorization: Basic …` (cualquier
+  usuario, contraseña = `SITE_ACCESS_KEY`) solo para poder probar con
+  `curl`.
 - Los Server Actions (el chat) son un `POST` a la ruta donde se usan
-  (`/chat`), que el `matcher` cubre → también quedan protegidos.
+  (`/chat`), que el `matcher` cubre → también quedan protegidos por la
+  cookie.
 
 ### Verificado en directo contra la web pública ya desplegada
 
-- Sin credenciales → `401` + `WWW-Authenticate: Basic`. Credenciales
-  incorrectas → `401`. Credenciales correctas → `/`, `/jugadores`,
+- Sin cookie ni parámetro → `401` (página HTML). `?acceso=` con clave
+  incorrecta → `401`. `?acceso=` con la clave buena → `307` a `/` +
+  `Set-Cookie: fantasy_acceso`. Con la cookie → `/`, `/jugadores`,
   `/equipos`, `/mi-equipo`, `/chat` todas `200`.
 - `/jugadores`, `/equipos`, `/mi-equipo` renderizan datos reales → el
   **pooler de Supabase llega bien desde las funciones serverless de
@@ -3991,11 +4006,10 @@ así que `Buffer` está disponible.
   Lamine Yamal, Raphinha). (Nota: preguntar por "Lewandowski" a secas
   falla porque en el CSV está como "R. Lewandowski" y el modelo es
   estricto con los nombres — no es un problema del despliegue.)
-- Al probar el chat con la URL en formato `https://user:pass@host` el
-  `fetch` del Server Action falla ("Request cannot be constructed from a
-  URL that includes credentials"). Es una restricción del navegador con
-  ese formato de URL, **no** afecta a un usuario normal que mete la
-  contraseña en el diálogo nativo.
+- (Durante la fase de Basic Auth) al probar el chat con la URL en formato
+  `https://user:pass@host` el `fetch` del Server Action fallaba ("Request
+  cannot be constructed from a URL that includes credentials"). Otra razón
+  más para haber pasado al acceso por cookie.
 
 ### Detalles operativos
 
