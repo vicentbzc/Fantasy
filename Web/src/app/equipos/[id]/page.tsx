@@ -73,7 +73,7 @@ export default async function EquipoDetalle({ params }: { params: Promise<{ id: 
         <div className="hidden lg:block">{encabezado}</div>
 
         <div className="w-full flex flex-col items-start gap-[18px]">
-          <h2 className="text-[20px] sm:text-[32px] font-bold text-left" style={{ letterSpacing: "-1px" }}>
+          <h2 className="text-[32px] font-bold text-left" style={{ letterSpacing: "-1px" }}>
             Próximos partidos
           </h2>
 
