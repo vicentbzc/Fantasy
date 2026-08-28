@@ -4016,9 +4016,19 @@ así que `Buffer` está disponible.
 - `vercel link` (al enlazar el proyecto desde el CLI) añadió `.vercel` y
   `.env*` a `Web/.gitignore` y creó `Web/.vercel/` (ignorada). Correcto,
   se dejó así.
-- Dominio: de momento **solo el `.vercel.app`** (`fantasy-vicent-blanquez.
-  vercel.app`, también `fantasy-two-beige.vercel.app`). Dominio propio,
-  pendiente para cuando el usuario quiera.
+- Dominio: **`analisisfantasy.vercel.app`** (28/08/2026), añadido como
+  dominio de producción del proyecto (`vercel domains add
+  analisisfantasy.vercel.app fantasy`) → se re-asigna solo en cada deploy.
+  Siguen funcionando `fantasy-vicent-blanquez.vercel.app` y
+  `fantasy-two-beige.vercel.app`. Se descartó `analisisfantasy.js.org`
+  (js.org exige que la web trate *sobre* JavaScript y que el revisor vea
+  contenido — con el muro de acceso no cuela). Dominio propio de pago,
+  pendiente si el usuario lo quiere algún día.
+- El título de pestaña / `applicationName` / nombre para "añadir a
+  pantalla de inicio" es **"Análisis Fantasy"** (`Web/src/app/layout.tsx`).
+- La cookie de acceso (`fantasy_acceso`) es **por dominio**: hay que abrir
+  el enlace `?acceso=` una vez en cada dominio nuevo además de en cada
+  dispositivo.
 - La `GEMINI_API_KEY` que faltaba en Vercel era el pendiente 12; el
   pendiente 7 (reiniciar para que el rol de solo lectura surta efecto)
   queda cubierto: producción arranca de cero con la variable ya puesta.
