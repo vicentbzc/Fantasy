@@ -4036,19 +4036,21 @@ así que `Buffer` está disponible.
   `#FFFEFF`). Safari se empeñaba en mostrar el icono de Vercel **cacheado**
   (su caché de favicons es independiente de la HTTP y de lo que sirva el
   servidor). Se llegó a **quitar todo** (`f720335`) y luego a **restaurarlo**
-  (`e8dd531`, revert) con esta jugada del usuario: dejar el icono puesto,
-  añadir la web a la pantalla de inicio de iOS (así el web-clip captura el
-  `apple-touch-icon` en ese momento), y **después** volver a quitar el
-  icono del servidor — el acceso directo ya creado conserva su icono y la
-  pestaña de Safari vuelve al icono por defecto.
-  - Estado **ahora**: icono PUESTO. `Web/src/app/icon.svg` (blanco `#fff`,
-    trazo `#000`, `clip-path` `rect rx="24"`), `Web/src/app/favicon.ico`
-    (48px RGBA, el `.ico` de Turbopack exige PNG interno RGBA),
-    `Web/src/app/apple-icon.png` (180px, `#FFFEFF` opaco, trazo `#000`),
-    copias en `Web/public/apple-touch-icon.png` y `-precomposed.png`.
-  - Para volver a quitarlo cuando el usuario avise: `git revert e8dd531`
-    (o borrar esos 5 ficheros + quitar los `<link>` de `PAGINA_BLOQUEO`
-    en `proxy.ts`).
+  (`e8dd531`, revert) para que el usuario añadiera la web a la pantalla de
+  inicio de iOS **con el icono ya puesto** (el web-clip captura el
+  `apple-touch-icon` en ese momento y lo conserva pase lo que pase después
+  en el servidor). Hecho eso, el usuario decidió **quedarse el icono**.
+  - Estado **final**:
+    - **Favicon del PC** (`Web/src/app/icon.svg` + `favicon.ico` 48px
+      RGBA): **fondo transparente, trazo blanco `#fff`**, sin fondo ni
+      esquinas (`abe318e`). Se ve en pestañas de tema oscuro; en tema
+      claro el trazo blanco queda casi invisible — asumido por el usuario.
+    - **Icono de iOS** (`Web/src/app/apple-icon.png` 180px + copias en
+      `Web/public/apple-touch-icon.png` y `-precomposed.png`): **`#FFFEFF`
+      opaco, trazo `#000`**. **No se toca** — ya capturado en el acceso
+      directo del usuario.
+  - El `.ico` de Turbopack exige que el PNG interno sea RGBA
+    (`.ensureAlpha()`).
   - **La caché de favicon de Safari es independiente de la HTTP** (base de
     datos propia + snapshot del web-clip). Aunque el servidor devuelva 404,
     Safari puede seguir enseñando el icono viejo hasta: iOS → Ajustes →
