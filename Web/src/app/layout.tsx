@@ -11,8 +11,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "LaLiga Fantasy Analytics",
+  title: "Análisis Fantasy",
   description: "Datos y comparación de jugadores de LaLiga Fantasy Oficial",
+  applicationName: "Análisis Fantasy",
+  appleWebApp: { title: "Análisis Fantasy" },
 };
 
 // Bloquea el zoom del navegador (incluido el de iOS al enfocar un input) y
