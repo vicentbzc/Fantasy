@@ -627,14 +627,18 @@ en que el runner de turno la tenga.
    con una liga de varios mánagers de verdad. **Falta corregir el mismo
    secreto en GitHub** (`LALIGA_FANTASY_LEAGUE_ID` → `018070031`) para que
    el cron use la liga correcta.
-6. Desplegar de verdad en Vercel (conectar repo, `DATABASE_URL` como
-   variable de entorno del proyecto) — **pospuesto explícitamente por el
-   usuario a propósito para el final** (25/08/2026), no bloquea nada más.
+6. ~~Desplegar de verdad en Vercel...~~ **Resuelto (28/08/2026)**: ver
+   "Cuadragésima tercera ronda". Web en producción en
+   `fantasy-vicent-blanquez.vercel.app`, auto-deploy en cada push a
+   `main`, `DATABASE_URL` + `GEMINI_API_KEY` + `BASIC_AUTH_USER/PASSWORD`
+   como variables de Vercel, protegida con Basic Auth (`Web/src/proxy.ts`).
+   Falta solo un **dominio propio** (de momento el `.vercel.app`).
 7. ~~Rol de Postgres de solo lectura para la web...~~ **Resuelto
    (25/08/2026)**: ver "Decimoctava ronda" — rol `web_solo_lectura`
    creado y verificado en directo, con permiso de escritura ampliado solo
-   en `mi_equipo_jugadores`. Falta reiniciar el servidor de desarrollo
-   (o desplegar) para que la variable de entorno nueva surta efecto.
+   en `mi_equipo_jugadores`. **Cubierto del todo (28/08/2026)**: producción
+   en Vercel arranca con la `DATABASE_URL` del rol de solo lectura y las
+   páginas con BD funcionan (ver "Cuadragésima tercera ronda").
 8. ~~`/mi-equipo` ya tiene diseño e interfaz...~~ **Resuelto del todo
    (25/08/2026)**: plantilla real vía `mi_equipo_jugadores` y dinero/
    fichas reales vía `mi_club` (Decimotercera ronda); `LALIGA_FANTASY_TEAM_ID`
@@ -656,10 +660,10 @@ en que el runner de turno la tenga.
     misma página que se colaba por el mismo selector; filtrado por la
     clase `tipo_campo`, verificado en los 20 equipos reales (0 con más o
     menos de 11 titulares).
-12. ~~`GEMINI_API_KEY`...~~ **Resuelto en local (25/08/2026)**: puesta y
-    verificada en directo (ver "Chat con IA sobre jugadores" más abajo).
-    Falta solo añadirla como variable de entorno de Vercel cuando la web
-    se despliegue de verdad (pendiente 6, pospuesto a propósito).
+12. ~~`GEMINI_API_KEY`...~~ ~~Falta añadirla como variable de Vercel...~~
+    **Resuelto del todo (28/08/2026)**: añadida a Vercel (Production +
+    Preview) y chat verificado en la web pública. Cuidado con las comillas
+    de `.env.local` al subirla (ver "Cuadragésima tercera ronda").
 
 ## Rediseño de la web (14/08/2026)
 
@@ -3917,6 +3921,93 @@ Verificado contra la BD real: todas las queries corren; ahora mismo
 `revalorizacion` = 0 (no dispara), "A. Alti" y "Arana" entran en los
 avisos de duda, "Arana" queda fuera de `revisar_clausula_seguimiento` por
 ser propio.
+
+## Cuadragésima tercera ronda: despliegue real en Vercel + web protegida con contraseña (28/08/2026)
+
+Se cerró el pendiente 6 (desplegar de verdad en Vercel), que estaba
+pospuesto a propósito para el final.
+
+**Estado encontrado** (el usuario ya había creado el proyecto días antes):
+proyecto `vicent-blanquez/fantasy` en Vercel, repo `vicentbzc/Fantasy`
+conectado, rama de producción `main`, **auto-deploy en cada push a `main`
+funcionando** (Vercel clonó y compiló `d1ee358` solo al hacer push). Root
+Directory = `Web` (correcto). Faltaban tres cosas:
+
+1. **La web tenía Vercel Authentication activada** (Deployment Protection)
+   → toda visita redirigía a `vercel.com/login`, no era pública. El
+   usuario lo desactivó a mano (no se toca desde el CLI).
+2. **Faltaba `GEMINI_API_KEY`** en las variables de entorno de Vercel
+   (solo estaba `DATABASE_URL`, en Production + Preview). Sin ella `/chat`
+   peta con `Falta configurar GEMINI_API_KEY`. Añadida a Production +
+   Preview vía `vercel env add`.
+   - **Ojo con las comillas**: la primera vez se subió el valor tal cual
+     salía de `.env.local`, que lo tiene **entre comillas dobles**
+     (`GEMINI_API_KEY="AQ.Ab…"`). Next.js quita las comillas al leer `.env`,
+     pero `vercel env add` las guardó literales → Gemini devolvía
+     `API_KEY_INVALID`. Se borró y se volvió a añadir sin comillas, y se
+     quitaron también las comillas de `Web/.env.local` para que no vuelva
+     a pasar. La clave real empieza por `AQ.` (formato nuevo de Google, no
+     el `AIzaSy…` clásico) y son 53 caracteres.
+3. **Restringir el acceso "solo a mis dispositivos"**: Vercel no filtra
+   por dispositivo. Se descartó reactivar Vercel Authentication (flujo
+   tosco en móvil) y se implementó **Basic Auth con un proxy de Next 16**.
+
+### `Web/src/proxy.ts` (Basic Auth)
+
+En Next.js 16 el *middleware* se llama ahora **proxy** (`middleware.ts`
+sigue funcionando pero está deprecado; el fichero va en `src/proxy.ts`,
+al lado de `app/`). Corre en **runtime Node.js** por defecto (no Edge),
+así que `Buffer` está disponible.
+
+- `matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"]` — protege
+  todo salvo los assets del framework. Los ficheros de `public/`
+  (`/logo.png`, etc.) **sí** pasan por el proxy: sin autenticar dan 401,
+  pero una vez el navegador tiene las credenciales las reenvía solas en
+  cada petición del mismo origen, así que cargan bien. Las fotos de
+  jugador/escudos no se ven afectadas (se sirven desde Supabase Storage,
+  otro origen).
+- En **desarrollo** (`process.env.NODE_ENV === "development"`, es decir
+  `npm run dev`) **no pide nada** — el prompt solo aparece en el
+  despliegue.
+- Compara contra `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`. Si esas dos
+  variables **no** están, deja pasar (fail-open, para no quedarte fuera
+  por un error de config). Están puestas en Vercel (Production + Preview)
+  y en `Web/.env.local` — el usuario mira ahí su usuario y contraseña
+  (usuario = `vicent`). Nunca en git ni en este documento.
+- Los Server Actions (el chat) son un `POST` a la ruta donde se usan
+  (`/chat`), que el `matcher` cubre → también quedan protegidos.
+
+### Verificado en directo contra la web pública ya desplegada
+
+- Sin credenciales → `401` + `WWW-Authenticate: Basic`. Credenciales
+  incorrectas → `401`. Credenciales correctas → `/`, `/jugadores`,
+  `/equipos`, `/mi-equipo`, `/chat` todas `200`.
+- `/jugadores`, `/equipos`, `/mi-equipo` renderizan datos reales → el
+  **pooler de Supabase llega bien desde las funciones serverless de
+  Vercel** (era una duda abierta; funciona sin tocar nada, la cadena de
+  `.env.local` ya usaba el pooler y el rol `web_solo_lectura`).
+- Chat con IA probado en el navegador tras arreglar la clave: "Dame los 3
+  jugadores más caros" → responde con datos reales (Mbappé 130.648.539 €,
+  Lamine Yamal, Raphinha). (Nota: preguntar por "Lewandowski" a secas
+  falla porque en el CSV está como "R. Lewandowski" y el modelo es
+  estricto con los nombres — no es un problema del despliegue.)
+- Al probar el chat con la URL en formato `https://user:pass@host` el
+  `fetch` del Server Action falla ("Request cannot be constructed from a
+  URL that includes credentials"). Es una restricción del navegador con
+  ese formato de URL, **no** afecta a un usuario normal que mete la
+  contraseña en el diálogo nativo.
+
+### Detalles operativos
+
+- `vercel link` (al enlazar el proyecto desde el CLI) añadió `.vercel` y
+  `.env*` a `Web/.gitignore` y creó `Web/.vercel/` (ignorada). Correcto,
+  se dejó así.
+- Dominio: de momento **solo el `.vercel.app`** (`fantasy-vicent-blanquez.
+  vercel.app`, también `fantasy-two-beige.vercel.app`). Dominio propio,
+  pendiente para cuando el usuario quiera.
+- La `GEMINI_API_KEY` que faltaba en Vercel era el pendiente 12; el
+  pendiente 7 (reiniciar para que el rol de solo lectura surta efecto)
+  queda cubierto: producción arranca de cero con la variable ya puesta.
 
 ## Historia breve
 
