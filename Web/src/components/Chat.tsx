@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { accionPreguntarIA } from "@/app/actions";
 import type { MensajeChat } from "@/lib/ia";
 
@@ -29,17 +29,27 @@ function BarraInput({
   cargando: boolean;
   conSombra: boolean;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   return (
-    <div className="relative w-full max-w-[560px] mx-auto shrink-0">
+    <div className="relative w-full max-w-[320px] sm:max-w-[560px] mx-auto shrink-0">
       <input
+        ref={inputRef}
+        autoFocus
         value={pregunta}
         onChange={(e) => setPregunta(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") enviar();
         }}
         placeholder="Escribe tu pregunta"
-        className={`h-12 w-full bg-white rounded-[14px] pl-4 pr-12 text-sm transition-colors duration-200 hover:bg-[#FAFAFC] ${
-          conSombra ? "shadow-[0_0_140px_40px_rgba(254,100,95,0.18)]" : ""
+        className={`h-[48px] w-full bg-white rounded-[14px] pl-4 pr-12 text-[14px] transition-colors duration-200 hover:bg-[#FAFAFC] ${
+          conSombra
+            ? "shadow-[0_0_70px_20px_rgba(254,100,95,0.18)] sm:shadow-[0_0_140px_40px_rgba(254,100,95,0.18)]"
+            : ""
         }`}
       />
       {pregunta.trim() && (
@@ -80,9 +90,13 @@ export function Chat() {
   return (
     <div
       className="max-w-[1576px] mx-auto w-full px-6 sm:px-12 relative"
-      style={{ height: "calc(100vh - 48px)" }}
+      style={{ height: "calc(100svh - 48px)" }}
     >
-      <div className="h-full pt-14 pb-24 overflow-y-auto flex flex-col gap-3">
+      <div
+        className={`h-full pt-14 pb-24 flex flex-col gap-3 ${
+          hayConversacion ? "overflow-y-auto" : "overflow-hidden"
+        }`}
+      >
         {mensajes.map((m, i) => (
           <div key={i} className={`flex ${m.rol === "user" ? "justify-end" : "justify-start"}`}>
             <div
@@ -105,7 +119,7 @@ export function Chat() {
 
       {!hayConversacion && (
         <p
-          className="absolute left-0 right-0 text-3xl font-bold text-center"
+          className="absolute left-0 right-0 text-xl sm:text-3xl font-bold text-center"
           style={{ top: "42%", transform: "translateY(calc(-100% - 40px))" }}
         >
           Tu asistente deportivo con IA

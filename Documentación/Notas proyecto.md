@@ -392,8 +392,10 @@ La API no da esto, solo el valor actual — `calcular_tendencias()` en
 `Sincronizar` lo calcula después de sincronizar `historial_valor`: lee las
 últimas 15 filas de cada jugador, calcula la diferencia contra ayer,
 cuenta días consecutivos en la misma dirección, y aproxima `aceleracion` a
-7 categorías (`clasificar_aceleracion()`: "Inflexión" si cambia de signo
-respecto a ayer, si no por umbrales de variación). **Es una aproximación
+5 categorías (`clasificar_aceleracion()`: "Acelera mucho" / "Acelera" /
+"Estable" / "Desacelera" / "Desacelera mucho", por umbrales del cambio de
+velocidad de hoy contra la de ayer; ver Trigésima sexta ronda, antes había
+también dos "Inflexión" por cambio de signo). **Es una aproximación
 nuestra, no la fórmula original de futbolfantasy.com** (nunca se conoció,
 aprobado así explícitamente por el usuario). Necesita al menos 2 días de
 historial para calcular algo, 3 para `aceleracion`.
@@ -2320,6 +2322,8 @@ una marca `dueño:diferencia` para no repetir el mismo aviso en cada ciclo
 del cron mientras no cambie ni el dueño ni la diferencia del día. Si el
 dueño sí cambió, no avisa esa vuelta (un cambio de dueño ya explica por sí
 solo cualquier variación de valor) y solo actualiza el dueño guardado.
+(Cuadragésima primera ronda: pasó a comparar `valor_liga` en vez de
+`diferencia_valor`.)
 
 **Bug real encontrado y arreglado: avisos de "inicio de jornada" con la
 jornada equivocada**. El usuario reportó un aviso real de "hoy a las
@@ -2418,7 +2422,7 @@ usuario**:
   `calendario` de ningún equipo (esa tabla solo guarda partidos
   *futuros*, así que su ausencia total confirma que la jornada ya
   terminó del todo para toda la liga) — evita avisar con una
-  clasificación a medias.
+  clasificación a medias. **(Eliminado en la Cuadragésima primera ronda.)**
 - `revisar_actividad_mercado()`: un mensaje por cada operación nueva de
   cualquier mánager de la liga (fichaje del mercado, venta al mercado, o
   compra directa a otro mánager — los 3 tipos identificados de
@@ -3606,6 +3610,313 @@ jugadores durante uno o dos días, hasta que se acumule histórico
 suficiente — mismo hueco temporal que ya tiene "Revalorización de mi
 equipo" desde la ronda anterior, ahora también aquí. El usuario lo
 aceptó y pidió subirlo así.
+
+## Trigésima quinta ronda: flechas de tendencia junto a la revalorización (27/08/2026)
+
+El usuario pidió indicadores visuales junto a "el dato de revalorización
+de toda la web" que reflejen si esa revalorización está acelerando o
+frenando respecto al día anterior: ▲▲ verde si sube mucho, ▲ verde si
+sube normal, — gris si está estable, ▼ rojo si baja, ▼▼ rojo si baja
+mucho.
+
+**No hizo falta ningún cálculo nuevo**: `jugadores.aceleracion` ya
+existía (`calcular_tendencias()` en Sincronizar, clasifica en 7
+categorías: "Acelera mucho", "Acelera", "Estable", "Desacelera",
+"Desacelera mucho", "Inflexión positiva", "Inflexión negativa") — se
+dejó de mostrar en la web en la Sexta ronda pero el dato seguía
+calculándose y guardándose. Nueva `indicadorAceleracion()` en
+`lib/formato.ts` traduce esas 7 categorías a `{texto, color}` (las dos
+"Inflexión" se tratan como su extremo correspondiente — positiva como
+"mucho arriba", negativa como "mucho abajo" — mismos verdes/rojos ya
+usados en toda la web, `#3BB568`/`#FE645F`).
+
+**Dos sitios, sin tocar la agregada**:
+- `/jugadores`, columna "Revalorización": nuevo caso especial en
+  `Explorador.tsx` que pinta el valor y la flecha en `<span>` separados
+  (cada uno con su propio color — el signo del valor y la tendencia de
+  aceleración son cosas distintas y pueden no coincidir).
+- Mi equipo, líneas bajo cada foto: `FotoJugadorSlot.tsx` gana un
+  `sufijo?: {texto, color}` opcional por línea (no se podía mezclar dos
+  colores en un mismo `<span>` de texto plano) — `lineasParaJugador()` en
+  `MiEquipo.tsx` se lo pasa a la línea de revalorización.
+- **La tarjeta agregada "Revalorización de mi equipo" se quedó fuera** —
+  no existe ningún histórico del total del equipo día a día (solo el
+  valor actual, sobrescrito cada ciclo), haría falta guardar una serie
+  temporal nueva para poder comparar contra "ayer". Se le explicó esto al
+  usuario en vez de construirlo a ciegas; queda pendiente de que confirme
+  si lo quiere de todos modos.
+
+Verificado en directo: Mi equipo mostrando `3.293.302 ▲▲` en verde
+(`rgb(59, 181, 104)`), y las 7 categorías reales confirmadas en la base
+de datos (`Acelera mucho` 253, `Inflexión positiva` 131, `Desacelera
+mucho` 51, `Acelera` 39, `Estable` 19, `Desacelera` 12, `Inflexión
+negativa` 12, más 264 jugadores todavía sin dato — no muestran nada, no
+un "—" a propósito, para no confundir "sin dato" con "estable").
+
+## Trigésima sexta ronda: fuera las "Inflexión", flechas de aceleración pasan a SVG (27/08/2026)
+
+**Dos cambios sobre la Trigésima quinta ronda.**
+
+**1. Se eliminan las categorías "Inflexión".** El usuario pidió quedarse
+solo con las aceleraciones y "Estable". `clasificar_aceleracion()` en
+`Sincronizar` pierde las dos primeras ramas (signo opuesto → "Inflexión
+positiva" / "Inflexión negativa"); ahora clasifica **solo por umbrales
+del cambio de velocidad** (`velocidad_hoy - velocidad_ayer`) en 5
+categorías: "Acelera mucho", "Acelera", "Estable", "Desacelera",
+"Desacelera mucho". Un cambio de signo entre ayer y hoy ya no es un caso
+aparte — cae en la categoría que le corresponda por magnitud del cambio.
+Los ~143 jugadores que hoy tienen `aceleracion = "Inflexión ..."` en la
+base dejan de mostrar flecha hasta el siguiente ciclo de `Sincronizar`,
+que los reclasifica. Hueco temporal de un ciclo, se cura solo.
+
+**2. Las flechas pasan de texto (▲▲/▲/▼/▼▼) a SVG.** El usuario dejó
+PNGs en `Datos/Imágenes/Web`, pero eran heterogéneos (las dobles planas y
+nítidas, las simples con un resplandor difuso y otra proporción), así que
+por decisión suya se rehacen como SVG. Nuevo componente
+`components/FlechaAceleracion.tsx`: recibe la cadena `aceleracion` y pinta
+un chevron (verde `#3BB568` hacia arriba si acelera, rojo `#FE645F` hacia
+abajo si frena, doble si es "mucho"). **"Estable" y "sin dato" no pintan
+nada** (antes "Estable" pintaba un "—" gris — a petición del usuario ya
+no). Se borran `FLECHAS_ACELERACION` e `indicadorAceleracion()` de
+`lib/formato.ts`.
+
+Sitios (los mismos que la ronda anterior): `Explorador.tsx` monta
+`<FlechaAceleracion>` directamente tras el `<span>` del valor; en Mi
+equipo, `FotoJugadorSlot.tsx` cambia su `sufijo` de `{texto, color}` a
+`ReactNode` y `lineasParaJugador()` en `MiEquipo.tsx` le pasa el
+componente ya montado. La tarjeta agregada "Revalorización de mi equipo"
+sigue sin flecha (sin histórico del total del equipo, igual que antes).
+
+## Trigésima séptima ronda: primer bloque grande de la versión móvil (27–28/08/2026)
+
+Antecedentes: el usuario abrió la web desde el móvil por la IP local
+(`192.168.1.33:3000`). Dos ajustes de infraestructura, **solo para
+`next dev`, sin efecto en producción ni en escritorio**:
+
+- `next.config.ts` → `allowedDevOrigins: ["192.168.1.33"]`. Sin esto, Next
+  bloquea los bundles `/_next/static/*` pedidos desde esa IP y la página
+  carga el HTML pero sin JS → framer-motion no anima y todo se queda en
+  `opacity:0` (Inicio salía en blanco).
+- El servidor de preview de la herramienta se moría al poco de arrancar
+  (el envoltorio `cmd.exe` de `launch.json`); se arranca `npm run dev`
+  directo.
+
+Convención de la versión móvil: **todo con breakpoints de Tailwind**, base
+= móvil y `sm:`/`lg:` protegen escritorio; el corte "móvil" es `<640px`
+(`max-sm:` / `sm:`), el mismo que la regla de `font-size: 87.5%` de
+`globals.css`. Cambios de esta ronda (todos móvil salvo aviso):
+
+1. **NavBar fijo**: `max-sm:sticky max-sm:top-0 max-sm:z-40`. En escritorio
+   sigue estático. El botón de chat ya era `fixed`.
+2. **No zoom al enfocar inputs**: `export const viewport` en `layout.tsx`
+   con `maximumScale: 1, userScalable: false`.
+3. **Sin rebote elástico**: `globals.css` → `overscroll-behavior: none` en
+   `html, body` y `contain` en `.overflow-x/y-auto/scroll` (adiós al fondo
+   blanco al pasarse del tope en tablas/listas).
+4. **Campo y banquillo, mismo tamaño de foto/nombre**: `CampoTactico` y
+   `Banquillo` comparten `DIM_FOTO = "min(62px, calc(8.8571cqw * 1.2))"` y
+   textos con suelo (`max(11px, 2cqw)` / `max(10px, 1.5714cqw)`). En
+   escritorio (contenedor 700px, o modal ~624px) el `min()`/`max()` deja
+   los valores de siempre; en móvil la foto sale ~35px (antes campo ~29,
+   banquillo 62 y desbordaba) y el nombre no baja de 10px (antes ~5px,
+   ilegible). `Banquillo` gana `container-type: inline-size` y padding/gap
+   responsive. `FotoJugadorSlot`, `ImagenCuadrada` y `RanuraAgregar`
+   aceptan `size` como `string`.
+5. **/jugadores**: el buscador ocupa todo el ancho y los 3 botones
+   (Equipos/Posiciones/Filtros) van en una fila de 3 (`grid grid-cols-3` +
+   `sm:contents` para que en escritorio vuelvan al `flex-wrap` de antes).
+   `MenuFiltros` y `MenuMultiSeleccion` reciben prop `className` para el
+   ancho.
+6. **ModalPartido** (alineación probable desde la dificultad del
+   calendario): nombres de equipo `text-[13px] sm:text-[16px]`, escudos
+   `size="min(72px, 15vw)"`, gaps e interior (`p-4 sm:p-6`) más ajustados
+   para que no toquen los bordes.
+7. **Mi equipo**: botones Filtros y "+" del campo más pequeños en móvil
+   (`max-sm:h-9` etc.; el "+" con `!` porque su tamaño va en `style`
+   inline). El bloque de "Valor de mi club…" pasa al final con
+   `max-lg:order-last` — tras el campo van banquillo/en duda/seguimiento y
+   las estadísticas al final.
+8. **Inicio**: "Juega cada jornada con ventaja" `text-[32px] sm:text-6xl`
+   (tracking `-2px sm:-4px`), subtítulo `text-base sm:text-xl`.
+9. **Chat**: título "Tu asistente…" `text-xl sm:text-3xl`, sombra del
+   recuadro más pequeña en móvil, el recuadro **más estrecho**
+   (`max-w-[320px] sm:max-w-[560px]`) pero con alto/tipografía fijos
+   (`h-[48px] text-[14px]`, para que no encoja con el `font-size: 87.5%`
+   global). Además el input recibe el foco al entrar (`useEffect` + `ref`).
+
+## Trigésima octava ronda: retoques del bloque móvil anterior (28/08/2026)
+
+Sobre la ronda 37, todo móvil salvo aviso:
+
+- **NavBar sin transparencia en móvil**: `max-sm:bg-[#F5F5F7]` (sólido, sin
+  alpha) + `max-sm:[backdrop-filter:none]`. En escritorio conserva el
+  `bg-[#F5F5F7]/[0.82] backdrop-blur-[18px]`.
+- **Overscroll de scrollers de `contain` → `none`** en `globals.css`
+  (`.overflow-x/y-auto/scroll`). `contain` cortaba el encadenado pero no el
+  rebote local del elemento; la tabla de Jugadores seguía "tirando" y
+  asomando blanco. `none` mata el rebote del propio scroll.
+- **Botones Filtros y "+" de Mi equipo**: esquinas menos redondeadas en
+  móvil, `max-sm:rounded-[8px]` (antes 14 y 12).
+- **Inicio**: se probaron saltos de línea forzados y márgenes más
+  estrechos, pero **el usuario lo revirtió** — `page.tsx` vuelve al
+  original. Único añadido que sobrevive: el `<h1>` tenía `leading-[0.95]`
+  que, al envolver en 2 líneas en móvil (con la fuente al 87.5%), solapaba
+  las líneas ("jornada" con descendente encima de "con ventaja"). Fix
+  quirúrgico: `max-sm:leading-[1.15]` (escritorio sigue en 0.95).
+- **Chat sin scroll al abrir + teclado**: la altura del contenedor pasa de
+  `calc(100vh - 48px)` a **`calc(100svh - 48px)`** (`svh` no crece con la
+  barra de URL ni encoge con el teclado → sin scroll y sin reflow al
+  aparecer el teclado). El scroll interno solo se activa cuando hay
+  conversación.
+- **El teclado no desplaza el contenido**: `viewport` gana
+  `interactiveWidget: "resizes-visual"` (Chrome/Android; Safari iOS aún no
+  lo soporta). Además el modal de buscar jugador de Mi equipo se alinea
+  arriba en móvil (`max-sm:items-start max-sm:pt-20`) para que el input
+  quede por encima del teclado y no haga falta desplazar.
+
+## Trigésima novena ronda: título de Inicio más pequeño y ancla de scroll para el teclado (28/08/2026)
+
+- **Inicio, solo móvil**: `<h1>` `max-sm:text-[36px]` (antes `text-5xl`,
+  42px), `<p>` `max-sm:text-[15px]` (antes `text-xl`, 17,5px). Escritorio
+  intacto (`text-5xl sm:text-6xl md:text-7xl` / `text-xl md:text-[22px]`,
+  verificado 72/22px).
+- **`AnclaTeclado`** (nuevo componente en `layout.tsx`, `return null`):
+  `resizes-visual` no bastó en iOS. Mientras hay un campo de texto enfocado
+  **y `matchMedia("(pointer: coarse) and (hover: none)")`** (móvil/tablet en
+  cualquier orientación), guarda `window.scrollY` al enfocar y lo restaura
+  ante cualquier `scroll`/`resize` de `window` o de `visualViewport` (los
+  que dispara el navegador al abrir/cerrar el teclado). Se suelta 400 ms
+  después del `blur`. Los scrolls internos (mensajes del chat, tabla de
+  Jugadores) no disparan `scroll` de `window`, así que no se tocan. En
+  escritorio no hace nada (verificado: el scroll deliberado sigue
+  funcionando a 1400px).
+
+## Cuadragésima ronda: retoques de la 39 (28/08/2026)
+
+- **Inicio, `<h1>` en móvil**: idas y vueltas de estilo; final =
+  **mismo estilo que la versión escritorio de este propio título**, solo
+  más pequeño: `max-sm:text-[32px]` + `leading-[0.95]` (de la base, sin
+  override — interlineado apretado como escritorio) + `max-sm:tracking-[-2px]`
+  (proporcional al `-4px` a 72px de escritorio). El `letterSpacing: -4px`
+  inline pasó a `tracking-[-4px]` en clase. Escritorio intacto (`text-7xl` /
+  `leading-[0.95]` / `-4px`, verificado 72/68,4/-4). Salto forzado en móvil
+  con `<br className="sm:hidden" />` tras "jornada" → "Juega cada jornada" /
+  "con ventaja" en cualquier ancho.
+- **Modal de buscar jugador de Mi equipo**: se quita el
+  `max-sm:items-start max-sm:pt-20` de la ronda 39 — el usuario lo quiere
+  **centrado** siempre. Con `AnclaTeclado` la página ya no se desplaza al
+  abrir el teclado, así que centrado funciona.
+- **Barra de filtros de `/jugadores`**: el breakpoint pasa de `sm:` a
+  `lg:` (input arriba a todo el ancho + 3 botones en fila de 3). Con `sm:`
+  el móvil en horizontal (≥640px) volvía al layout de escritorio; con
+  `lg:` aguanta hasta 1024px, cubriendo cualquier orientación de móvil.
+  Efecto lateral aceptado: una ventana de escritorio de 640–1023px ve el
+  layout apilado.
+- **`<h2>` "Próximos partidos"** de `equipos/[id]`: `text-[32px]` →
+  `text-[20px] sm:text-[32px]` — en móvil al tamaño de los `<h2>` de Mi
+  equipo (Banquillo / En duda / Seguimiento). "Posible alineación" se
+  queda en 32px. Escritorio intacto. (Se probó bajar ambos a 20px también
+  en escritorio pero el usuario lo revirtió.)
+- **Inicio, `<p>`**: salto forzado en móvil tras "definitiva"
+  (`<br className="sm:hidden" />`) → "Bienvenido a la herramienta
+  definitiva" / "para LaLiga Fantasy".
+- **Botón de chat flotante**: seguía `fixed bottom-6 right-6` (no hay
+  ningún ancestro con transform/filter que rompa el `fixed` — comprobado),
+  pero en iOS al hacer scroll el `fixed` "salta"/parpadea. Se le añade
+  `transform: translateZ(0)` + `will-change: transform` para promocionarlo
+  a su propia capa de composición y que quede clavado durante el scroll.
+
+## Cuadragésima primera ronda: avisos de Telegram para jugadores en seguimiento (28/08/2026)
+
+Tres cambios en `Notificar Telegram.py`, todos sobre jugadores de
+`mi_equipo_jugadores` en estado `seguimiento`:
+
+1. **Nueva `revisar_clausula_seguimiento()`** (en la lista de `main()`,
+   tras `revisar_seguimiento_sin_cambio_dueno`). Para cada jugador en
+   seguimiento con `j.protegido_hasta` no nulo, calcula las horas que
+   faltan (`protegido_hasta` vuelve de psycopg2 como `datetime` con tz, se
+   resta `datetime.now(timezone.utc)`). Dos avisos, cada uno una sola vez
+   por fecha de desbloqueo (la `marca` en `notificaciones_estado` es
+   `protegido_hasta.isoformat()`; si la cláusula se vuelve a bloquear con
+   otra fecha, se repite):
+   - `≤ 48 h`: "La cláusula del jugador X se desbloquea en menos de 48 horas."
+   - `≤ 2 h`: "La cláusula del jugador X se desbloquea en menos de 2 horas."
+
+2. **`revisar_titularidad()`**: se probó avisar de cualquier cambio (sube
+   o baja) para los de seguimiento, pero el usuario lo revirtió — vuelve a
+   avisar **solo cuando la titularidad baja**, igual para plantilla y
+   seguimiento (código idéntico al original).
+
+3. **`revisar_seguimiento_sin_cambio_dueno()`**: pasa de comparar
+   `j.diferencia_valor` (valor **oficial**) a comparar `j.valor_liga` (el
+   **valor en la liga / la cláusula**, que es lo que pidió el usuario).
+   Guarda el último `valor_liga` visto en `seguimiento_valor:{id}` y, si
+   cambia con el mismo dueño, avisa con la variación desde la última vez:
+   "…ha cambiado de valor en la liga (X) sin cambiar de dueño."
+
+Verificado contra la BD real: las tres queries corren; `protegido_hasta`
+llega con tz UTC. Ahora mismo hay 0 jugadores en seguimiento (8 titular,
+2 suplente, 2 duda), así que no dispara nada todavía.
+
+**Además**: se elimina `revisar_puntos_dazn_jornada()` ("Terminaste la
+jornada X en la posición Y, con Z puntos") de `Notificar Telegram.py` y de
+la lista de `main()` — el usuario ya no lo quiere. La tabla
+`clasificacion_jornada` y su ingesta en `Ingestar datos liga.py` se
+quedan (sin consumidor por ahora; puede servir para una vista web futura).
+
+**Y después**: nueva `revisar_clausula_mi_equipo()` (misma lógica que
+`revisar_clausula_seguimiento` pero para **jugadores propios**:
+`jugadores.dueno = (select manager from mi_club where id = 1)`, que es
+`'Vicent Blanquez'` — mismo patrón que `calcular_revalorizacion_mi_equipo`).
+Avisa cuando a la cláusula de un jugador tuyo le quedan ≤48 h y ≤2 h para
+abrirse (que otros puedan pagarla): "La cláusula de tu jugador X se abre
+en menos de 48/2 horas." Verificado contra la BD real: 13 jugadores
+propios con `protegido_hasta`, 4 de ellos ya dentro de las 48 h.
+
+**Y el aviso de cierre de mercado** (`revisar_cierre_mercado`) pasa a
+decir: "En X se cerrará el mercado de hoy. Añade a todos tus jugadores al
+mercado."
+
+## Cuadragésima segunda ronda: repaso de textos y comportamiento de los avisos de Telegram (28/08/2026)
+
+Varios cambios en `Notificar Telegram.py`:
+
+- **`revisar_revalorizacion_diaria`**: fuera la franja "a partir de las
+  8:00". Se mira en cada ciclo; solo se ignora cuando `mi_club.revalorizacion`
+  es 0 (aún no ha llegado el nuevo "Valor general" del día → hoy = baseline
+  de ayer). En cuanto es distinto de 0, avisa (una vez al día por el dedup
+  de fecha).
+- **`revisar_fichas`**: "…a tu club." → "…a tu **equipo**." ("Ya no puedes
+  incorporar más jugadores a tu equipo.")
+- **Los tres avisos de seguimiento pasan a cubrir también "en duda"**
+  (`mej.estado in ('seguimiento', 'duda')`):
+  - `revisar_seguimiento_sin_cambio_dueno`: además cambia el texto — de
+    "…que tienes en seguimiento, ha cambiado de valor en la liga (±N) sin
+    cambiar de dueño." a **"El jugador X, ha cambiado de valor de A€ a B€."**
+    (A y B son el `valor_liga` antiguo y nuevo). La lógica sigue igual:
+    solo si cambió con el mismo dueño.
+  - `revisar_clausula_seguimiento`: además **excluye los jugadores propios**
+    (`j.dueno is distinct from (select manager from mi_club where id = 1)`)
+    para no duplicar con `revisar_clausula_mi_equipo` (p. ej. "Arana", que
+    es tuyo y está en duda).
+- **`revisar_clausula_mi_equipo`**: "se abre" → "se **desbloquea**" ("La
+  cláusula de tu jugador X se desbloquea en menos de 48/2 horas.").
+- **`revisar_cierre_mercado`**: "…de hoy. Añade a todos tus jugadores al
+  mercado." → "…de hoy, añade a todos tus jugadores **en el** mercado."
+- **Nuevo aviso técnico `revisar_salud_telegram`** (último de `main()`).
+  Todos los envíos pasan por un wrapper local `enviar_telegram()` que
+  marca `_algun_envio_fallo` cuando `Común.enviar_telegram` falla y las
+  credenciales están puestas. `revisar_salud_telegram` cuenta los ciclos
+  con fallo en `notificaciones_estado['telegram_ciclos_fallidos']` y, en
+  cuanto Telegram vuelve a responder, manda "Aviso técnico: el envío de
+  avisos a Telegram falló durante N ciclos. Ya se ha recuperado." (si
+  Telegram está caído del todo no se puede avisar, pero el mensaje sale en
+  cuanto se recupera).
+
+Verificado contra la BD real: todas las queries corren; ahora mismo
+`revalorizacion` = 0 (no dispara), "A. Alti" y "Arana" entran en los
+avisos de duda, "Arana" queda fuera de `revisar_clausula_seguimiento` por
+ser propio.
 
 ## Historia breve
 

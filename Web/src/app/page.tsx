@@ -27,17 +27,14 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut", delay: 0.15 }}
         >
-          <h1
-            className="text-5xl sm:text-6xl md:text-7xl font-bold leading-[0.95] md:max-w-[560px]"
-            style={{ letterSpacing: "-4px" }}
-          >
-            Juega cada jornada con ventaja
+          <h1 className="text-5xl sm:text-6xl md:text-7xl max-sm:text-[32px] font-bold leading-[0.95] md:max-w-[560px] tracking-[-4px] max-sm:tracking-[-2px]">
+            Juega cada jornada<br className="sm:hidden" /> con ventaja
           </h1>
           <p
-            className="text-xl md:text-[22px] font-medium max-w-[360px]"
+            className="text-xl md:text-[22px] max-sm:text-[15px] font-medium max-w-[360px]"
             style={{ letterSpacing: "-0.44px" }}
           >
-            Bienvenido a la herramienta definitiva para LaLiga Fantasy
+            Bienvenido a la herramienta definitiva<br className="sm:hidden" /> para LaLiga Fantasy
           </p>
         </motion.div>
       </div>

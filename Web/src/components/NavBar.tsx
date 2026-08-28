@@ -14,7 +14,7 @@ export function NavBar() {
   const [resaltado, setResaltado] = useState<string | null>(null);
 
   return (
-    <nav className="h-12 flex items-center justify-center gap-10 text-[12px] shrink-0 bg-[#F5F5F7]/[0.82] backdrop-blur-[18px]">
+    <nav className="h-12 flex items-center justify-center gap-10 text-[12px] shrink-0 bg-[#F5F5F7]/[0.82] backdrop-blur-[18px] max-sm:sticky max-sm:top-0 max-sm:z-40 max-sm:bg-[#F5F5F7] max-sm:[backdrop-filter:none]">
       {ENLACES.map(({ href, etiqueta }) => (
         <Link
           key={href}

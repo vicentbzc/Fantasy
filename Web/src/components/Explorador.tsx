@@ -13,6 +13,7 @@ import { urlFotoJugador, urlEscudoEquipo } from "@/lib/imagenes";
 import { COLUMNAS_OPCIONALES, CLAVES_SUMABLES, formatearCelda } from "@/lib/columnas";
 import { normalizarTexto } from "@/lib/texto";
 import { COLOR_DIFICULTAD_CALENDARIO } from "@/lib/formato";
+import { FlechaAceleracion } from "./FlechaAceleracion";
 import { ProximosPartidos } from "./ProximosPartidos";
 import { usePersistedState } from "@/lib/usePersistedState";
 
@@ -182,27 +183,35 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
   return (
     <div className="flex flex-col gap-6 px-6 sm:px-12 pb-16 max-w-[1576px] mx-auto w-full pt-8">
-      <div className="flex flex-wrap gap-3 justify-center">
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:justify-center">
         <input
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar a un jugador"
-          className="h-12 bg-white rounded-[14px] px-4 text-sm w-64 transition-colors duration-200 hover:bg-[#FAFAFC]"
+          className="h-12 bg-white rounded-[14px] px-4 text-sm w-full lg:w-64 transition-colors duration-200 hover:bg-[#FAFAFC]"
         />
-        <MenuMultiSeleccion
-          etiqueta="Equipos"
-          opciones={equipos}
-          etiquetas={nombresOficialesEquipo}
-          seleccionados={equiposSel}
-          onChange={setEquiposSel}
-        />
-        <MenuMultiSeleccion
-          etiqueta="Posiciones"
-          opciones={POSICIONES}
-          seleccionados={posicionesSel}
-          onChange={setPosicionesSel}
-        />
-        <MenuFiltros columnas={columnasVisibles} onChangeColumnas={setColumnasVisibles} />
+        <div className="grid grid-cols-3 gap-2 lg:contents">
+          <MenuMultiSeleccion
+            etiqueta="Equipos"
+            opciones={equipos}
+            etiquetas={nombresOficialesEquipo}
+            seleccionados={equiposSel}
+            onChange={setEquiposSel}
+            className="w-full lg:w-[180px]"
+          />
+          <MenuMultiSeleccion
+            etiqueta="Posiciones"
+            opciones={POSICIONES}
+            seleccionados={posicionesSel}
+            onChange={setPosicionesSel}
+            className="w-full lg:w-[180px]"
+          />
+          <MenuFiltros
+            columnas={columnasVisibles}
+            onChangeColumnas={setColumnasVisibles}
+            className="w-full lg:w-[180px]"
+          />
+        </div>
       </div>
 
       {!seleccionados.length && totalesEquipo && (
@@ -350,6 +359,15 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                           >
                             {texto}
                           </button>
+                        </td>
+                      );
+                    }
+
+                    if (columna.clave === "diferenciaValor") {
+                      return (
+                        <td key={columna.clave} className="p-3 text-left tabular-nums whitespace-nowrap">
+                          <span style={{ color: colorRevalor }}>{texto}</span>
+                          <FlechaAceleracion aceleracion={j.aceleracion} className="ml-1" />
                         </td>
                       );
                     }

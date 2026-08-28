@@ -8,12 +8,14 @@ export function MenuMultiSeleccion({
   etiquetas,
   seleccionados,
   onChange,
+  className = "w-[180px]",
 }: {
   etiqueta: string;
   opciones: string[];
   etiquetas?: Record<string, string>;
   seleccionados: string[];
   onChange: (nuevos: string[]) => void;
+  className?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
   const contenedorRef = useRef<HTMLDivElement>(null);
@@ -43,7 +45,7 @@ export function MenuMultiSeleccion({
       <button
         type="button"
         onClick={() => setAbierto((a) => !a)}
-        className={`h-12 w-[180px] bg-white rounded-[14px] px-4 text-sm flex items-center justify-between gap-2 transition-colors duration-200 hover:bg-[#FAFAFC] ${
+        className={`h-12 ${className} bg-white rounded-[14px] px-4 text-sm flex items-center justify-between gap-2 transition-colors duration-200 hover:bg-[#FAFAFC] ${
           seleccionados.length > 0 ? "text-neutral-900 font-medium" : "text-neutral-500"
         }`}
       >

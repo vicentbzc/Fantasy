@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Jugador, MiClub, EstadoMiEquipo, JugadorProbable } from "@/lib/db";
 import { CampoTactico } from "./CampoTactico";
 import { BotonAgregar } from "./BotonAgregar";
@@ -18,6 +18,7 @@ import {
   COLOR_DIFICULTAD_CALENDARIO_CAMPO,
   COLOR_REVALORIZACION_CAMPO,
 } from "@/lib/formato";
+import { FlechaAceleracion } from "./FlechaAceleracion";
 import { COLUMNAS_OPCIONALES } from "@/lib/columnas";
 import { LINEAS_ORDEN, type Formacion } from "@/lib/formacion";
 import { accionEstablecerEstadoMiEquipo, accionEliminarDeMiEquipo } from "@/app/actions";
@@ -47,8 +48,8 @@ function lineasParaJugador(
   columnasVisibles: ColumnasVisibles,
   onClickDificultad: (() => void) | undefined,
   enCampo: boolean
-): { texto: string; color?: string; onClick?: () => void }[] {
-  const lineas: { texto: string; color?: string; onClick?: () => void }[] = [];
+): { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode }[] {
+  const lineas: { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode }[] = [];
   if (columnasVisibles.porcentajeTitularidad) {
     lineas.push({ texto: j.porcentajeTitularidad === null ? "—" : `${j.porcentajeTitularidad} %` });
   }
@@ -62,7 +63,11 @@ function lineasParaJugador(
         : j.diferenciaValor > 0
           ? paletaRevalorizacion.positivo
           : paletaRevalorizacion.negativo;
-    lineas.push({ texto: formatearValor(j.diferenciaValor), color });
+    lineas.push({
+      texto: formatearValor(j.diferenciaValor),
+      color,
+      sufijo: <FlechaAceleracion aceleracion={j.aceleracion} className="ml-0.5" />,
+    });
   }
   if (columnasVisibles.dificultadProximos5) {
     const bucket = bucketDificultadCalendario(j.dificultadProximos5);
@@ -143,21 +148,26 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
             onClickJugador={abrirMenu}
             oscuro={columnasVisibles.diferenciaValor || columnasVisibles.dificultadProximos5}
           />
-          <div className="absolute top-4 right-4">
-            <MenuFiltros columnas={columnasVisibles} onChangeColumnas={setColumnasVisibles} excluir={EXCLUIR_FILTROS} />
+          <div className="absolute top-4 right-4 max-sm:top-2.5 max-sm:right-2.5">
+            <MenuFiltros
+              columnas={columnasVisibles}
+              onChangeColumnas={setColumnasVisibles}
+              excluir={EXCLUIR_FILTROS}
+              className="w-[180px] max-sm:h-9 max-sm:w-[104px] max-sm:px-2.5 max-sm:text-xs max-sm:rounded-[8px]"
+            />
           </div>
-          <div className="absolute bottom-4 left-4">
+          <div className="absolute bottom-4 left-4 max-sm:bottom-2.5 max-sm:left-2.5">
             <BotonAgregar
               size={TAMANO_BOTON_AGREGAR}
               onClick={() => setBuscador("titular")}
-              className="bg-[#F5F5F7]/30 text-white hover:bg-[#F5F5F7]/20"
+              className="bg-[#F5F5F7]/30 text-white hover:bg-[#F5F5F7]/20 max-sm:!h-9 max-sm:!w-9 max-sm:!text-base max-sm:rounded-[8px]"
             />
           </div>
         </div>
       </div>
 
       <div className="w-full lg:w-[700px] lg:shrink-0 flex flex-col gap-8">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-6 w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-6 w-full max-lg:order-last">
           <TarjetaEstadistica etiqueta="Valor de mi club" valor={formatearValor(valorClub)} />
           <TarjetaEstadistica etiqueta="Valor de mi equipo" valor={formatearValor(valorEquipo)} />
           <TarjetaEstadistica etiqueta="Revalorización de mi equipo" valor={formatearValor(revalorizacion)} color={colorRevalorizacion} />
@@ -166,7 +176,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
 
         <div className="w-full flex flex-col items-start gap-[18px]">
           <h2 className="text-[20px] font-bold">Banquillo</h2>
-          <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
+          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-[14px] sm:gap-x-9 sm:gap-y-6">
             {suplentes.map((j) => (
               <FotoJugadorSlot
                 key={j.id}
@@ -187,7 +197,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
 
         <div className="w-full flex flex-col items-start gap-[18px]">
           <h2 className="text-[20px] font-bold">En duda</h2>
-          <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
+          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-[14px] sm:gap-x-9 sm:gap-y-6">
             {enDuda.map((j) => (
               <FotoJugadorSlot
                 key={j.id}
@@ -208,7 +218,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
 
         <div className="w-full flex flex-col items-start gap-[18px]">
           <h2 className="text-[20px] font-bold">Seguimiento</h2>
-          <div className="w-full rounded-[18px] bg-white p-[18px] flex flex-wrap justify-start gap-[14px]">
+          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-[14px] sm:gap-x-9 sm:gap-y-6">
             {seguimiento.map((j) => (
               <FotoJugadorSlot
                 key={j.id}

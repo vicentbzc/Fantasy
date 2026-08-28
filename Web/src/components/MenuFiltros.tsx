@@ -12,11 +12,13 @@ export function MenuFiltros({
   onChangeColumnas,
   excluir,
   claseBoton = "bg-white",
+  className = "w-[180px]",
 }: {
   columnas: ColumnasVisibles;
   onChangeColumnas: (nuevo: ColumnasVisibles) => void;
   excluir?: (keyof Jugador)[];
   claseBoton?: string;
+  className?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [posicion, setPosicion] = useState<{
@@ -84,7 +86,7 @@ export function MenuFiltros({
         ref={botonRef}
         type="button"
         onClick={alternarAbierto}
-        className={`h-12 w-[180px] ${claseBoton} rounded-[14px] px-4 text-sm flex items-center justify-between gap-2 transition-colors duration-200 hover:bg-[#FAFAFC] ${
+        className={`h-12 ${className} ${claseBoton} rounded-[14px] px-4 text-sm flex items-center justify-between gap-2 transition-colors duration-200 hover:bg-[#FAFAFC] ${
           numActivos > 0 ? "text-neutral-900 font-medium" : "text-neutral-500"
         }`}
       >

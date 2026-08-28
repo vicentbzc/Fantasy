@@ -13,13 +13,14 @@ export function ImagenCuadrada({
 }: {
   src: string | null;
   alt: string;
-  size: number;
+  size: number | string;
   radius: number;
   bg?: string;
   padding?: number;
 }) {
   const [error, setError] = useState(false);
   const mostrar = src && !error;
+  const dimImagen = typeof size === "number" ? size : 128;
 
   return (
     <div
@@ -30,8 +31,8 @@ export function ImagenCuadrada({
         <Image
           src={src!}
           alt={alt}
-          width={size}
-          height={size}
+          width={dimImagen}
+          height={dimImagen}
           className="object-contain w-full h-full"
           onError={() => setError(true)}
         />

@@ -325,10 +325,6 @@ UMBRAL_ACELERACION_NORMAL = 0.2
 
 
 def clasificar_aceleracion(velocidad_hoy, velocidad_ayer):
-    if velocidad_hoy > 0 and velocidad_ayer < 0:
-        return "Inflexión positiva"
-    if velocidad_hoy < 0 and velocidad_ayer > 0:
-        return "Inflexión negativa"
     cambio = velocidad_hoy - velocidad_ayer
     if cambio > UMBRAL_ACELERACION_MUCHO:
         return "Acelera mucho"

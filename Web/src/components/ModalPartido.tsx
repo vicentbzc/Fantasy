@@ -68,7 +68,7 @@ export function ModalPartido({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="bg-[#F5F5F7] rounded-2xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+        className="bg-[#F5F5F7] rounded-2xl p-4 sm:p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-end mb-2">
@@ -85,21 +85,21 @@ export function ModalPartido({
               <p className="text-sm font-medium" style={{ color: "rgba(29,29,31,0.62)" }}>
                 {cuando || "Por confirmar"}
               </p>
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-5 gap-y-2 w-full max-w-md">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3 sm:gap-x-5 gap-y-2 w-full max-w-md">
                 {local.id !== null ? (
-                  <Link href={`/equipos/${local.id}`} className="text-[16px] font-semibold text-right justify-self-end w-fit hover:text-[#6E6E73]">
+                  <Link href={`/equipos/${local.id}`} className="text-[13px] sm:text-[16px] font-semibold text-right justify-self-end w-fit hover:text-[#6E6E73]">
                     {local.nombre}
                   </Link>
                 ) : (
-                  <span className="text-[16px] font-semibold text-right">{local.nombre}</span>
+                  <span className="text-[13px] sm:text-[16px] font-semibold text-right">{local.nombre}</span>
                 )}
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-3 sm:gap-5">
                   {local.id !== null ? (
                     <Link href={`/equipos/${local.id}`} className="hover:opacity-70">
-                      <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={72} radius={16} bg="transparent" padding={12} />
+                      <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size="min(72px, 15vw)" radius={16} bg="transparent" padding={12} />
                     </Link>
                   ) : (
-                    <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size={72} radius={16} bg="transparent" padding={12} />
+                    <ImagenCuadrada src={urlEscudoEquipo(local.id)} alt={local.nombre} size="min(72px, 15vw)" radius={16} bg="transparent" padding={12} />
                   )}
                   <span className="text-base font-bold text-[#6E6E73]">VS</span>
                   {visitante.id !== null ? (
@@ -107,7 +107,7 @@ export function ModalPartido({
                       <ImagenCuadrada
                         src={urlEscudoEquipo(visitante.id)}
                         alt={visitante.nombre}
-                        size={72}
+                        size="min(72px, 15vw)"
                         radius={16}
                         bg="transparent"
                         padding={12}
@@ -117,7 +117,7 @@ export function ModalPartido({
                     <ImagenCuadrada
                       src={urlEscudoEquipo(visitante.id)}
                       alt={visitante.nombre}
-                      size={72}
+                      size="min(72px, 15vw)"
                       radius={16}
                       bg="transparent"
                       padding={12}
@@ -125,11 +125,11 @@ export function ModalPartido({
                   )}
                 </div>
                 {visitante.id !== null ? (
-                  <Link href={`/equipos/${visitante.id}`} className="text-[16px] font-semibold text-left justify-self-start w-fit hover:text-[#6E6E73]">
+                  <Link href={`/equipos/${visitante.id}`} className="text-[13px] sm:text-[16px] font-semibold text-left justify-self-start w-fit hover:text-[#6E6E73]">
                     {visitante.nombre}
                   </Link>
                 ) : (
-                  <span className="text-[16px] font-semibold text-left">{visitante.nombre}</span>
+                  <span className="text-[13px] sm:text-[16px] font-semibold text-left">{visitante.nombre}</span>
                 )}
               </div>
               {colorDificultad && (

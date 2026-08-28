@@ -37,6 +37,19 @@ def guardar_estado(cur, clave, valor):
     )
 
 
+# Envuelve el envío para poder detectar y avisar de que Telegram está fallando
+# (ver revisar_salud_telegram). Se resetea en cada ejecución del script.
+_algun_envio_fallo = False
+
+
+def enviar_telegram(mensaje):
+    global _algun_envio_fallo
+    enviado = Común.enviar_telegram(mensaje)
+    if not enviado and Común.obtener_configuracion("TELEGRAM_BOT_TOKEN") and Común.obtener_configuracion("TELEGRAM_CHAT_ID"):
+        _algun_envio_fallo = True
+    return enviado
+
+
 def formatear_porcentaje(valor):
     numero = float(valor)
     if numero == int(numero):
@@ -56,20 +69,20 @@ def combinar_fecha_hora(fecha, hora):
 
 
 def revisar_revalorizacion_diaria(cur):
-    ahora = datetime.now(ZONA_BARCELONA)
-    if ahora.hour < 8:
-        return
-    hoy = ahora.strftime("%Y-%m-%d")
-    if obtener_estado(cur, "revalorizacion_diaria") == hoy:
-        return
-
+    # Sin franja horaria: se mira en cada ciclo y se avisa en cuanto la
+    # revalorización del día tiene un valor real (el "Valor general" ya se ha
+    # actualizado). Antes de eso `revalorizacion` es 0 (valor de hoy = baseline
+    # de ayer), así que ese 0 se ignora.
     cur.execute("select revalorizacion from mi_club where id = 1")
     fila = cur.fetchone()
-    if not fila or fila[0] is None:
+    if not fila or fila[0] is None or fila[0] == 0:
         return
     total = fila[0]
+    hoy = datetime.now(ZONA_BARCELONA).strftime("%Y-%m-%d")
+    if obtener_estado(cur, "revalorizacion_diaria") == hoy:
+        return
     mensaje = f"Tu equipo hoy se ha revalorizado {Común.formatear_miles(total)}€."
-    if Común.enviar_telegram(mensaje):
+    if enviar_telegram(mensaje):
         guardar_estado(cur, "revalorizacion_diaria", hoy)
 
 
@@ -101,7 +114,7 @@ def revisar_retraso_ingesta(cur):
                     f"{nombre_legible} lleva {int(minutos)} minutos sin traer datos nuevos "
                     f"(se esperaba cada 5 min)."
                 )
-                if Común.enviar_telegram(mensaje):
+                if enviar_telegram(mensaje):
                     guardar_estado(cur, clave_aviso, "avisado")
         else:
             guardar_estado(cur, clave_aviso, "ok")
@@ -126,39 +139,116 @@ def revisar_titularidad(cur):
                 f"{formatear_porcentaje(anterior)} a un {formatear_porcentaje(actual)}, "
                 f"el estado del jugador es {estado_jugador or 'Disponible'}."
             )
-            if Común.enviar_telegram(mensaje):
+            if enviar_telegram(mensaje):
                 guardar_estado(cur, clave, str(actual))
         else:
             guardar_estado(cur, clave, str(actual))
 
 
 def revisar_seguimiento_sin_cambio_dueno(cur):
+    # Jugadores en seguimiento o en duda.
     cur.execute(
         """
-        select j.id, j.nombre, j.diferencia_valor, j.dueno
+        select j.id, j.nombre, j.valor_liga, j.dueno
         from mi_equipo_jugadores mej
         join jugadores j on j.id = mej.jugador_id
-        where mej.estado = 'seguimiento'
+        where mej.estado in ('seguimiento', 'duda')
         """
     )
-    for jugador_id, nombre, diferencia, dueno in cur.fetchall():
+    for jugador_id, nombre, valor_liga, dueno in cur.fetchall():
         clave_dueno = f"seguimiento_dueno:{jugador_id}"
-        dueno_anterior = obtener_estado(cur, clave_dueno)
+        clave_valor = f"seguimiento_valor:{jugador_id}"
+
         dueno_actual = dueno or ""
+        dueno_anterior = obtener_estado(cur, clave_dueno)
         mismo_dueno = dueno_anterior is not None and dueno_anterior == dueno_actual
 
-        if mismo_dueno and diferencia not in (None, 0):
-            clave_valor = f"seguimiento_valor:{jugador_id}"
-            marca = f"{dueno_actual}:{diferencia}"
-            if obtener_estado(cur, clave_valor) != marca:
-                mensaje = (
-                    f"El jugador {nombre}, que tienes en seguimiento, ha cambiado de valor "
-                    f"({Común.formatear_miles(diferencia)}) sin cambiar de dueño."
-                )
-                if Común.enviar_telegram(mensaje):
-                    guardar_estado(cur, clave_valor, marca)
+        valor_actual = None if valor_liga is None else int(valor_liga)
+        valor_anterior_txt = obtener_estado(cur, clave_valor)
+        valor_anterior = int(valor_anterior_txt) if valor_anterior_txt not in (None, "") else None
+
+        # "Valor en la liga" (la cláusula), no el valor oficial: si cambia y el
+        # dueño no ha cambiado, avisa con el valor antiguo y el nuevo.
+        if (
+            mismo_dueno
+            and valor_anterior is not None
+            and valor_actual is not None
+            and valor_actual != valor_anterior
+        ):
+            mensaje = (
+                f"El jugador {nombre}, ha cambiado de valor de "
+                f"{Común.formatear_miles(valor_anterior)}€ a {Común.formatear_miles(valor_actual)}€."
+            )
+            if enviar_telegram(mensaje):
+                guardar_estado(cur, clave_valor, str(valor_actual))
+        else:
+            guardar_estado(cur, clave_valor, "" if valor_actual is None else str(valor_actual))
 
         guardar_estado(cur, clave_dueno, dueno_actual)
+
+
+def revisar_clausula_seguimiento(cur):
+    ahora = datetime.now(timezone.utc)
+    # Jugadores en seguimiento o en duda que NO son tuyos (los tuyos los cubre
+    # revisar_clausula_mi_equipo).
+    cur.execute(
+        """
+        select j.id, j.nombre, j.protegido_hasta
+        from mi_equipo_jugadores mej
+        join jugadores j on j.id = mej.jugador_id
+        where mej.estado in ('seguimiento', 'duda')
+          and j.protegido_hasta is not null
+          and j.dueno is distinct from (select manager from mi_club where id = 1)
+        """
+    )
+    for jugador_id, nombre, protegido_hasta in cur.fetchall():
+        horas_restantes = (protegido_hasta - ahora).total_seconds() / 3600
+        if horas_restantes <= 0:
+            continue
+
+        # La marca incluye la fecha de desbloqueo: si la cláusula se vuelve a
+        # bloquear (nueva fecha), el aviso se puede repetir para esa fecha.
+        marca = protegido_hasta.isoformat()
+
+        for limite_horas, texto in ((48, "48 horas"), (2, "2 horas")):
+            if horas_restantes <= limite_horas:
+                clave = f"clausula_seguimiento:{limite_horas}h:{jugador_id}"
+                if obtener_estado(cur, clave) != marca:
+                    mensaje = f"La cláusula del jugador {nombre} se desbloquea en menos de {texto}."
+                    if enviar_telegram(mensaje):
+                        guardar_estado(cur, clave, marca)
+
+
+def revisar_clausula_mi_equipo(cur):
+    cur.execute("select manager from mi_club where id = 1")
+    fila = cur.fetchone()
+    if not fila or not fila[0]:
+        return
+    mi_manager = fila[0]
+
+    ahora = datetime.now(timezone.utc)
+    cur.execute(
+        """
+        select id, nombre, protegido_hasta
+        from jugadores
+        where dueno = %s and protegido_hasta is not null
+        """,
+        (mi_manager,),
+    )
+    for jugador_id, nombre, protegido_hasta in cur.fetchall():
+        horas_restantes = (protegido_hasta - ahora).total_seconds() / 3600
+        if horas_restantes <= 0:
+            continue
+
+        marca = protegido_hasta.isoformat()
+
+        for limite_horas, texto in ((48, "48 horas"), (2, "2 horas")):
+            if horas_restantes <= limite_horas:
+                clave = f"clausula_mi_equipo:{limite_horas}h:{jugador_id}"
+                if obtener_estado(cur, clave) != marca:
+                    mensaje = f"La cláusula de tu jugador {nombre} se desbloquea en menos de {texto}."
+                    if enviar_telegram(mensaje):
+                        guardar_estado(cur, clave, marca)
 
 
 def revisar_tarjetas_amarillas(cur):
@@ -180,7 +270,7 @@ def revisar_tarjetas_amarillas(cur):
         anterior_num = int(anterior) if anterior is not None else 0
         if anterior_num < 4 and amarillas >= 4:
             mensaje = f"El jugador {nombre} lleva un total de 4 tarjetas amarillas acumuladas."
-            if Común.enviar_telegram(mensaje):
+            if enviar_telegram(mensaje):
                 guardar_estado(cur, clave, str(amarillas))
         else:
             guardar_estado(cur, clave, str(amarillas))
@@ -196,7 +286,7 @@ def revisar_fichas(cur):
     anterior = obtener_estado(cur, clave)
     anterior_num = int(anterior) if anterior is not None else 0
     if anterior_num < 24 and fichas >= 24:
-        if Común.enviar_telegram("Ya no puedes incorporar más jugadores a tu club."):
+        if enviar_telegram("Ya no puedes incorporar más jugadores a tu equipo."):
             guardar_estado(cur, clave, str(fichas))
     else:
         guardar_estado(cur, clave, str(fichas))
@@ -252,7 +342,7 @@ def revisar_inicio_jornada(cur):
                 f"El {MAPA_DIAS_SEMANA[inicio.weekday()]} {inicio.day} de {MAPA_MESES[inicio.month]} "
                 f"a las {inicio.strftime('%H:%M')} h empieza una nueva jornada."
             )
-            if Común.enviar_telegram(mensaje):
+            if enviar_telegram(mensaje):
                 guardar_estado(cur, clave, "enviado")
 
     if horas_restantes <= 2:
@@ -262,7 +352,7 @@ def revisar_inicio_jornada(cur):
             titulares = cur.fetchone()[0]
             if titulares < 11:
                 mensaje = "A falta de 2 horas para el comienzo de una nueva jornada, tu alineación es incompleta."
-                if Común.enviar_telegram(mensaje):
+                if enviar_telegram(mensaje):
                     guardar_estado(cur, clave_alineacion, "enviado")
 
         clave_saldo = f"jornada:{jornada}:2h_saldo"
@@ -271,44 +361,8 @@ def revisar_inicio_jornada(cur):
             fila = cur.fetchone()
             if fila and fila[0] is not None and fila[0] < 0:
                 mensaje = "A falta de 2 horas para el comienzo de una nueva jornada, tu saldo es negativo."
-                if Común.enviar_telegram(mensaje):
+                if enviar_telegram(mensaje):
                     guardar_estado(cur, clave_saldo, "enviado")
-
-
-def revisar_puntos_dazn_jornada(cur):
-    id_mi_equipo = Común.obtener_configuracion("LALIGA_FANTASY_TEAM_ID")
-    if not id_mi_equipo:
-        return
-
-    cur.execute("select max(jornada) from clasificacion_jornada")
-    fila = cur.fetchone()
-    jornada = fila[0] if fila else None
-    if jornada is None:
-        return
-
-    clave = f"puntos_dazn_jornada:{jornada}"
-    if obtener_estado(cur, clave) is not None:
-        return
-
-    cur.execute("select 1 from calendario where jornada = %s limit 1", (f"Jornada {jornada}",))
-    if cur.fetchone() is not None:
-        return
-
-    cur.execute(
-        "select posicion, puntos from clasificacion_jornada where jornada = %s and equipo_id = %s",
-        (jornada, str(id_mi_equipo)),
-    )
-    fila = cur.fetchone()
-    if not fila:
-        return
-    posicion, puntos = fila
-
-    mensaje = (
-        f"Terminaste la jornada {jornada} en la posición {posicion} de la clasificación, "
-        f"con {puntos} puntos."
-    )
-    if Común.enviar_telegram(mensaje):
-        guardar_estado(cur, clave, "enviado")
 
 
 MAPA_TIPO_ACTIVIDAD = {
@@ -356,7 +410,7 @@ def revisar_actividad_mercado(cur):
         else:
             mensaje = f"{usuario} ha hecho una operación de mercado con {jugador} por {importe_texto}."
 
-        if not Común.enviar_telegram(mensaje):
+        if not enviar_telegram(mensaje):
             break
         guardar_estado(cur, clave, str(id_actividad))
 
@@ -373,7 +427,7 @@ def revisar_competicion_sin_logo(cur):
         if obtener_estado(cur, clave) is not None:
             continue
         mensaje = f"Falta el logo de la competición '{competicion}' en la web."
-        if Común.enviar_telegram(mensaje):
+        if enviar_telegram(mensaje):
             guardar_estado(cur, clave, "avisado")
 
 
@@ -403,8 +457,30 @@ def revisar_cierre_mercado(cur):
         texto_tiempo = "1 minuto"
     else:
         texto_tiempo = f"{minutos_redondeados} minutos"
-    if Común.enviar_telegram(f"En {texto_tiempo} se cerrará el mercado de hoy."):
+    mensaje = f"En {texto_tiempo} se cerrará el mercado de hoy, añade a todos tus jugadores en el mercado."
+    if enviar_telegram(mensaje):
         guardar_estado(cur, clave, "enviado")
+
+
+def revisar_salud_telegram(cur):
+    # Va la última: si algún envío de esta ejecución falló (con las credenciales
+    # puestas), lo apunta. Cuando Telegram vuelve a funcionar, avisa de cuántos
+    # ciclos fallaron. Si Telegram está caído del todo no se puede avisar, pero
+    # el aviso se manda en cuanto se recupere.
+    clave = "telegram_ciclos_fallidos"
+    fallidos = int(obtener_estado(cur, clave) or 0)
+
+    if _algun_envio_fallo:
+        guardar_estado(cur, clave, str(fallidos + 1))
+        return
+
+    if fallidos > 0:
+        mensaje = (
+            f"Aviso técnico: el envío de avisos a Telegram falló durante {fallidos} "
+            f"ciclo{'s' if fallidos != 1 else ''}. Ya se ha recuperado."
+        )
+        if Común.enviar_telegram(mensaje):
+            guardar_estado(cur, clave, "0")
 
 
 def main():
@@ -416,13 +492,15 @@ def main():
                 revisar_retraso_ingesta,
                 revisar_titularidad,
                 revisar_seguimiento_sin_cambio_dueno,
+                revisar_clausula_seguimiento,
+                revisar_clausula_mi_equipo,
                 revisar_tarjetas_amarillas,
                 revisar_fichas,
                 revisar_inicio_jornada,
-                revisar_puntos_dazn_jornada,
                 revisar_actividad_mercado,
                 revisar_competicion_sin_logo,
                 revisar_cierre_mercado,
+                revisar_salud_telegram,
             ]:
                 try:
                     funcion(cur)

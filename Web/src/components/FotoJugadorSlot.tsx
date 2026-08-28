@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { SIN_FOTO } from "@/lib/imagenes";
 
 export function FotoJugadorSlot({
@@ -21,21 +21,25 @@ export function FotoJugadorSlot({
 }: {
   src: string | null;
   alt: string;
-  size: number;
-  radius: number;
+  size: number | string;
+  radius: number | string;
   bg?: string;
   probabilidad: number | null;
   colorProbabilidad: string;
-  fontSizeProbabilidad: number;
+  fontSizeProbabilidad: number | string;
   colorNombre?: string;
-  fontSizeNombre?: number;
-  lineas?: { texto: string; color?: string; onClick?: () => void }[];
+  fontSizeNombre?: number | string;
+  lineas?: { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode }[];
   onClick?: () => void;
   href?: string;
 }) {
   const [error, setError] = useState(false);
   const [resaltado, setResaltado] = useState(false);
   const mostrarSinFoto = !src || error;
+  // `size` puede venir como cadena CSS (p. ej. "8.86cqw") para que el campo
+  // escale; next/image necesita un intrínseco numérico y el tamaño real lo
+  // controla `w-full h-full`.
+  const dimImagen = typeof size === "number" ? size : 128;
   const esClicable = Boolean(onClick || href);
   const claseContenedor = `flex flex-col items-center gap-1 ${esClicable ? "cursor-pointer" : ""}`;
   const eventosHover = esClicable
@@ -63,6 +67,7 @@ export function FotoJugadorSlot({
               }
             >
               {linea.texto}
+              {linea.sufijo}
             </span>
           ))}
         </div>
@@ -82,8 +87,8 @@ export function FotoJugadorSlot({
           <Image
             src={mostrarSinFoto ? SIN_FOTO : src!}
             alt={alt}
-            width={size}
-            height={size}
+            width={dimImagen}
+            height={dimImagen}
             className="object-cover w-full h-full"
             onError={() => setError(true)}
           />
