@@ -4154,6 +4154,65 @@ columnas y "Atlético de Madrid" seguía pegado a la posición).
   `orden.clave === "equipo"` o `columnasVisibles.equipo` se ignora sin
   romper nada.
 
+## Cuadragésima séptima ronda: clean sheet en el desglose, botón de seguimiento, y arrastrar en Mi equipo (29/08/2026)
+
+Tres cosas en un mensaje.
+
+**1. `Ingestar datos detalle.py` — "0 goles en contra: 4 puntos".** El bucle
+de `MAPA_ESTADISTICA` descartaba cualquier estadística con `cantidad`
+falsy (`if not valor or not valor[0]`), así que la portería a cero de un
+portero/defensa (`goals_conceded = [0, puntos]`) nunca se guardaba.
+Ahora se salta solo si **cantidad Y puntos son ambos 0**. Se verá cuando
+el scraper reescriba `puntos_jornada_detalle` (cada 15 min) tras
+desplegar.
+
+**2. Botón `+` / `★` en `/jugadores`.** Tras el escudo de cada jugador,
+un botón sin fondo: `+` si el jugador no está en seguimiento, `★` (coral)
+si lo está. Al pulsarlo hace toggle vía `accionEstablecerEstadoMiEquipo`
+/ `accionEliminarDeMiEquipo` (que ahora revalidan también `/jugadores`).
+Estado optimista con un `Record<id, boolean>` en `Explorador`; sin
+`router.refresh()` (la navegación remonta y re-lee, `force-dynamic`).
+
+**3. Arrastrar jugadores en `/mi-equipo`** (`@dnd-kit/core` + `sortable` +
+`utilities`, deps nuevas).
+- El **campo** y las **3 cajas** (suplentes, duda, seguimiento) son zonas
+  soltables (`useDroppable`, id = el estado). Los jugadores
+  (`useSortable`) se arrastran **entre** zonas para cambiar de estado y
+  **dentro** de una caja para reordenarlos. En el campo no se reordena
+  (lo coloca la formación); sí se puede soltar (→ titular) y sacar.
+- **Regla del portero** (`aplicarReglaPortero`): al dejar 2 porteros
+  titulares, el que no acabas de mover baja a suplentes. Se aplica en
+  `onDragEnd`.
+- **Orden persistente**: columna nueva `mi_equipo_jugadores.orden`
+  (`integer not null default 0`). `accionReordenarMiEquipo(grupos)`
+  hace `upsert (jugador_id, estado, orden)` de cada jugador de cada
+  grupo. `establecerEstadoMiEquipo` pone `orden = max(orden)+1` del
+  grupo destino. `db.ts` devuelve `ordenMiEquipo` y `MiEquipo` ordena
+  cada grupo por él.
+- El **menú de jugador** (clic) pierde los 4 botones "Poner como …",
+  deja solo **"Eliminar"** + un texto que explica el arrastre.
+- `CampoTactico` gana un prop opcional `envolverJugador(id, contenido)`
+  para envolver cada `FotoJugadorSlot`; solo lo usa Mi equipo, `/equipos`
+  no cambia.
+- **Estado optimista**: `override: Estados | null`. Se limpia en un
+  `useEffect` cuando cambia la firma de props (tras el
+  `revalidatePath` del action). Sin `router.refresh()`.
+- **Gotchas de @dnd-kit + SSR resueltos**: `<DndContext id="mi-equipo">`
+  (si no, `aria-describedby` distinto server/cliente → hydration
+  mismatch, por el contador de módulo de `useUniqueId`).
+  `<DragOverlay dropAnimation={null}>` (si no, el overlay dejaba un
+  "X %" fantasma tras soltar). `guardar()` (que llama al action) va en
+  el handler de `onDragEnd`, **no** dentro del updater de `setState` (si
+  no, "Cannot update Router while rendering MiEquipo").
+- **La migración ya está aplicada en producción** (`alter table ... add
+  column if not exists orden ...` + seed del orden por `valor_liga`, con
+  el rol owner de `Configuración local.py`). El rol `web_solo_lectura`
+  puede leer y escribir la columna (grant de tabla + política RLS
+  `for all`). `Esquema base de datos.sql` actualizado para una BD nueva.
+- Al probar se movió la plantilla real del usuario; se restauró a una
+  aproximación (10 titulares, puede que fueran 11) — se arregla
+  arrastrando.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
