@@ -4065,6 +4065,50 @@ así que `Buffer` está disponible.
   pendiente 7 (reiniciar para que el rol de solo lectura surta efecto)
   queda cubierto: producción arranca de cero con la variable ya puesta.
 
+## Cuadragésima cuarta ronda: categoría "Próximo partido", móvil de Jugadores, "Suplentes", aviso de titularidad al alza (29/08/2026)
+
+**Nueva categoría de filtro "Próximo partido"** (`/jugadores` y
+`/mi-equipo`), **sustituye a "Dificultad del calendario"**:
+- Muestra el **nombre del próximo rival** (jornada 1 del calendario),
+  usando `equipos.nombre_oficial` — `db.ts` añade un `left join equipos re
+  on re.nombre = c.rival` y devuelve `proximoRivalNombreOficial`. Si no
+  hay rival, "—".
+- Coloreado por la **dificultad de ESE partido** (`c.dificultad` =
+  `proximaDificultad`, "Muy baja".."Muy alta"), con `COLOR_DIFICULTAD` de
+  `formato.ts` (mismos colores que ya usaban campo y lista). Ojo: NO es la
+  media de los próximos 5 (`dificultadProximos5`) — esa se dejó calculada
+  en el SQL pero ya no se usa en ningún sitio.
+- **Clicable** → abre `ProximosPartidos` (mismo modal de siempre, lleva al
+  once posible de la jornada). En `/jugadores` es la columna clave
+  `proximoRival` (texto), con orden especial por dificultad
+  (`ORDEN_DIFICULTAD` en `compararPorClave`).
+- `FotoJugadorSlot`: nueva opción `wrap` en las líneas. El nombre del
+  rival puede ser largo ("Atlético de Madrid", "Rayo Vallecano") y con
+  `whitespace-nowrap` se solapaba entre fotos del banquillo/duda/
+  seguimiento y se salía del campo en móvil. Con `wrap` la línea usa
+  `whitespace-normal text-center max-w-[76px]`. También se subió un poco
+  el `gap` de esas tres cajas (`gap-x-5 sm:gap-x-11`).
+
+**Móvil de `/jugadores`** (solo `max-sm:`, escritorio intacto):
+- La columna fija "Jugador" baja de 300px a **184px** en móvil
+  (`w-[184px] sm:w-[300px]`), que era lo que hacía que nombres como
+  "Manuel Fernández" salieran cortados y que la columna tapase a Equipo al
+  hacer scroll.
+- En móvil se **oculta el checkbox** (la fila entera ya selecciona) y las
+  **columnas Equipo y Posición** (`max-sm:hidden` en su `th`/`td`).
+- Bajo el nombre sale un **subtítulo** `Equipo · Posición` (`sm:hidden`),
+  que también resuelve lo de que equipo y posición "se juntaban".
+
+**`/mi-equipo`**: el título **"Banquillo" pasa a "Suplentes"** (todas las
+versiones; solo el `<h2>`, el componente `Banquillo.tsx` y su uso en
+`/equipos/[id]` no se tocan).
+
+**`Notificar Telegram.py` — `revisar_titularidad`**: antes solo avisaba
+si la titularidad **bajaba** (`float(actual) < float(anterior)`). Ahora
+avisa **también si sube** (`!=`), con el texto "ha subido/bajado de un A%
+a un B%". El scope ya era correcto (todos los de `mi_equipo_jugadores`:
+titular, suplente, duda, seguimiento).
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
