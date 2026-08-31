@@ -4213,6 +4213,27 @@ Estado optimista con un `Record<id, boolean>` en `Explorador`; sin
   aproximación (10 titulares, puede que fueran 11) — se arregla
   arrastrando.
 
+**Segundo repaso el mismo día:**
+- El clean sheet **seguía sin verse** porque el cron de GitHub Actions
+  iba muy retrasado (corría ~1 vez/hora, no cada 5-15 min — schedules de
+  GitHub en repos públicos se coalescen/pierden bajo carga). Verificado
+  contra la API: `stats.goals_conceded = [0, 4]` para Joan García J1/J2,
+  y `extraer_jugador` ya lo captura. Se corrió `Ingestar datos
+  detalle.py` a mano y se sincronizó **solo** `sincronizar_detalle`
+  (5703 filas, 656 de "goles en contra"); Joan García J2 pasa de 8 a 12
+  puntos en el desglose, cuadra con el total. **No** se tocaron las
+  demás tablas (los CSV locales están viejos).
+- La **estrella** de `/jugadores` pasa a **gris neutro** (`neutral-500`)
+  y `text-sm` (antes coral `#FE8B87` y `text-lg`).
+- Fuera el texto "Arrastra al jugador entre el campo y las cajas…" del
+  menú.
+- **Móvil no dejaba arrastrar**: `TouchSensor` a `delay: 100 / tolerance:
+  20` (antes 200/8) para que arranque antes, y `WebkitTouchCallout` /
+  `userSelect: none` en cada slot para que iOS no abra el menú de la
+  imagen al mantener pulsado. El gesto es **mantener pulsado ~0,1 s y
+  arrastrar** (un toque normal abre el menú, un deslizamiento rápido hace
+  scroll).
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
