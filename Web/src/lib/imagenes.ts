@@ -15,6 +15,8 @@ export function urlEscudoEquipo(id: number | null): string | null {
 
 export function urlLogoCompeticion(competicion: string | null): string | null {
   if (competicion === "LaLiga") return "/laliga.png";
+  if (competicion === "Champions League") return "/champions-league.png";
+  if (competicion === "Europa League") return "/europa-league.png";
   if (competicion === "Conference League") return "/conference-league.png";
   return null;
 }

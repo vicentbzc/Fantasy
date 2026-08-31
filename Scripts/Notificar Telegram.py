@@ -416,7 +416,7 @@ def revisar_actividad_mercado(cur):
         guardar_estado(cur, clave, str(id_actividad))
 
 
-COMPETICIONES_CON_LOGO = {"LaLiga", "Conference League"}
+COMPETICIONES_CON_LOGO = {"LaLiga", "Champions League", "Europa League", "Conference League"}
 
 
 def revisar_competicion_sin_logo(cur):
