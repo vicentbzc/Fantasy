@@ -4109,6 +4109,25 @@ avisa **también si sube** (`!=`), con el texto "ha subido/bajado de un A%
 a un B%". El scope ya era correcto (todos los de `mi_equipo_jugadores`:
 titular, suplente, duda, seguimiento).
 
+## Cuadragésima quinta ronda: logos de Champions y Europa League (31/08/2026)
+
+Mismo patrón que la "Vigesimocuarta ronda" (Conference League). El usuario
+dejó `Champions League.png` y `Europa League.png` (PNG transparentes) en
+`Datos/Imágenes/Competiciones/`. Copiados a `Web/public/champions-league.png`
+y `Web/public/europa-league.png`, entradas nuevas en `urlLogoCompeticion()`
+(`imagenes.ts`) y `COMPETICIONES_CON_LOGO` de `Notificar Telegram.py`
+actualizada a la vez (las dos listas hay que mantenerlas sincronizadas a
+mano — ver la Vigesimocuarta ronda).
+
+El `competicion` exacto que guarda el scraper es **"Champions League"** y
+**"Europa League"** — verificado contra el HTML real de
+`futbolfantasy.com/laliga/equipos/real-madrid/partidos`: `.logo img` tiene
+`alt="Champions League"` / `alt="Europa League"` (sin "UEFA", igual que
+"Conference League"). En el momento de añadirlos no había ningún partido
+europeo en `calendario` todavía (el scraper corta a 6 partidos de LaLiga y
+la Champions empieza en septiembre), pero en cuanto el scraper avance
+aparecerán.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
