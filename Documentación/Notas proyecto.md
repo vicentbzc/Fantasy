@@ -4128,6 +4128,32 @@ europeo en `calendario` todavía (el scraper corta a 6 partidos de LaLiga y
 la Champions empieza en septiembre), pero en cuanto el scraper avance
 aparecerán.
 
+## Cuadragésima sexta ronda: `/jugadores` — escudo tras el nombre, fuera la columna Equipo (31/08/2026)
+
+Reajuste de `/jugadores` (Explorador) tras la Cuadragésima cuarta ronda,
+que había resuelto lo de "equipo y posición se juntan" en móvil vertical
+con un subtítulo pero **no en horizontal** (a ≥640px vuelve el layout de
+columnas y "Atlético de Madrid" seguía pegado a la posición).
+
+- **Se elimina la categoría/columna "Equipo"** por completo: fuera de
+  `COLUMNAS_OPCIONALES`, del desplegable de Filtros y de
+  `COLUMNAS_DEFECTO_VISIBLES`. El **escudo del equipo** (18px,
+  `urlEscudoEquipo`) va ahora **tras el nombre** en la celda fija
+  "Jugador", en **todas las versiones**. El filtro multi-select "Equipos"
+  (uno de los 3 botones de arriba) **no se toca** — sigue filtrando por
+  equipo.
+- **"Posición" vuelve a ser columna normal en móvil** (se quita el
+  `max-sm:hidden` y el subtítulo `Equipo · Posición` de la ronda 44). Al
+  no haber ya columna Equipo, en horizontal deja de juntarse nada.
+- Padding de celda: `py-3 px-3 max-sm:px-4` — **escritorio intacto** (12px,
+  como el `p-3` de antes), móvil sube a `px-4`. Columna fija: `w-[210px]
+  sm:w-[300px]` (210 en móvil para que quepa nombre + escudo sin cortarse
+  y sin tapar tanto las demás columnas). La casilla sigue oculta en móvil
+  (`max-sm:hidden`, de la ronda 44).
+- `CLAVES_NO_ORDENABLES` pierde `"equipo"`; localStorage viejo con
+  `orden.clave === "equipo"` o `columnasVisibles.equipo` se ignora sin
+  romper nada.
+
 ## Historia breve
 
 Hasta agosto de 2026 el proyecto raspaba **solo** futbolfantasy.com
