@@ -34,6 +34,14 @@ export const COLOR_DIFICULTAD: Record<string, string> = {
   "Muy baja": "#3BB568",
 };
 
+export const ORDEN_DIFICULTAD: Record<string, number> = {
+  "Muy baja": 1,
+  Baja: 2,
+  Media: 3,
+  Alta: 4,
+  "Muy alta": 5,
+};
+
 export function bucketDificultadCalendario(
   valor: number | null
 ): "Muy fácil" | "Fácil" | "Normal" | "Difícil" | "Muy difícil" | null {

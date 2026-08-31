@@ -133,9 +133,10 @@ def revisar_titularidad(cur):
             continue
         clave = f"titularidad:{jugador_id}"
         anterior = obtener_estado(cur, clave)
-        if anterior is not None and float(actual) < float(anterior):
+        if anterior is not None and float(actual) != float(anterior):
+            direccion = "subido" if float(actual) > float(anterior) else "bajado"
             mensaje = (
-                f"El porcentaje de titularidad del jugador {nombre} ha pasado de ser de un "
+                f"El porcentaje de titularidad del jugador {nombre} ha {direccion} de un "
                 f"{formatear_porcentaje(anterior)} a un {formatear_porcentaje(actual)}, "
                 f"el estado del jugador es {estado_jugador or 'Disponible'}."
             )

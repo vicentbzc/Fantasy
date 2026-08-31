@@ -50,6 +50,7 @@ export type Jugador = {
   puntosUltimaJornada: number | null;
   dificultadProximos5: number | null;
   proximoRival: string | null;
+  proximoRivalNombreOficial: string | null;
   proximaDificultad: string | null;
   proximoDia: string | null;
   estadoMiEquipo: EstadoMiEquipo | null;
@@ -245,7 +246,8 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       (d.id is not null) as tiene_detalle,
       ${camposDetalleSelect},
       de.dificultad_prox5,
-      c.rival as proximo_rival, c.dificultad as proxima_dificultad, c.dia as proximo_dia,
+      c.rival as proximo_rival, re.nombre_oficial as proximo_rival_nombre_oficial,
+      c.dificultad as proxima_dificultad, c.dia as proximo_dia,
       mej.estado as estado_mi_equipo
     from jugadores j
     left join equipos e on e.nombre = j.equipo
@@ -254,6 +256,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
     left join totales_jornada t on t.id = j.id
     left join dificultad_equipo de on de.equipo = j.equipo
     left join calendario c on c.equipo = j.equipo and c.orden = 1
+    left join equipos re on re.nombre = c.rival
     left join mi_equipo_jugadores mej on mej.jugador_id = j.id
     order by j.valor_liga desc nulls last
   `);
@@ -279,6 +282,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       puntosUltimaJornada: fila.puntos_ultima_jornada === null ? null : Number(fila.puntos_ultima_jornada),
       dificultadProximos5: fila.dificultad_prox5 === null ? null : Number(fila.dificultad_prox5),
       proximoRival: fila.proximo_rival,
+      proximoRivalNombreOficial: fila.proximo_rival_nombre_oficial,
       proximaDificultad: fila.proxima_dificultad,
       proximoDia: fila.proximo_dia,
       estadoMiEquipo: fila.estado_mi_equipo,

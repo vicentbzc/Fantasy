@@ -12,7 +12,7 @@ import { HistorialPuntos } from "./HistorialPuntos";
 import { urlFotoJugador, urlEscudoEquipo } from "@/lib/imagenes";
 import { COLUMNAS_OPCIONALES, CLAVES_SUMABLES, formatearCelda } from "@/lib/columnas";
 import { normalizarTexto } from "@/lib/texto";
-import { COLOR_DIFICULTAD_CALENDARIO } from "@/lib/formato";
+import { COLOR_DIFICULTAD, ORDEN_DIFICULTAD } from "@/lib/formato";
 import { FlechaAceleracion } from "./FlechaAceleracion";
 import { ProximosPartidos } from "./ProximosPartidos";
 import { usePersistedState } from "@/lib/usePersistedState";
@@ -35,7 +35,7 @@ const COLUMNAS_DEFECTO_VISIBLES: ColumnasVisibles = {
   valor: true,
   diferenciaValor: true,
   puntosUltimaJornada: true,
-  dificultadProximos5: true,
+  proximoRival: true,
 };
 
 type ClaveOrdenable = (typeof COLUMNAS_OPCIONALES)[number]["clave"] | "nombre";
@@ -48,6 +48,15 @@ function colorRevalorizacion(valor: number | null): string | undefined {
 function compararPorClave(a: Jugador, b: Jugador, clave: ClaveOrdenable, direccion: "asc" | "desc"): number {
   if (clave === "nombre") {
     return direccion === "asc" ? a.nombre.localeCompare(b.nombre, "es") : b.nombre.localeCompare(a.nombre, "es");
+  }
+
+  if (clave === "proximoRival") {
+    const va = a.proximaDificultad ? ORDEN_DIFICULTAD[a.proximaDificultad] ?? null : null;
+    const vb = b.proximaDificultad ? ORDEN_DIFICULTAD[b.proximaDificultad] ?? null : null;
+    if (va === null && vb === null) return 0;
+    if (va === null) return direccion === "asc" ? -1 : 1;
+    if (vb === null) return direccion === "asc" ? 1 : -1;
+    return direccion === "asc" ? va - vb : vb - va;
   }
 
   const columna = COLUMNAS_OPCIONALES.find((c) => c.clave === clave);
@@ -241,14 +250,15 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
         <table className="text-sm border-separate border-spacing-0 w-full">
           <thead className="text-neutral-500 text-left">
             <tr>
-              <th className="p-3 w-[300px] sticky left-0 bg-white z-10 whitespace-nowrap">Jugador</th>
+              <th className="p-3 w-[184px] sm:w-[300px] sticky left-0 bg-white z-10 whitespace-nowrap">Jugador</th>
               {columnas.map((columna) => {
                 const ordenable = !CLAVES_NO_ORDENABLES.has(columna.clave);
+                const ocultarEnMovil = columna.clave === "equipo" || columna.clave === "posicion";
                 return (
                   <th
                     key={columna.clave}
                     onClick={ordenable ? () => alternarOrden(columna.clave) : undefined}
-                    className={`p-3 text-left whitespace-nowrap ${
+                    className={`p-3 text-left whitespace-nowrap ${ocultarEnMovil ? "max-sm:hidden" : ""} ${
                       columna.clave === "estado" ? "min-w-[220px]" : ""
                     } ${ordenable ? "cursor-pointer select-none hover:text-neutral-800" : ""}`}
                   >
@@ -276,7 +286,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                   className="cursor-pointer transition-colors duration-200"
                 >
                   <td
-                    className="p-3 w-[300px] sticky left-0 z-10 overflow-hidden transition-colors duration-200"
+                    className="p-3 w-[184px] sm:w-[300px] sticky left-0 z-10 overflow-hidden transition-colors duration-200"
                     style={{ backgroundColor: resaltada ? "#FAFAFC" : bg }}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -285,10 +295,15 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                         checked={marcado}
                         onChange={() => alternarSeleccion(j.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="shrink-0"
+                        className="shrink-0 max-sm:hidden"
                       />
                       <Avatar src={urlFotoJugador(j.id)} alt={j.nombre} size={32} />
-                      <span className="truncate min-w-0 flex-1">{j.nombre}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate">{j.nombre}</div>
+                        <div className="sm:hidden truncate text-xs text-neutral-500">
+                          {(j.equipoNombreOficial ?? j.equipo)} · {j.posicion}
+                        </div>
+                      </div>
                     </div>
                   </td>
 
@@ -299,7 +314,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
                     if (columna.clave === "equipo") {
                       return (
-                        <td key={columna.clave} className="p-3 text-neutral-500">
+                        <td key={columna.clave} className="p-3 text-neutral-500 max-sm:hidden">
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             {j.equipoId !== null && (
                               <Avatar src={urlEscudoEquipo(j.equipoId)!} alt={j.equipo} size={20} />
@@ -372,17 +387,31 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                       );
                     }
 
-                    if (columna.clave === "dificultadProximos5") {
-                      const colorDificultad = COLOR_DIFICULTAD_CALENDARIO[texto];
+                    if (columna.clave === "proximoRival") {
+                      const nombreRival = j.proximoRivalNombreOficial ?? j.proximoRival;
+                      const colorDificultad = j.proximaDificultad
+                        ? COLOR_DIFICULTAD[j.proximaDificultad]
+                        : undefined;
+                      if (!nombreRival) {
+                        return (
+                          <td key={columna.clave} className="p-3 text-left text-neutral-500">
+                            —
+                          </td>
+                        );
+                      }
                       if (j.equipoId === null) {
                         return (
-                          <td key={columna.clave} className="p-3 text-left" style={{ color: colorDificultad }}>
-                            {texto}
+                          <td
+                            key={columna.clave}
+                            className="p-3 text-left whitespace-nowrap"
+                            style={{ color: colorDificultad }}
+                          >
+                            {nombreRival}
                           </td>
                         );
                       }
                       return (
-                        <td key={columna.clave} className="p-3 text-left">
+                        <td key={columna.clave} className="p-3 text-left whitespace-nowrap">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -392,7 +421,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                             className="underline decoration-dotted underline-offset-2 hover:opacity-70"
                             style={{ color: colorDificultad }}
                           >
-                            {texto}
+                            {nombreRival}
                           </button>
                         </td>
                       );
@@ -402,8 +431,8 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                       <td
                         key={columna.clave}
                         className={`p-3 text-left tabular-nums text-neutral-700 whitespace-nowrap ${
-                          columna.clave === "estado" ? "min-w-[220px]" : ""
-                        }`}
+                          columna.clave === "posicion" ? "max-sm:hidden" : ""
+                        } ${columna.clave === "estado" ? "min-w-[220px]" : ""}`}
                         style={{ color: colorRevalor }}
                       >
                         {texto}

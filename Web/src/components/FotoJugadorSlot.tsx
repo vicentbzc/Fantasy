@@ -29,7 +29,7 @@ export function FotoJugadorSlot({
   fontSizeProbabilidad: number | string;
   colorNombre?: string;
   fontSizeNombre?: number | string;
-  lineas?: { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode }[];
+  lineas?: { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode; wrap?: boolean }[];
   onClick?: () => void;
   href?: string;
 }) {
@@ -54,9 +54,9 @@ export function FotoJugadorSlot({
             <span
               key={i}
               style={{ color: linea.color ?? colorProbabilidad, fontSize: fontSizeProbabilidad }}
-              className={`font-bold leading-tight whitespace-nowrap ${
-                linea.onClick ? "underline decoration-dotted cursor-pointer" : ""
-              }`}
+              className={`font-bold leading-tight ${
+                linea.wrap ? "whitespace-normal text-center max-w-[76px]" : "whitespace-nowrap"
+              } ${linea.onClick ? "underline decoration-dotted cursor-pointer" : ""}`}
               onClick={
                 linea.onClick
                   ? (e) => {

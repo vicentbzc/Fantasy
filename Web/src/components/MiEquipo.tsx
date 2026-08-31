@@ -11,13 +11,7 @@ import { BuscadorJugador } from "./BuscadorJugador";
 import { ProximosPartidos } from "./ProximosPartidos";
 import { MenuFiltros, type ColumnasVisibles } from "./MenuFiltros";
 import { urlFotoJugador } from "@/lib/imagenes";
-import {
-  formatearValor,
-  bucketDificultadCalendario,
-  COLOR_DIFICULTAD_CALENDARIO,
-  COLOR_DIFICULTAD_CALENDARIO_CAMPO,
-  COLOR_REVALORIZACION_CAMPO,
-} from "@/lib/formato";
+import { formatearValor, COLOR_DIFICULTAD, COLOR_REVALORIZACION_CAMPO } from "@/lib/formato";
 import { FlechaAceleracion } from "./FlechaAceleracion";
 import { COLUMNAS_OPCIONALES } from "@/lib/columnas";
 import { LINEAS_ORDEN, type Formacion } from "@/lib/formacion";
@@ -28,7 +22,7 @@ const CLAVES_PERMITIDAS = new Set<keyof Jugador>([
   "valorSinClausula",
   "valor",
   "diferenciaValor",
-  "dificultadProximos5",
+  "proximoRival",
 ]);
 const EXCLUIR_FILTROS = COLUMNAS_OPCIONALES.filter((c) => !CLAVES_PERMITIDAS.has(c.clave)).map((c) => c.clave);
 
@@ -50,8 +44,8 @@ function lineasParaJugador(
   columnasVisibles: ColumnasVisibles,
   onClickDificultad: (() => void) | undefined,
   enCampo: boolean
-): { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode }[] {
-  const lineas: { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode }[] = [];
+): { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode; wrap?: boolean }[] {
+  const lineas: { texto: string; color?: string; onClick?: () => void; sufijo?: ReactNode; wrap?: boolean }[] = [];
   if (columnasVisibles.porcentajeTitularidad) {
     lineas.push({ texto: j.porcentajeTitularidad === null ? "—" : `${j.porcentajeTitularidad} %` });
   }
@@ -77,13 +71,13 @@ function lineasParaJugador(
       sufijo: <FlechaAceleracion aceleracion={j.aceleracion} className="ml-0.5" />,
     });
   }
-  if (columnasVisibles.dificultadProximos5) {
-    const bucket = bucketDificultadCalendario(j.dificultadProximos5);
-    const paletaDificultad = enCampo ? COLOR_DIFICULTAD_CALENDARIO_CAMPO : COLOR_DIFICULTAD_CALENDARIO;
+  if (columnasVisibles.proximoRival) {
+    const nombreRival = j.proximoRivalNombreOficial ?? j.proximoRival;
     lineas.push({
-      texto: bucket ?? "—",
-      color: bucket ? paletaDificultad[bucket] : undefined,
-      onClick: onClickDificultad,
+      texto: nombreRival ?? "—",
+      color: j.proximaDificultad ? COLOR_DIFICULTAD[j.proximaDificultad] : undefined,
+      onClick: nombreRival ? onClickDificultad : undefined,
+      wrap: true,
     });
   }
   return lineas;
@@ -154,7 +148,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
             formacion={formacion}
             datosPorJugador={datosPorJugadorCampo}
             onClickJugador={abrirMenu}
-            oscuro={columnasVisibles.diferenciaValor || columnasVisibles.dificultadProximos5}
+            oscuro={columnasVisibles.diferenciaValor || columnasVisibles.proximoRival}
           />
           <div className="absolute top-4 right-4 max-sm:top-2.5 max-sm:right-2.5">
             <MenuFiltros
@@ -183,8 +177,8 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
         </div>
 
         <div className="w-full flex flex-col items-start gap-[18px]">
-          <h2 className="text-[20px] font-bold">Banquillo</h2>
-          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-[14px] sm:gap-x-9 sm:gap-y-6">
+          <h2 className="text-[20px] font-bold">Suplentes</h2>
+          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-x-5 gap-y-3.5 sm:gap-x-11 sm:gap-y-6">
             {suplentes.map((j) => (
               <FotoJugadorSlot
                 key={j.id}
@@ -205,7 +199,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
 
         <div className="w-full flex flex-col items-start gap-[18px]">
           <h2 className="text-[20px] font-bold">En duda</h2>
-          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-[14px] sm:gap-x-9 sm:gap-y-6">
+          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-x-5 gap-y-3.5 sm:gap-x-11 sm:gap-y-6">
             {enDuda.map((j) => (
               <FotoJugadorSlot
                 key={j.id}
@@ -226,7 +220,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
 
         <div className="w-full flex flex-col items-start gap-[18px]">
           <h2 className="text-[20px] font-bold">Seguimiento</h2>
-          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-[14px] sm:gap-x-9 sm:gap-y-6">
+          <div className="w-full rounded-[18px] bg-white p-[18px] sm:px-7 flex flex-wrap justify-start gap-x-5 gap-y-3.5 sm:gap-x-11 sm:gap-y-6">
             {seguimiento.map((j) => (
               <FotoJugadorSlot
                 key={j.id}
