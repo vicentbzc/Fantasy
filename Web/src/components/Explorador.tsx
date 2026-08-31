@@ -26,9 +26,8 @@ const CLAVES_EXCLUIDAS_TOTALES = new Set<keyof Jugador>([
   "valor",
 ]);
 const CLAVES_REVALORIZACION = new Set<keyof Jugador>(["diferenciaValor", "porcentajeDiferencia"]);
-const CLAVES_NO_ORDENABLES = new Set<keyof Jugador>(["estado", "equipo", "posicion"]);
+const CLAVES_NO_ORDENABLES = new Set<keyof Jugador>(["estado", "posicion"]);
 const COLUMNAS_DEFECTO_VISIBLES: ColumnasVisibles = {
-  equipo: true,
   posicion: true,
   porcentajeTitularidad: true,
   valorSinClausula: true,
@@ -250,15 +249,14 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
         <table className="text-sm border-separate border-spacing-0 w-full">
           <thead className="text-neutral-500 text-left">
             <tr>
-              <th className="p-3 w-[184px] sm:w-[300px] sticky left-0 bg-white z-10 whitespace-nowrap">Jugador</th>
+              <th className="py-3 px-3 max-sm:px-4 w-[210px] sm:w-[300px] sticky left-0 bg-white z-10 whitespace-nowrap">Jugador</th>
               {columnas.map((columna) => {
                 const ordenable = !CLAVES_NO_ORDENABLES.has(columna.clave);
-                const ocultarEnMovil = columna.clave === "equipo" || columna.clave === "posicion";
                 return (
                   <th
                     key={columna.clave}
                     onClick={ordenable ? () => alternarOrden(columna.clave) : undefined}
-                    className={`p-3 text-left whitespace-nowrap ${ocultarEnMovil ? "max-sm:hidden" : ""} ${
+                    className={`py-3 px-3 max-sm:px-4 text-left whitespace-nowrap ${
                       columna.clave === "estado" ? "min-w-[220px]" : ""
                     } ${ordenable ? "cursor-pointer select-none hover:text-neutral-800" : ""}`}
                   >
@@ -286,7 +284,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                   className="cursor-pointer transition-colors duration-200"
                 >
                   <td
-                    className="p-3 w-[184px] sm:w-[300px] sticky left-0 z-10 overflow-hidden transition-colors duration-200"
+                    className="py-3 px-3 max-sm:px-4 w-[210px] sm:w-[300px] sticky left-0 z-10 overflow-hidden transition-colors duration-200"
                     style={{ backgroundColor: resaltada ? "#FAFAFC" : bg }}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -298,12 +296,14 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                         className="shrink-0 max-sm:hidden"
                       />
                       <Avatar src={urlFotoJugador(j.id)} alt={j.nombre} size={32} />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate">{j.nombre}</div>
-                        <div className="sm:hidden truncate text-xs text-neutral-500">
-                          {(j.equipoNombreOficial ?? j.equipo)} · {j.posicion}
-                        </div>
-                      </div>
+                      <span className="truncate min-w-0">{j.nombre}</span>
+                      {j.equipoId !== null && (
+                        <Avatar
+                          src={urlEscudoEquipo(j.equipoId)!}
+                          alt={j.equipoNombreOficial ?? j.equipo}
+                          size={18}
+                        />
+                      )}
                     </div>
                   </td>
 
@@ -312,24 +312,11 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                       ? colorRevalorizacion(j[columna.clave] as number | null)
                       : undefined;
 
-                    if (columna.clave === "equipo") {
-                      return (
-                        <td key={columna.clave} className="p-3 text-neutral-500 max-sm:hidden">
-                          <div className="flex items-center gap-2 whitespace-nowrap">
-                            {j.equipoId !== null && (
-                              <Avatar src={urlEscudoEquipo(j.equipoId)!} alt={j.equipo} size={20} />
-                            )}
-                            {j.equipoNombreOficial ?? j.equipo}
-                          </div>
-                        </td>
-                      );
-                    }
-
                     const texto = formatearCelda(columna, j[columna.clave]);
 
                     if (columna.clave === "valorSinClausula") {
                       return (
-                        <td key={columna.clave} className="p-3 text-left tabular-nums">
+                        <td key={columna.clave} className="py-3 px-3 max-sm:px-4 text-left tabular-nums">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -346,7 +333,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
                     if (columna.clave === "puntosTotales") {
                       return (
-                        <td key={columna.clave} className="p-3 text-left tabular-nums">
+                        <td key={columna.clave} className="py-3 px-3 max-sm:px-4 text-left tabular-nums">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -363,7 +350,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
                     if (columna.clave === "puntosUltimaJornada") {
                       return (
-                        <td key={columna.clave} className="p-3 text-left tabular-nums">
+                        <td key={columna.clave} className="py-3 px-3 max-sm:px-4 text-left tabular-nums">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -380,7 +367,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
 
                     if (columna.clave === "diferenciaValor") {
                       return (
-                        <td key={columna.clave} className="p-3 text-left tabular-nums whitespace-nowrap">
+                        <td key={columna.clave} className="py-3 px-3 max-sm:px-4 text-left tabular-nums whitespace-nowrap">
                           <span style={{ color: colorRevalor }}>{texto}</span>
                           <FlechaAceleracion aceleracion={j.aceleracion} className="ml-1" />
                         </td>
@@ -394,7 +381,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                         : undefined;
                       if (!nombreRival) {
                         return (
-                          <td key={columna.clave} className="p-3 text-left text-neutral-500">
+                          <td key={columna.clave} className="py-3 px-3 max-sm:px-4 text-left text-neutral-500">
                             —
                           </td>
                         );
@@ -403,7 +390,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                         return (
                           <td
                             key={columna.clave}
-                            className="p-3 text-left whitespace-nowrap"
+                            className="py-3 px-3 max-sm:px-4 text-left whitespace-nowrap"
                             style={{ color: colorDificultad }}
                           >
                             {nombreRival}
@@ -411,7 +398,7 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                         );
                       }
                       return (
-                        <td key={columna.clave} className="p-3 text-left whitespace-nowrap">
+                        <td key={columna.clave} className="py-3 px-3 max-sm:px-4 text-left whitespace-nowrap">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -430,9 +417,9 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                     return (
                       <td
                         key={columna.clave}
-                        className={`p-3 text-left tabular-nums text-neutral-700 whitespace-nowrap ${
-                          columna.clave === "posicion" ? "max-sm:hidden" : ""
-                        } ${columna.clave === "estado" ? "min-w-[220px]" : ""}`}
+                        className={`py-3 px-3 max-sm:px-4 text-left tabular-nums text-neutral-700 whitespace-nowrap ${
+                          columna.clave === "estado" ? "min-w-[220px]" : ""
+                        }`}
                         style={{ color: colorRevalor }}
                       >
                         {texto}

@@ -11,7 +11,6 @@ export type ColumnaOpcional = {
 };
 
 export const COLUMNAS_OPCIONALES: ColumnaOpcional[] = [
-  { clave: "equipo", etiqueta: "Equipo", tipo: "texto" },
   { clave: "posicion", etiqueta: "Posición", tipo: "texto" },
   { clave: "estado", etiqueta: "Estado", tipo: "texto", formatear: (v) => formatearEstado(v as string | null) },
   { clave: "porcentajeTitularidad", etiqueta: "Titularidad", sufijo: " %" },
