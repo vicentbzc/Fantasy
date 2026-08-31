@@ -50,12 +50,14 @@ export async function accionDetallePartido(equipoId: number, orden: number) {
 export async function accionEstablecerEstadoMiEquipo(jugadorId: number, estado: EstadoMiEquipo) {
   const resultado = await establecerEstadoMiEquipo(jugadorId, estado);
   revalidatePath("/mi-equipo");
+  revalidatePath("/jugadores");
   return resultado;
 }
 
 export async function accionEliminarDeMiEquipo(jugadorId: number) {
   await eliminarDeMiEquipo(jugadorId);
   revalidatePath("/mi-equipo");
+  revalidatePath("/jugadores");
 }
 
 export async function accionPreguntarIA(pregunta: string, historial: MensajeChat[]) {

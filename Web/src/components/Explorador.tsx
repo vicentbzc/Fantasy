@@ -16,6 +16,7 @@ import { COLOR_DIFICULTAD, ORDEN_DIFICULTAD } from "@/lib/formato";
 import { FlechaAceleracion } from "./FlechaAceleracion";
 import { ProximosPartidos } from "./ProximosPartidos";
 import { usePersistedState } from "@/lib/usePersistedState";
+import { accionEstablecerEstadoMiEquipo, accionEliminarDeMiEquipo } from "@/app/actions";
 
 const POSICIONES = ["Portero", "Defensa", "Mediocampista", "Delantero"];
 const CLAVES_EXCLUIDAS_TOTALES = new Set<keyof Jugador>([
@@ -97,6 +98,21 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
   const [modalUltimaJornada, setModalUltimaJornada] = useState<Jugador | null>(null);
   const [modalPartidos, setModalPartidos] = useState<Jugador | null>(null);
   const [filaResaltada, setFilaResaltada] = useState<number | null>(null);
+  const [seguimientoOverride, setSeguimientoOverride] = useState<Record<number, boolean>>({});
+
+  function enSeguimiento(j: Jugador): boolean {
+    return seguimientoOverride[j.id] ?? j.estadoMiEquipo === "seguimiento";
+  }
+
+  async function alternarSeguimiento(j: Jugador) {
+    const estaba = enSeguimiento(j);
+    setSeguimientoOverride((o) => ({ ...o, [j.id]: !estaba }));
+    if (estaba) {
+      await accionEliminarDeMiEquipo(j.id);
+    } else {
+      await accionEstablecerEstadoMiEquipo(j.id, "seguimiento");
+    }
+  }
 
   useEffect(() => {
     const idParam = searchParams.get("seleccionado");
@@ -304,6 +320,21 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                           size={18}
                         />
                       )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          alternarSeguimiento(j);
+                        }}
+                        aria-label={enSeguimiento(j) ? "Quitar de seguimiento" : "Añadir a seguimiento"}
+                        className={`shrink-0 leading-none text-lg transition-colors ${
+                          enSeguimiento(j)
+                            ? "text-[#FE8B87]"
+                            : "text-neutral-400 hover:text-[#FE8B87]"
+                        }`}
+                      >
+                        {enSeguimiento(j) ? "★" : "+"}
+                      </button>
                     </div>
                   </td>
 

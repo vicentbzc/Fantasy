@@ -44,7 +44,11 @@ def extraer_jugador(id_oficial, nombre, equipo, detalle):
 
         for orden, (clave_api, nombre_estadistica) in enumerate(MAPA_ESTADISTICA.items(), start=1):
             valor = stats.get(clave_api)
-            if not valor or not valor[0]:
+            if not valor:
+                continue
+            cantidad = valor[0]
+            puntos = valor[1] if len(valor) > 1 else 0
+            if not cantidad and not puntos:
                 continue
             filas_detalle.append({
                 "ID": id_oficial,
@@ -53,8 +57,8 @@ def extraer_jugador(id_oficial, nombre, equipo, detalle):
                 "Jornada": jornada,
                 "Orden": orden,
                 "Estadística": nombre_estadistica,
-                "Cantidad": valor[0],
-                "Puntos": valor[1],
+                "Cantidad": cantidad,
+                "Puntos": puntos,
             })
 
     return filas_detalle, (minutos_totales if alguna_jornada else None)
