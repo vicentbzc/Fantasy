@@ -93,7 +93,8 @@ create table mi_club (
 
 create table mi_equipo_jugadores (
     jugador_id integer primary key references jugadores(id),
-    estado text not null check (estado in ('titular', 'suplente', 'duda', 'seguimiento'))
+    estado text not null check (estado in ('titular', 'suplente', 'duda', 'seguimiento')),
+    orden integer not null default 0
 );
 
 create table notificaciones_estado (

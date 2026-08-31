@@ -9,6 +9,7 @@ import {
   obtenerJugadores,
   establecerEstadoMiEquipo,
   eliminarDeMiEquipo,
+  reordenarMiEquipo,
   type EstadoMiEquipo,
 } from "@/lib/db";
 import { calcularFormacion } from "@/lib/formacion";
@@ -56,6 +57,14 @@ export async function accionEstablecerEstadoMiEquipo(jugadorId: number, estado: 
 
 export async function accionEliminarDeMiEquipo(jugadorId: number) {
   await eliminarDeMiEquipo(jugadorId);
+  revalidatePath("/mi-equipo");
+  revalidatePath("/jugadores");
+}
+
+export async function accionReordenarMiEquipo(
+  grupos: { estado: EstadoMiEquipo; ids: number[] }[]
+) {
+  await reordenarMiEquipo(grupos);
   revalidatePath("/mi-equipo");
   revalidatePath("/jugadores");
 }

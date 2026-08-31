@@ -54,6 +54,7 @@ export type Jugador = {
   proximaDificultad: string | null;
   proximoDia: string | null;
   estadoMiEquipo: EstadoMiEquipo | null;
+  ordenMiEquipo: number | null;
 } & Record<ClaveEstadisticaDetalle, number | null>;
 
 export type EstadoMiEquipo = "titular" | "suplente" | "duda" | "seguimiento";
@@ -248,7 +249,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       de.dificultad_prox5,
       c.rival as proximo_rival, re.nombre_oficial as proximo_rival_nombre_oficial,
       c.dificultad as proxima_dificultad, c.dia as proximo_dia,
-      mej.estado as estado_mi_equipo
+      mej.estado as estado_mi_equipo, mej.orden as orden_mi_equipo
     from jugadores j
     left join equipos e on e.nombre = j.equipo
     left join detalle_agregado d on d.id = j.id
@@ -286,6 +287,7 @@ export async function obtenerJugadores(): Promise<Jugador[]> {
       proximaDificultad: fila.proxima_dificultad,
       proximoDia: fila.proximo_dia,
       estadoMiEquipo: fila.estado_mi_equipo,
+      ordenMiEquipo: fila.orden_mi_equipo === null ? null : Number(fila.orden_mi_equipo),
     };
 
     const estadisticas = Object.fromEntries(
@@ -402,8 +404,9 @@ export async function establecerEstadoMiEquipo(
     }
 
     await cliente.query(
-      `insert into mi_equipo_jugadores (jugador_id, estado) values ($1, $2)
-       on conflict (jugador_id) do update set estado = excluded.estado`,
+      `insert into mi_equipo_jugadores (jugador_id, estado, orden)
+       values ($1, $2, coalesce((select max(orden) + 1 from mi_equipo_jugadores where estado = $2), 0))
+       on conflict (jugador_id) do update set estado = excluded.estado, orden = excluded.orden`,
       [jugadorId, estado]
     );
 
@@ -419,4 +422,32 @@ export async function establecerEstadoMiEquipo(
 
 export async function eliminarDeMiEquipo(jugadorId: number): Promise<void> {
   await pool.query(`delete from mi_equipo_jugadores where jugador_id = $1`, [jugadorId]);
+}
+
+export async function reordenarMiEquipo(
+  grupos: { estado: EstadoMiEquipo; ids: number[] }[]
+): Promise<void> {
+  const filas: [number, EstadoMiEquipo, number][] = [];
+  for (const grupo of grupos) {
+    grupo.ids.forEach((id, i) => filas.push([id, grupo.estado, i]));
+  }
+  if (filas.length === 0) return;
+
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("begin");
+    for (const [id, estado, orden] of filas) {
+      await cliente.query(
+        `insert into mi_equipo_jugadores (jugador_id, estado, orden) values ($1, $2, $3)
+         on conflict (jugador_id) do update set estado = excluded.estado, orden = excluded.orden`,
+        [id, estado, orden]
+      );
+    }
+    await cliente.query("commit");
+  } catch (error) {
+    await cliente.query("rollback");
+    throw error;
+  } finally {
+    cliente.release();
+  }
 }

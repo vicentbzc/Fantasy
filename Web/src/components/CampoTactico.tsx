@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Formacion } from "@/lib/formacion";
 import { urlFotoJugador } from "@/lib/imagenes";
 import { FotoJugadorSlot } from "./FotoJugadorSlot";
@@ -25,15 +26,19 @@ export function CampoTactico({
   onClickJugador,
   hrefsPorJugador,
   oscuro,
+  envolverJugador,
 }: {
   formacion: Formacion;
   datosPorJugador?: Record<number, { texto: string; color?: string }[]>;
   onClickJugador?: (id: number) => void;
   hrefsPorJugador?: Record<number, string>;
   oscuro?: boolean;
+  envolverJugador?: (id: number, contenido: ReactNode) => ReactNode;
 }) {
   const filas = formacion.lineas;
   const claseLinea = oscuro ? "border-white/45" : "border-white/55";
+  const envolver = (id: number, contenido: ReactNode) =>
+    envolverJugador ? envolverJugador(id, contenido) : contenido;
 
   return (
     <div className="w-full max-w-[700px] mx-auto" style={{ containerType: "inline-size" }}>
@@ -91,61 +96,70 @@ export function CampoTactico({
               className="absolute -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${jugador.posX}%`, top: `${100 - jugador.posY}%` }}
             >
-              <FotoJugadorSlot
-                src={jugador.esFantasma ? null : urlFotoJugador(jugador.id)}
-                alt={jugador.nombre}
-                size={TAM_FOTO}
-                radius={RADIO_FOTO}
-                probabilidad={jugador.probabilidad}
-                colorProbabilidad="#FFFFFF"
-                fontSizeProbabilidad={TAM_TEXTO}
-                colorNombre="#FFFFFF"
-                fontSizeNombre={TAM_NOMBRE}
-                lineas={datosPorJugador?.[jugador.id]}
-                onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
-                href={!jugador.esFantasma ? hrefsPorJugador?.[jugador.id] : undefined}
-              />
+              {envolver(
+                jugador.id,
+                <FotoJugadorSlot
+                  src={jugador.esFantasma ? null : urlFotoJugador(jugador.id)}
+                  alt={jugador.nombre}
+                  size={TAM_FOTO}
+                  radius={RADIO_FOTO}
+                  probabilidad={jugador.probabilidad}
+                  colorProbabilidad="#FFFFFF"
+                  fontSizeProbabilidad={TAM_TEXTO}
+                  colorNombre="#FFFFFF"
+                  fontSizeNombre={TAM_NOMBRE}
+                  lineas={datosPorJugador?.[jugador.id]}
+                  onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
+                  href={!jugador.esFantasma ? hrefsPorJugador?.[jugador.id] : undefined}
+                />
+              )}
             </div>
           ))
         ) : (
           <>
             <div className="relative flex justify-center">
-              {formacion.portero && (
-                <FotoJugadorSlot
-                  src={urlFotoJugador(formacion.portero.id)}
-                  alt={formacion.portero.nombre}
-                  size={TAM_FOTO}
-                  radius={RADIO_FOTO}
-                  probabilidad={formacion.portero.probabilidad}
-                  colorProbabilidad="#FFFFFF"
-                  fontSizeProbabilidad={TAM_TEXTO}
-                  colorNombre="#FFFFFF"
-                  fontSizeNombre={TAM_NOMBRE}
-                  lineas={datosPorJugador?.[formacion.portero.id]}
-                  onClick={onClickJugador ? () => onClickJugador(formacion.portero!.id) : undefined}
-                  href={hrefsPorJugador?.[formacion.portero.id]}
-                />
-              )}
+              {formacion.portero &&
+                envolver(
+                  formacion.portero.id,
+                  <FotoJugadorSlot
+                    src={urlFotoJugador(formacion.portero.id)}
+                    alt={formacion.portero.nombre}
+                    size={TAM_FOTO}
+                    radius={RADIO_FOTO}
+                    probabilidad={formacion.portero.probabilidad}
+                    colorProbabilidad="#FFFFFF"
+                    fontSizeProbabilidad={TAM_TEXTO}
+                    colorNombre="#FFFFFF"
+                    fontSizeNombre={TAM_NOMBRE}
+                    lineas={datosPorJugador?.[formacion.portero.id]}
+                    onClick={onClickJugador ? () => onClickJugador(formacion.portero!.id) : undefined}
+                    href={hrefsPorJugador?.[formacion.portero.id]}
+                  />
+                )}
             </div>
 
             {filas.map((linea, i) => (
               <div key={i} className="relative flex justify-around items-start">
                 {linea.map((jugador) => (
-                  <FotoJugadorSlot
-                    key={jugador.id}
-                    src={urlFotoJugador(jugador.id)}
-                    alt={jugador.nombre}
-                    size={TAM_FOTO}
-                    radius={RADIO_FOTO}
-                    probabilidad={jugador.probabilidad}
-                    colorProbabilidad="#FFFFFF"
-                    fontSizeProbabilidad={TAM_TEXTO}
-                    colorNombre="#FFFFFF"
-                    fontSizeNombre={TAM_NOMBRE}
-                    lineas={datosPorJugador?.[jugador.id]}
-                    onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
-                    href={hrefsPorJugador?.[jugador.id]}
-                  />
+                  <div key={jugador.id}>
+                    {envolver(
+                      jugador.id,
+                      <FotoJugadorSlot
+                        src={urlFotoJugador(jugador.id)}
+                        alt={jugador.nombre}
+                        size={TAM_FOTO}
+                        radius={RADIO_FOTO}
+                        probabilidad={jugador.probabilidad}
+                        colorProbabilidad="#FFFFFF"
+                        fontSizeProbabilidad={TAM_TEXTO}
+                        colorNombre="#FFFFFF"
+                        fontSizeNombre={TAM_NOMBRE}
+                        lineas={datosPorJugador?.[jugador.id]}
+                        onClick={onClickJugador ? () => onClickJugador(jugador.id) : undefined}
+                        href={hrefsPorJugador?.[jugador.id]}
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
             ))}
