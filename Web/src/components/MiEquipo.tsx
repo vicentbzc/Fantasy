@@ -141,6 +141,9 @@ function SlotArrastrable({ id, children }: { id: number; children: ReactNode }) 
         transition,
         opacity: isDragging ? 0.35 : 1,
         touchAction: "manipulation",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        WebkitTouchCallout: "none",
       }}
     >
       {children}
@@ -171,7 +174,7 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
+    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 20 } })
   );
 
   const revalorizacion = miClub.revalorizacion;
@@ -374,9 +377,6 @@ export function MiEquipo({ jugadores, miClub }: { jugadores: Jugador[]; miClub: 
           >
             <div className="bg-white rounded-2xl p-4 w-full max-w-xs" onClick={(e) => e.stopPropagation()}>
               <p className="font-semibold text-sm mb-2 px-2 text-left">{menuJugador.nombre}</p>
-              <p className="text-xs text-neutral-500 px-2 mb-3 text-left">
-                Arrastra al jugador entre el campo y las cajas para cambiarlo de sitio.
-              </p>
               <div className="flex flex-col">
                 <button
                   type="button"

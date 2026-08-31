@@ -327,10 +327,8 @@ export function Explorador({ jugadores }: { jugadores: Jugador[] }) {
                           alternarSeguimiento(j);
                         }}
                         aria-label={enSeguimiento(j) ? "Quitar de seguimiento" : "Añadir a seguimiento"}
-                        className={`shrink-0 leading-none text-lg transition-colors ${
-                          enSeguimiento(j)
-                            ? "text-[#FE8B87]"
-                            : "text-neutral-400 hover:text-[#FE8B87]"
+                        className={`shrink-0 leading-none text-sm transition-colors ${
+                          enSeguimiento(j) ? "text-neutral-500" : "text-neutral-400 hover:text-neutral-600"
                         }`}
                       >
                         {enSeguimiento(j) ? "★" : "+"}
